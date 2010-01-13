@@ -69,7 +69,7 @@ class Tonograph:
 
     def normalize_word(self, word):
         """
-        Convert from Bailleuil to our tonal orthographic convention.
+        Convert from Bailleul to our tonal orthographic convention.
         Expects unicode string representing a single word, 
         returns converted NFC-normalized unicode string.
 
@@ -95,12 +95,24 @@ class Tonograph:
         """
         return ''.join(self.normalize_word(w) for w in self.syllables(line))
 
+
+class ToolboxTonograph(Tonograph):
+    """
+    Modified Tonograph to handle explicit composite markup with intra-word dots 
+    as in toolbox texts.
+    """
+    def __init__(self):
+        Tonograph.__init__(self)
+        self.word_sep = re.compile(''.join([r'((?:\w|[', self.dia, r'])+', \
+                r'(?:[.](?:\w|[', self.dia, r'])+)*)']), re.U)
+        self.syllable = re.compile(r'[.]|\w*?[' + self.vowel + r'][' + self.dia + r']?(?:n(?![' + self.vowel +']))?', re.I | re.U )
+
 def main():
     import sys, codecs
     input = codecs.open(sys.argv[1], encoding='utf-8')
     output = codecs.open(sys.argv[2], 'w', encoding='utf-8')
 
-    t = Tonograph()
+    t = ToolboxTonograph()
     for line in input:
         print '|'.join(['-'.join(w).encode('utf-8') for w in t.syllables(line)])
         print t.normalize(line).encode('utf-8')
