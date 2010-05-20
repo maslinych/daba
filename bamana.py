@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- ecnoding: utf-8 -*-
-from nltk.corpus.reader import PlaintextCorpusReader
+from nltk.corpus.reader import PlaintextCorpusReader, ToolboxCorpusReader
 from nltk.corpus.util import LazyCorpusLoader
 from nltk.tokenize import RegexpTokenizer
 
@@ -14,3 +14,6 @@ wordlist = LazyCorpusLoader(
 
 propernames = LazyCorpusLoader(
         'bamana/propernames', PlaintextCorpusReader, r'.*\.clean\.wordlist', word_tokenizer=orthographic_word, encoding='utf-8')
+
+bailleul = LazyCorpusLoader(
+        'bamana/bailleul', ToolboxCorpusReader, r'bailleul.txt', encoding='utf-8')
