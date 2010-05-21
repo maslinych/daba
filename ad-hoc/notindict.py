@@ -1,34 +1,18 @@
 #!/usr/bin/python
-from bamana import test,wordlist,propernames
+from bamana import test
 from orthograph import *
-
-wl = set(wordlist.words())
-pn = set(propernames.words())
-
-indict = set()
-inproper = set()
-notindict = set()
+from morphology import *
 
 for w in test.words():
     res = convertw(w)
     wordindict = False
     for r in res:
-        word = detone(r)
-        if not orth_compliant(word):
+        if not orth_compliant(r):
             break
-        if word in wl:
-            indict.add(word)
+        if lemmatize(r):
             wordindict =True
-        if word in pn:
-            inproper.add(word)
-            wordindict = True
     else:
         if not wordindict:
             print " ".join(res).encode('utf-8')
-#            notindict.add(tuple(res))
 
 
-#for i in notindict:
-#    for s in i:
-#        print s.encode('utf-8'),
-#    print

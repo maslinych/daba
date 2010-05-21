@@ -19,7 +19,6 @@ def detone(string):
     # remove all tonemarking from string
     return "".join([c for c in unicodedata.normalize('NFD', string) if not unicodedata.category(c) == 'Mn'])
 
-from bamana import wordlist
 def lookup_word(lexicon, word):
     # lookup word in a lexicon (list of words)
     # returns True if word is found, False otherwise
