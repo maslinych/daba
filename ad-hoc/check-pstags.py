@@ -4,7 +4,7 @@ from xml.etree.ElementTree import ElementTree
 
 lexicon = ElementTree(bailleul.xml('bailleul.txt'))
 
-tagset = [u'adj', u'adv', u'conj', u'cop', u'dtm', u'intj', u'n', u'nr', u'num', u'onomat', u'pers', u'pm', u'pm', u'pp', u'prn', u'prt', u'ptcp', u'v', u'vq', u'mrph']
+tagset = [u'adj', u'adv', u'conj', u'cop', u'dtm', u'intj', u'n', u'nr', u'num', u'onomat', u'pers', u'pm', u'pm', u'pp', u'prep', u'prn', u'prt', u'ptcp', u'v', u'vq', u'mrph', u'expr']
 
 for entry in lexicon.findall('record'):
     ps = [p.text for p in entry.findall('ps')]
