@@ -2,7 +2,7 @@
 # -*- ecnoding: utf-8 -*-
 from nltk.corpus.reader import PlaintextCorpusReader, ToolboxCorpusReader
 from nltk.corpus.util import LazyCorpusLoader
-from nltk.tokenize import RegexpTokenizer
+from nltk.tokenize import RegexpTokenizer, BlanklineTokenizer
 from xml.etree.ElementTree import ElementTree
 from orthograph import detone
 
@@ -45,6 +45,7 @@ for entry in lexicon.findall('record'):
         gloss = entry.find('ge').text
     except AttributeError:
         gloss = ''
-    for lemma in lemmas:
-        wl.setdefault(lemma.lower(), []).append((lemma,ps,gloss))
-        wl.setdefault(detone(lemma.lower()), []).append((lemma,ps,gloss))
+    if 'mrph' not in ps:
+        for lemma in lemmas:
+            wl.setdefault(lemma.lower(), []).append((lemma,ps,gloss))
+            wl.setdefault(detone(lemma.lower()), []).append((lemma,ps,gloss))
