@@ -38,13 +38,13 @@ for entry in lexicon.findall('record'):
     lemmas = [normalize_bailleul(entry.find('lx').text)]
     lemmas.extend([normalize_bailleul(e.text) for e in entry.findall('va')])
     try:
-        ps = entry.find('ps').text
+        ps = set(entry.find('ps').text.split('/'))
     except AttributeError:
-        ps = 'UNK'
+        ps = set([])
     try:
         gloss = entry.find('ge').text
     except AttributeError:
-        gloss = 'UNKNOWN'
+        gloss = ''
     for lemma in lemmas:
         wl.setdefault(lemma.lower(), []).append((lemma,ps,gloss))
         wl.setdefault(detone(lemma.lower()), []).append((lemma,ps,gloss))

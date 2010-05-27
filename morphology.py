@@ -83,7 +83,7 @@ def deaffix(word, affix):
                     aff = (), (''.join(v[affix[1]:]), affix[2])
                 else:
                     lemma = ''.join(v[affix[1]:])
-                    aff = (''.join(v[affix[1]:]), affix[2]), ()
+                    aff = (''.join(v[:affix[1]]), affix[2]), ()
                 stemmed = (lemma, aff)
     if stemmed:
         return stemmed 
@@ -151,33 +151,51 @@ def recursive_parse(lemmalist, schemelist, affixdict):
     else:
         return newlist
 
-def null_lemma(wordform):
+def strtolemma(wordform):
     'wordform -> lemma'
     return (wordform, ([],[]), set([]))
 
-def lookup_lemma(lemma):
-    'lemma -> [gloss]'
-    pass
+def lookup_lemma(lemma, glossary):
+    'lemma, glossary -> [gloss]'
+    'gloss:: lemma + gloss'
+    glosslist = []
+    if lemma[0] in glossary:
+        for gloss in glossary[lemma[0]]:
+            pslist = psmatch(lemma[2], gloss[1])
+            if pslist:
+                glosslist.append((lemma[0], lemma[1], pslist, gloss[2]))
+    if not glosslist:
+        glosslist.append((lemma[0], lemma[1], lemma[2], ''))
+    return glosslist
 
 def dict_disambiguate(glosslist):
     '[gloss] -> [gloss]'
-    pass
+    indict = [g for g in glosslist if g[3]]
+    if indict:
+        return indict
+    else:
+        return glosslist
 
-
-def lemmatize(wordform):
-    'wordform -> [gloss]'
+def lemmatize(wordform, glossary):
+    'wordform, glossary -> [gloss]'
     # formal parsing
-    nlemma = null_lemma(wordform.lower())
-    variants = []
+    lems = recursive_parse([strtolemma(wordform.lower())], parse_order, affixes)
+    glos = [gloss for lemma in lems for gloss in lookup_lemma(lemma, glossary)]
+    return dict_disambiguate(glos) 
 
-    if word in wl: 
-        variants.extend(wl[word])
-    lem, aff = stem(word)
-    if aff and lem in wl:
-        variants.extend(wl[lem])
-    if not variants:
-        detoned = detone(word)
-        if detoned in wl:
-            variants.extend(wl[detoned])
-    #    variants = [(word, 'UNK','UNKNOWN')]
-    return variants
+def print_gloss(gloss):
+    'gloss -> str'
+    stem, (preflist, sufflist), pslist, ge = gloss
+    if preflist:
+        prefmorph, prefgloss = zip(*preflist)
+    else:
+        prefmorph, prefgloss = [], []
+    if sufflist:
+        suffmorph, suffgloss = zip(*sufflist)
+    else:
+        suffmorph, suffgloss = [], []
+    form = '-'.join([i for j in [prefmorph, [stem], suffmorph] for i in j])
+    glossstring = '-'.join([i for j in [prefgloss, [stem], suffgloss] for i in j])
+    psstring = '/'.join(pslist)
+    return u'{0} {1} {2} ‘{3}’'.format(form, glossstring, psstring, ge)
+
