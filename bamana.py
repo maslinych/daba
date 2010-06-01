@@ -6,7 +6,7 @@ from nltk.tokenize import RegexpTokenizer, BlanklineTokenizer
 from xml.etree.ElementTree import ElementTree
 from orthograph import detone
 
-orthographic_word = RegexpTokenizer(r"\w+([-]\w+)*[']?")
+orthographic_word = RegexpTokenizer(r"(\w+([-]\w+)*[']?|[.:;!?,])")
 
 test = LazyCorpusLoader(
         'bamana/test', PlaintextCorpusReader, r'source.txt', word_tokenizer=orthographic_word, encoding='utf-8')
@@ -30,6 +30,7 @@ for file in propernames.fileids():
         lexicon.getroot().append(e)
 
 wl = {}
+wl_detone = {}
 
 def normalize_bailleul(word):
     return u''.join([c for c in word if c not in u'.-'])
@@ -44,8 +45,15 @@ for entry in lexicon.findall('record'):
     try:
         gloss = entry.find('ge').text
     except AttributeError:
-        gloss = ''
+        try:
+            gloss = entry.find('ru').text
+        except AttributeError:
+            gloss = ''
     if 'mrph' not in ps:
+        norm = lemmas[0][0]
+        addlem = (norm,ps,gloss)
         for lemma in lemmas:
-            wl.setdefault(lemma.lower(), []).append((lemma,ps,gloss))
-            wl.setdefault(detone(lemma.lower()), []).append((lemma,ps,gloss))
+            if addlem not in wl.setdefault(lemma.lower(), []):
+                wl.setdefault(lemma.lower(), []).append(addlem)
+            if addlem not in wl_detone.setdefault(detone(lemma.lower()), []):
+                wl_detone.setdefault(detone(lemma.lower()), []).append(addlem)
