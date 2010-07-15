@@ -3,7 +3,7 @@
 from nltk.corpus.reader import PlaintextCorpusReader, ToolboxCorpusReader
 from nltk.corpus.util import LazyCorpusLoader
 from nltk.tokenize import RegexpTokenizer, BlanklineTokenizer
-from xml.etree.ElementTree import ElementTree
+from xml.etree.ElementTree import ElementTree,Element
 from orthograph import detone
 
 orthographic_word = RegexpTokenizer(r"(\w+([-]\w+)*[']?|[.:;!?,])")
@@ -27,6 +27,12 @@ lexicon = ElementTree(bailleul.xml('bailleul.txt'))
 
 for file in propernames.fileids():
     for e in ElementTree(propernames.xml(file)).findall('record'):
+        ge = Element('ge')
+        ge.text = e.find('lx').text
+        e.append(ge)
+        ps = Element('ps')
+        ps.text = 'n.prop'
+        e.append(ps)
         lexicon.getroot().append(e)
 
 wl = {}
@@ -50,7 +56,8 @@ for entry in lexicon.findall('record'):
         except AttributeError:
             gloss = ''
     if 'mrph' not in ps:
-        norm = lemmas[0][0]
+        #norm = lemmas[0][0]
+        norm = lemmas[0]
         addlem = (norm,ps,gloss)
         for lemma in lemmas:
             if addlem not in wl.setdefault(lemma.lower(), []):

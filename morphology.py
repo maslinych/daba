@@ -5,7 +5,8 @@
 from orthograph import detone
 from syllables import syllabify
 import re
-from operator import and_
+from operator import and_, truth
+from itertools import combinations, product
 
 
 ## AFFIXES
@@ -17,7 +18,7 @@ affixes = { 'PROG': ([[r'n$', r'^na$'], [r'[^n]$', r'^la$']], -1, 'PROG') ,
         'AUG': ([[r'.', r'^ba$']], -1, 'AUG'),
         'GENT': ([[r'.', r'^ka$']], -1, 'GENT'),
         'AG.EX': ([[r'.', r'^nci$']], -1, 'AG.EX'),
-        'LOC': ([[r'n$', r'na'], [r'.', r'la']], -1, 'LOC'),
+        'LOC': ([[r'n$', r'^na$'], [r'[^n]$', r'^la$']], -1, 'LOC'),
         'MENT1': ([[r'.', r'^la$'], [r'.', r'^na$']], -1, 'MENT1'),
         'MENT2': ([[r'.', r'^la$', r'^ta$'], [r'.', r'^na$', r'^ta$']], -2, 'MENT2'),
         'COM': ([[r'.', r'^ma$']], -1, 'COM'),
@@ -27,10 +28,10 @@ affixes = { 'PROG': ([[r'n$', r'^na$'], [r'[^n]$', r'^la$']], -1, 'PROG') ,
         # HACK!
         'AG.OCC2': ([[r'.', r'^baa$']], -1, 'AG.OCC'),
         'PTCP.PRIV': ([[r'.', r'^ba$', r'^li$']], -2, 'PTCP.PRIV'),
-        'RES': ([[r'n$', r'^nen$'], [r'.', r'^len$']], -1, 'RES'),
-        'AG.PRM': ([[r'n$', r'^na$'], [r'.', r'^la$']], -1, 'AG.PRM'),
-        'INSTR': ([[r'n$', r'^nan$'], [r'.', r'^lan$'], [r'.', r'ran']], -1, 'INSTR'),
-        'NMLZ': ([[r'n$', r'^ni$'], [r'.', r'^li$']], -1, 'NMLZ'),
+        'RES': ([[r'n$', r'^nen$'], [r'[^n]$', r'^len$']], -1, 'RES'),
+        'AG.PRM': ([[r'n$', r'^na$'], [r'[^n]$', r'^la$']], -1, 'AG.PRM'),
+        'INSTR': ([[r'n$', r'^nan$'], [r'[^n]$', r'^lan$'], [r'[^n]$', r'ran']], -1, 'INSTR'),
+        'NMLZ': ([[r'n$', r'^ni$'], [r'[^n]$', r'^li$']], -1, 'NMLZ'),
         'DIR': ([[r'.', r'^ma$']], -1, 'DIR'),
         'RECP1': ([[r'.', r'^ɲo$', r'^gon$']] ,-2,'RECP'),
         'RECP2': ([[r'.', r'^ɲwaa?n']], -1, 'RECP'),
@@ -39,7 +40,8 @@ affixes = { 'PROG': ([[r'n$', r'^na$'], [r'[^n]$', r'^la$']], -1, 'PROG') ,
         'CAUS': ([[r'^(la|lá)$', r'.'], [r'^(na|ná)$', r'.']], 1, 'CAUS'),
         'SUPER': ([[r'^(ma|mà)n?$', r'.']], 1, 'SUPER'),
         'DEQU': ([[r'^ya$', r'.']], -1, 'DEQU'),
-        'ADJ': ([[r'^man$', r'.']], -1, 'ADJ')
+        'ADJ': ([[r'^man$', r'.']], -1, 'ADJ'),
+        'PRICE': ([[r'n$', r'^na$'], [r'[^n]$', r'^la$']], -1, 'PRICE')
         }
 
 ## DERIVATIONAL SCHEMES
@@ -56,6 +58,31 @@ vq_derivation = {'pslist': set(['vq']), 'ranks': { -1: ['AUG', 'DIM'], -2: ['PTC
     -3: ['DEQU', 'ADJ']}}
 
 parse_order = [vq_derivation, adj_derivation, verbal_derivation, nominal_derivation, verbal_inflection, nominal_inflection]
+inflection_order = [verbal_inflection, nominal_inflection]
+derivation_order = [vq_derivation, adj_derivation, verbal_derivation, nominal_derivation]
+
+## COMPOSITE SCHEMES
+nominal_composites = {'pslist': set(['n']), 
+        'templates': [ [set(['n']), set(['n'])],
+            #[set(['n']), set(['v'])],
+            [set(['dtm']), set(['v'])],
+            [set(['n']), set(['adj'])],
+            [set(['v']), set(['n'])],
+            [set(['n']), set(['num'])],
+            [set(['n']), set(['adj']), set(['n'])],
+            [set(['n']), set(['v']), set(['n'])],
+            [set(['dtm']), set(['v']), set(['n'])],
+            [set(['n']), set(['pp']), set(['n'])],
+            #[set(['n']), set(['pp']), set(['v'])]
+            ]}
+
+verbal_composites = {'pslist': set(['v', 'n']), 'templates': [
+    [set(['n']), set(['v'])],
+    [set(['n']), set(['pp']), set(['v'])]
+    ]}
+
+composite_order = [nominal_composites, verbal_composites]
+
 
 def match_affix(syllables, morpheme, direction):
     '[syllable], morpheme, cutoff_syllable -> True | False'
@@ -70,6 +97,8 @@ def match_affix(syllables, morpheme, direction):
         return reduce(and_, map(cmp, morpheme[::-1], syllables[::-1]))
     else:
         return reduce(and_, map(cmp, morpheme, syllables))
+
+
 
 def deaffix(word, affix):
     'wordform, affix -> (stem, affixlist)'
@@ -176,12 +205,113 @@ def dict_disambiguate(glosslist):
     else:
         return glosslist
 
-def lemmatize(wordform, glossary):
-    'wordform, glossary -> [gloss]'
-    # formal parsing
-    lems = recursive_parse([strtolemma(wordform.lower())], parse_order, affixes)
+def splitlist(list, points):
+    prev = 0
+    result = []
+    for p in points:
+        result.append(list[prev:p])
+        prev = p
+    result.append(list[prev:])
+    return result
+
+def splitpoints(i):
+    return [p for p in combinations(range(i)[1:],1)] + \
+           [p for p in combinations(range(i)[1:],2)]
+
+def split_composite(syllables):
+    '[syllables] -> [[stems]]'
+    def rejoin(list):
+        '[[str]] -> [str]'
+        return [''.join(i) for i in list]
+
+    return [rejoin(splitlist(syllables,p)) for p in splitpoints(len(syllables))]
+
+def match_template(glosses, template):
+    if len(glosses) == len(template):
+        return reduce(and_, map(truth, map(psmatch, zip(*glosses)[2], template)))
+    else:
+        return False
+
+def parse_composite(gloss, glossary):
+    'gloss -> [gloss]'
+    result = []
+    stem, afflist, pslist, ge = gloss
+    # syllabify stem
+    syls = syllabify(stem)
+    for scheme in composite_order:
+        if psmatch(pslist, scheme['pslist']):
+            for variant in syls:
+                if len(variant) > 2:
+                    splits = split_composite(variant)
+                    for split in splits:
+                        possible_gloss = product(*[lookup_lemma(strtolemma(stem), glossary) for stem in split])
+                        possible_gloss = [gl for gl in possible_gloss if reduce(and_, map(truth, zip(*gl)[3]))]
+                        for glosses in possible_gloss:
+                            for template in scheme['templates']:
+                                if match_template(glosses, template):
+                                    result.append(('.'.join(zip(*glosses)[0]), afflist, psmatch(pslist,scheme['pslist']), '.'.join(zip(*glosses)[3])))
+
+    return result
+
+def parse_reduplicate(gloss,glossary):
+    'gloss -> [gloss]'
+    result = []
+    if len(gloss[0]) > 0:
+        middle = len(gloss[0]) // 2
+        if len(gloss[0]) % 2 and gloss[0][middle] == u'-':
+                fhalf = gloss[0][:middle]
+                shalf = gloss[0][middle+1:]
+        else:
+            fhalf = gloss[0][:middle]
+            shalf = gloss[0][middle:]
+        if fhalf == shalf:
+            glosses = lookup_lemma((fhalf,gloss[1],gloss[2]),glossary)
+            for g in glosses:
+                result.append((fhalf,g[1],psmatch(gloss[2],g[2]),g[3] + ' [reduplicate]'))
+    return result
+                    
+def filter_glosslist(glosslist):
+    '[gloss] -> [gloss] | []'
+    return filter(lambda x: truth(x[3]), glosslist)
+
+def lemmatize(wordform, glossary, minimal=True):
+    'wordform, glossary -> (stage, [gloss])'
+    # inflection parsing
+    result = []
+    nulllemma = strtolemma(wordform.lower())
+    # dictionary lookup
+    lems = recursive_parse([nulllemma], inflection_order, affixes)
     glos = [gloss for lemma in lems for gloss in lookup_lemma(lemma, glossary)]
-    return dict_disambiguate(glos) 
+    disambiguated = dict_disambiguate(glos) 
+    # in case of unsuccessful lookup, let's go deeper
+    if not filter_glosslist(disambiguated):
+        # check for derivation
+        derivatives = [g for lem in recursive_parse(lems, derivation_order, affixes) for g in lookup_lemma(lem, glossary)]
+        if filter_glosslist(derivatives):
+            stage = 1
+            result.extend(filter_glosslist(derivatives))
+        else:
+            # check for reduplication
+            reduplicates = filter(truth, [glo for r in derivatives for glo in parse_reduplicate(r,glossary)])
+            if reduplicates:
+                stage = 2
+                result.extend(reduplicates)
+            else:
+                # check for composites
+                composites = filter(truth, [glo for c in derivatives for glo in parse_composite(c,glossary)])
+                if composites:
+                    stage = 3
+                    result.extend(composites)
+
+        # last resort: provide minimum-info or null lemma
+        if not result:
+            stage = -1
+            result = disambiguated
+    # initial lookup was successful
+    else:
+        stage = 0
+        result = disambiguated
+    return (stage, result)
 
 def print_gloss(gloss):
     'gloss -> str'

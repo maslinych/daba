@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- encoding: utf-8 -*-
 
-from bamana import test,wl
+from bamana import test,wl,wl_detone
 from nltk.text import ConcordanceIndex
-from orthograph import convertw
+from orthograph import convertw,detone
 from morphology import lemmatize, dict_disambiguate, print_gloss
 import re
 
@@ -21,11 +21,17 @@ for word in types:
             formlist = nwl
         else:
             formlist = nw
+        result = []
         for form in formlist:
-            gl = dict_disambiguate(lemmatize(form, wl))
-            glstr = [print_gloss(g) for g in gl]
-            for gs in glstr:
-                print "    ", gs.encode('utf-8')
+            if form != detone(form):
+                stage, gl = lemmatize(form, wl)
+            else:
+                stage, gl = lemmatize(form,wl_detone)
+            result.extend(gl)
+
+        glstr = [print_gloss(g) for g in dict_disambiguate(result)]
+        for gs in glstr:
+            print "    ", gs.encode('utf-8')
         print
 
 
