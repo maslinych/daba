@@ -17,22 +17,22 @@ affixes = { 'PROG': ([[r'n$', r'^na$'], [r'[^n]$', r'^la$']], -1, 'PROG') ,
         'DIM': ([[r'.', r'^nin$']], -1, 'DIM'),
         'AUG': ([[r'.', r'^ba$']], -1, 'AUG'),
         'GENT': ([[r'.', r'^ka$']], -1, 'GENT'),
-        'AG.EX': ([[r'.', r'^nci$']], -1, 'AG.EX'),
+        #'AG.EX': ([[r'.', r'^nci$']], -1, 'AG.EX'),
         'LOC': ([[r'n$', r'^na$'], [r'[^n]$', r'^la$']], -1, 'LOC'),
-        'MENT1': ([[r'.', r'^la$'], [r'.', r'^na$']], -1, 'MENT1'),
-        'MENT2': ([[r'.', r'^la$', r'^ta$'], [r'.', r'^na$', r'^ta$']], -2, 'MENT2'),
+        #'MENT1': ([[r'.', r'^la$'], [r'.', r'^na$']], -1, 'MENT1'),
+        #'MENT2': ([[r'.', r'^la$', r'^ta$'], [r'.', r'^na$', r'^ta$']], -2, 'MENT2'),
         'COM': ([[r'.', r'^ma$']], -1, 'COM'),
-        'RECP.PRN': ([[r'.', r'^ma$']], -1, 'RECP.PRN'),
+        #'RECP.PRN': ([[r'.', r'^ma$']], -1, 'RECP.PRN'),
         'PRIV': ([[r'.', r'^ntan$']], -1, 'PRIV'),
-        'AG.OCC': ([[r'.', r'^ba$', r'^ga$']], -2, 'AG.OCC'),
+        #'AG.OCC': ([[r'.', r'^ba$', r'^ga$']], -2, 'AG.OCC'),
         # HACK!
-        'AG.OCC2': ([[r'.', r'^baa$']], -1, 'AG.OCC'),
+        #'AG.OCC2': ([[r'.', r'^baa$']], -1, 'AG.OCC'),
         'PTCP.PRIV': ([[r'.', r'^ba$', r'^li$']], -2, 'PTCP.PRIV'),
         'RES': ([[r'n$', r'^nen$'], [r'[^n]$', r'^len$']], -1, 'RES'),
         'AG.PRM': ([[r'n$', r'^na$'], [r'[^n]$', r'^la$']], -1, 'AG.PRM'),
         'INSTR': ([[r'n$', r'^nan$'], [r'[^n]$', r'^lan$'], [r'[^n]$', r'ran']], -1, 'INSTR'),
-        'NMLZ': ([[r'n$', r'^ni$'], [r'[^n]$', r'^li$']], -1, 'NMLZ'),
-        'DIR': ([[r'.', r'^ma$']], -1, 'DIR'),
+        'NMLZ': ([[r'^[nmɲŋ]|n$', r'^ni$'], [r'[^n]$', r'^li$']], -1, 'NMLZ'),
+        #'DIR': ([[r'.', r'^ma$']], -1, 'DIR'),
         'RECP1': ([[r'.', r'^ɲo$', r'^gon$']] ,-2,'RECP'),
         'RECP2': ([[r'.', r'^ɲwaa?n']], -1, 'RECP'),
         'PTCP.POT': ([[r'.', r'^ta$']], -1, 'PTCP.POT'),
@@ -48,18 +48,20 @@ affixes = { 'PROG': ([[r'n$', r'^na$'], [r'[^n]$', r'^la$']], -1, 'PROG') ,
 nominal_inflection = { 'pslist': set(['n', 'adj', 'dtm', 'prn']), 'ranks': {-1: ['PL']}}
 verbal_inflection = { 'pslist': set(['v']) , 'ranks': {-1: ['PROG', 'IPFV.INTR']}}
 nominal_derivation = { 'pslist': set(['n']), 'ranks': {-1: ['ABSTR'],
-    -2: ['AUG'], -3: ['DIM'], -4: ['GENT', 'AG.EX'], -5: ['LOC', 'MENT1', 'MENT2', 'COM', 'RECP.PRN', 'PRIV']} }
+    -2: ['AUG'], -3: ['DIM'], -4: ['GENT'], -5: ['LOC', 'COM', 'PRIV']} }
 adj_derivation = { 'pslist': set(['adj']), 'ranks': {-1: ['ABSTR'], -2: ['DIM', 'AUG']}}
-verbal_derivation = { 'pslist': set(['v']), 'ranks': { -1: ['ABSTR'], -2: ['DIM', 'AUG'], -3: ['GENT', 'RECP.PRN', 'AG.EX'],
-    -4: ['AG.OCC', 'AG.OCC2', 'PTCP.PRIV', 'RES', 'AG.PRM', 'LOC', 'MENT1', 'MENT2', 'INSTR', 'NMLZ', 'DIR', 'RECP1', 'RECP2', \
+verbal_derivation = { 'pslist': set(['v']), 'ranks': { -1: ['ABSTR'], -2: ['DIM', 'AUG'], -3: ['GENT'],
+    -4: ['PTCP.PRIV', 'RES', 'AG.PRM', 'LOC', 'INSTR', 'NMLZ', 'RECP1', 'RECP2', \
             'PTCP.POT', 'PTCP.PROG'], 
-    1: ['CAUS'], 2: ['SUPER']}}
-vq_derivation = {'pslist': set(['vq']), 'ranks': { -1: ['AUG', 'DIM'], -2: ['PTCP.PRIV', 'RES', 'PTCP.POT', 'PTCP.PROG', 'AG.EX'],
+    1: ['CAUS']}}
+vq_derivation = {'pslist': set(['vq']), 'ranks': { -1: ['AUG', 'DIM'], -2: ['PTCP.PRIV', 'RES', 'PTCP.POT', 'PTCP.PROG'],
     -3: ['DEQU', 'ADJ']}}
+
+numerative_derivation = { 'pslist': set(['num']), 'ranks': {-1: ['PRICE', 'INSTR']}}
 
 parse_order = [vq_derivation, adj_derivation, verbal_derivation, nominal_derivation, verbal_inflection, nominal_inflection]
 inflection_order = [verbal_inflection, nominal_inflection]
-derivation_order = [vq_derivation, adj_derivation, verbal_derivation, nominal_derivation]
+derivation_order = [numerative_derivation, vq_derivation, adj_derivation, verbal_derivation, nominal_derivation]
 
 ## COMPOSITE SCHEMES
 nominal_composites = {'pslist': set(['n']), 
