@@ -85,6 +85,35 @@ verbal_composites = {'pslist': set(['v', 'n']), 'templates': [
 
 composite_order = [nominal_composites, verbal_composites]
 
+class Gloss(object):
+    def __init__(self, aform, ps, gloss):
+        self.aform = aform
+        self.ps = ps
+        self.gloss = gloss
+
+class Morpheme(object):
+    def __init__(self, mclass, form, glosslist):
+        self.mclass = mclass
+        self.form = form
+        self.glosslist = glosslist
+
+    def __len__(self):
+        return len(glosslist)
+
+    def glossed(self):
+        if len(glosslist) > 1:
+            return self.form
+        else:
+            return self.glosslist[0].gloss
+
+class Lemma(object):
+    def __init__(self, morphemes, ps, gloss):
+        self.morphemes = morphemes
+        self.ps = ps
+        self.gloss = gloss
+        self.lemma = '.'.join([m.form for m in morphemes])
+        self.glossline = '.'.join([m.glossed for m in morphemes])
+
 
 def match_affix(syllables, morpheme, direction):
     '[syllable], morpheme, cutoff_syllable -> True | False'
