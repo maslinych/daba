@@ -4,8 +4,20 @@
 import cPickle
 import operator
 import re
+import copy
 from contextlib import closing
 
+def unwrap_re(string):
+    if string.startswith('<') and string.endswith('>'):
+        return re.compile(string.strip('<>'))
+    else:
+        return string
+
+def match_any(self, other):
+    try:
+        return unwrap_re(other).search(self)
+    except AttributeError:
+        return self == other
 
 class GlossError(Exception):
     def __init__(self, gstring):
@@ -66,16 +78,16 @@ class Gloss(object):
 
     def matches(self,other):
         'pattern matching device: feature comparison function'
-        if other.form and re.search(other.form, self.form) or not other.form:
-            if other.gloss and self.gloss == other.gloss or not other.gloss:
+        if other.form and match_any(self.form, other.form) or not other.form:
+            if other.gloss and match_any(self.gloss, other.gloss) or not other.gloss:
                 if self.psmatch(other):
                     return self.morphmatch(other)
         return False
 
     def union(self, other):
-        if other.form and re.search(other.form, self.form) or not other.form:
+        if other.form and match_any(self.form, other.form) or not other.form:
             if self.psmatch(other):
-                if other.gloss and self.gloss != other.gloss:
+                if other.gloss and not match_any(self.gloss, other.gloss):
                     self.gloss = other.gloss
                 if self.ps and other.ps:
                     self.ps = list(set(self.ps).intersection(set(other.ps)))
@@ -86,7 +98,7 @@ class Gloss(object):
                         self.morphemes = other.morphemes
                     else:
                         self.morphemes = [s.union(o) for s,o in zip(self.morphemes,other.morphemes)]
-            return self
+            return copy.deepcopy(self)
         else:
             return Gloss()
 
@@ -118,17 +130,19 @@ class Pattern(object):
 
     def __eq__(self, other):
         return self.select == other.select and self.mark == other.mark
+
     def regexp(self):
-        return ur''.join(s.form for s in select.morphemes)
+        return u''.join('({0})'.format(unwrap_re(s.form)) for s in select.morphemes)
 
 import unittest
 
 class TestGlossObjects(unittest.TestCase):
     
     def setUp(self):
-        self.ga = Gloss(u'a:n:gloss')
+        self.ga = Gloss(u'ab:n:gloss')
         self.gam = Gloss(u'ab:n:gloss', [Gloss(u'a:n:gloss'), Gloss(u'b:mrph:ge')])
         self.m = Gloss(u'::', [Gloss(u':n:'), Gloss(u'b:mrph:ge')])
+        self.gre = Gloss(u'<.>:n:<g.*>')
 
     def test_gloss_general(self):
         # test gloss creation
@@ -177,6 +191,10 @@ class TestGlossObjects(unittest.TestCase):
         self.assertEquals(False, Gloss(u'a:n/adj:gloss').matches(Gloss(u'b:n:')))
         self.assertEquals(False, Gloss(u'a:n/adj:gloss').matches(Gloss(u'b:v:')))
         self.assertEquals(False, Gloss(u'w::').matches(Gloss(u'w:mrph:PL')))
+        # test regex capabilities
+        self.assertEquals(True, Gloss(u'a:n:gloss').matches(self.gre))
+        self.assertEquals(True, Gloss(u'b:n:ge').matches(self.gre))
+        self.assertEquals(False, Gloss().matches(self.gre))
 
     def test_gloss_union(self):
         # test gloss union (typical use: union with pattern data)
@@ -192,6 +210,8 @@ class TestGlossObjects(unittest.TestCase):
         self.assertEquals(u'::', unicode(Gloss(u'a:n/adj:gloss').union(Gloss(u'b:v:'))))
         self.assertEquals(u'ab:n:gloss, [a:n:gloss, b:mrph:ge]', unicode(self.gam.union(self.ga)))
         self.assertEquals(u'ab:n:gloss, [a:n:gloss, b:mrph:ge]', unicode(self.gam.union(self.m)))
+        # test regex capabilities
+        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a:n:gloss').union(self.gre)))
 
 
 if __name__ == '__main__':
