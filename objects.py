@@ -40,11 +40,11 @@ class Gloss(object):
             return gstring
 
     def __repr__(self):
-        gstring = 'Gloss({0})'.format(repr(unicode(self)))
+        gstring = u':'.join([self.form,'/'.join(self.ps),self.gloss])
         if self.morphemes:
-            return '{0}, [{1}]'.format(gstring, ', '.join(repr(g) for g in self.morphemes))
+            return 'Gloss({0}, [{1}])'.format(repr(gstring), ', '.join(repr(g) for g in self.morphemes))
         else:
-            return gstring
+            return 'Gloss({0})'.format(repr(gstring))
 
     def psmatch(self, other):
         if self.ps or other.ps:
@@ -108,6 +108,19 @@ class Dictionary(object):
     def __len__(self):
         return len(self.lexicon)
 
+class Pattern(object):
+    def __init__(self, select, mark):
+        self.select = select
+        self.mark = mark
+
+    def __repr__(self):
+        return 'Pattern({0}, {1})'.format(repr(self.select),repr(self.mark))
+
+    def __eq__(self, other):
+        return self.select == other.select and self.mark == other.mark
+    def regexp(self):
+        return ur''.join(s.form for s in select.morphemes)
+
 import unittest
 
 class TestGlossObjects(unittest.TestCase):
@@ -129,6 +142,7 @@ class TestGlossObjects(unittest.TestCase):
         self.assertEquals(True, Gloss(u'a:n/adj:gloss') == Gloss(u'a:adj/n:gloss'))
         self.assertEquals(False, Gloss(u'a:ps:gloss') == Gloss())
         self.assertEquals(False, Gloss(u'a:n/adj:gloss') == Gloss(u'a:n:gloss'))
+        self.assertEquals("Gloss(u'::', [Gloss(u':n:'), Gloss(u'b:mrph:ge')])", repr(self.m))
 
     def test_gloss_psmatch(self):
         # test gloss psmatch
@@ -162,6 +176,7 @@ class TestGlossObjects(unittest.TestCase):
         self.assertEquals(False, Gloss(u'a:ps:gloss').matches(Gloss(u'b:ps:gloss')))
         self.assertEquals(False, Gloss(u'a:n/adj:gloss').matches(Gloss(u'b:n:')))
         self.assertEquals(False, Gloss(u'a:n/adj:gloss').matches(Gloss(u'b:v:')))
+        self.assertEquals(False, Gloss(u'w::').matches(Gloss(u'w:mrph:PL')))
 
     def test_gloss_union(self):
         # test gloss union (typical use: union with pattern data)
