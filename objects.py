@@ -7,6 +7,7 @@ import re
 from contextlib import closing
 
 def unwrap_re(string):
+    # FIXME: will act wrong on {<.|.>|.} : need a real parser?
     unfolded = string.strip('{}').split('|')
     for i,part in enumerate(unfolded):
         if len(unfolded) > 1:
@@ -98,7 +99,7 @@ class Gloss(object):
             return True
 
     def morphmatch(self, other, fuzzy=False):
-        if self.morphemes or other.morphemes:
+        if self.morphemes and other.morphemes:
             if not fuzzy:
                 if len(self.morphemes) == len(other.morphemes):
                     return all([s.matches(o) for s,o in zip(self.morphemes,other.morphemes)])
@@ -118,8 +119,10 @@ class Gloss(object):
                             else:
                                return all(s.matches(o) for s,o in zip(stail, otail))
                     return False
-        else:
+        elif not other.morphemes:
             return True
+        else:
+            return False
 
     def matches(self,other,fuzzy=False):
         'pattern matching device: feature comparison function'
@@ -196,7 +199,7 @@ class Pattern(object):
         # NB: operates by side efect!
         target = provide_morph(other)
         if not self.matches(target):
-            return other
+            return None
         smpattern = []
         shift = 0
         for sm in self.select.morphemes:
@@ -263,15 +266,16 @@ class TestObjects(unittest.TestCase):
         self.assertEquals(True, self.gm.morphmatch(self.patm))
         self.assertEquals(True, self.gm.morphmatch(self.patm,fuzzy=True))
         self.assertEquals(True, self.gmw.morphmatch(self.patmw,fuzzy=True))
-        self.assertEquals(False, self.gm.morphmatch(self.patmw,fuzzy=True))
+        self.assertEquals(True, self.gam.morphmatch(self.ga))
         self.assertEquals(False, self.ga.morphmatch(self.gam))
-        self.assertEquals(False, self.gam.morphmatch(self.ga))
+        self.assertEquals(False, self.gm.morphmatch(self.patmw,fuzzy=True))
 
     def test_gloss_matches(self):
         # test gloss pattern matching
         #NB: empty pattern matches any gloss
         self.assertEquals(True, Gloss().matches(Gloss()))
         self.assertEquals(True, Gloss(u'a:ps:gloss').matches(Gloss()))
+        self.assertEquals(True, self.gam.matches(Gloss()))
         self.assertEquals(True, Gloss(u'a:ps:gloss').matches(Gloss(u'::gloss')))
         self.assertEquals(True, Gloss(u'a:n/adj:gloss').matches(Gloss(u'a:n:')))
         self.assertEquals(True, Gloss(u'a:n/adj:').matches(Gloss(u'a:n:')))
@@ -309,7 +313,6 @@ class TestObjects(unittest.TestCase):
     def test_pattern(self):
         self.assertEquals(True, self.pat.matches(self.ga))
         self.assertEquals(False, self.pat.matches(self.gam))
-        self.assertEquals(unicode(self.gam), unicode(self.pat.apply(self.gam)))
         self.assertEquals(unicode(self.gam), unicode(self.pat.apply(self.ga)))
 
 

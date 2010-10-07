@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 #from bamana import bailleul,propernames
+from objects import Gloss
 from orthograph import detone
 from syllables import syllabify
 import re
@@ -330,3 +331,7 @@ def print_gloss(gloss):
     psstring = '/'.join(pslist)
     return u'{0} {1} {2} ‘{3}’'.format(form, glossstring, psstring, ge)
 
+import unittest
+
+if __name__ == '__main__':
+    unittest.main()

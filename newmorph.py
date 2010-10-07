@@ -11,19 +11,22 @@ def nullgloss(word):
 
 def lookup_gloss(gloss,gdict):
     try:
-        return [dgloss for dgloss in gdict[gloss.form] if dgloss.psmatch(gloss)]
+        pattern = Gloss()
+        pattern.ps = gloss.ps
+        pattern.gloss = gloss.gloss
+        return [dgloss for dgloss in gdict[gloss.form] if dgloss.matches(pattern)]
     except KeyError:
         return []
 
 unfold = lambda l: [j for i in l for j in i]
 unknown = lambda g: not bool(g.gloss)
-parsed = lambda g: len([for i in g if g.gloss]) == len(g)
+parsed = lambda g: len([i for i in g if g.gloss]) == len(g)
 
-def add(func, parses):
+def f_add(func, parses):
     '(Gloss -> [Gloss]), [Gloss] -> [Gloss]' 
     return parses.extend(unfold(filter(None, map(func, parses))))
 
-def apply(func, parses):
+def f_apply(func, parses):
     '(Gloss -> [Gloss]), [Gloss] -> [Gloss]' 
     return unfold(map(func, parses)) or parses
 
@@ -41,18 +44,20 @@ def sequential(func, patterns, parses):
 
     return unfold([seq(func, patterns, g) for g in parses])
 
-def return_parse(func, parses):
-    if all(map(func,parses)):
-
-
 class Parser(object):
-    def __init__(self, dictionary, grammar, orthography='new'):
+    def __init__(self, dictionary, grammar):
         'Dictionary, Grammar, str -> Parser'
         self.dictionary = dictionary
         self.grammar = grammar
-        self.orthography = orthography
-        self.funcdict = {'add': add, 'apply': apply, 'parallel': parallel, 'sequential': sequential, 'parsed': parsed}
-
+        self.funcdict = {
+                'add': f_add, 
+                'apply': f_apply, 
+                'parallel': parallel, 
+                'sequential': sequential, 
+                'parsed': parsed, 
+                'lookup': self.lookup, 
+                'parse': self.parse
+                }
 
     def lookup(self, lemma):
         'Gloss -> [Gloss]'
@@ -81,17 +86,24 @@ class Parser(object):
         stage = None
         parsedword = [nullgloss(word)]
         for step in self.grammar.plan['token']:
-            if step[1] == 'return':
-                if all(map(self.funcdict[step[2]], parsedword)):
+            if step[0] == 'return':
+                filtered = filter(self.funcdict[step[1]], parsedword)
+                if filtered:
                     return (stage, parsedword)
             else:
-                stage = step[0]
-                funclist = [self.funcdict[i] for i in step[1:]]
+                funclist = []
+                for f in step[1]:
+                    try:
+                        funclist.append(self.funcdict[f])
+                    except KeyError:
+                        funclist.append(self.grammar.patterns[f])
                 funclist.append(parsedword)
-                parsedword = self.funcdict[funclist[0]](*funclist[1:])
+                stage = step[0]
+                print parsedword
+                parsedword = funclist[0](*funclist[1:])
         return parsedword
 
-    def disambiguate:
+    def disambiguate(sent):
         # TODO: STUB
         for step in self.grammar.plan['sentence']:
             pass
