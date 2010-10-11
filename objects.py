@@ -5,10 +5,35 @@ import cPickle
 import operator
 import re
 from contextlib import closing
+from funcparserlib.parser import *
+from funcparserlib.lexer import make_tokenizer, Token, LexerError
 
 def unwrap_re(string):
-    # FIXME: will act wrong on {<.|.>|.} : need a real parser?
-    unfolded = string.strip('{}').split('|')
+    def tokenize(string):
+        specs = [
+                ('Regex', (r'<(\w|[-:\[\]|().^$+*?\\])*>', re.UNICODE)),
+                ('String', (r'(\w|[/.])(\w|[/.])*', re.UNICODE)),
+                ('Op', (r'[|{}]',)),
+                ]
+        tok = make_tokenizer(specs)
+        return [t for t in tok(string)]
+
+    def parse(seq):
+        tokval = lambda x: x.value
+        unfoldl = lambda l: [j for i in l for j in i]
+        foldl = lambda s: [s]
+        string = some(lambda t: t.type == 'String') >> tokval
+        regex = some(lambda t: t.type == 'Regex') >> tokval
+        op = lambda s: a(Token('Op', s)) >> tokval
+        op_ = lambda s: skip(op(s))
+        re_or_string = regex | string
+        splitter = oneplus(op_('|') + maybe(re_or_string))
+        starter = maybe(re_or_string) >> foldl
+        split_expr = op_('{') + starter + splitter + op_('}') >> unfoldl
+        form = split_expr | starter + skip(finished)
+        return form.parse(seq)
+
+    unfolded = parse(tokenize(string))
     for i,part in enumerate(unfolded):
         if len(unfolded) > 1:
             if part:
@@ -20,7 +45,7 @@ def unwrap_re(string):
                 return re.compile(part.strip('<>'))
             else:
                 return part
-    return re.compile(ur''.join(unfolded))
+    return re.compile(ur'^{0}$'.format(''.join(unfolded)))
 
 def match_any(self, other):
     try:
@@ -46,20 +71,45 @@ class GlossError(Exception):
 
 class Gloss(object):
     def __init__(self, gstring = '::', morphemes = None):
+        def tokenize(string):
+            specs = [
+                    ('Regex', (r'({[^}]+}|<[^>]+>)', re.UNICODE)),
+                    ('Op', (r':',)),
+                    ('String', (r'(\w|[/.])(\w|[/.])*', re.UNICODE)),
+                    ]
+            tok = make_tokenizer(specs)
+            return [t for t in tok(string)]
+    
+        def parse(seq):
+            tokval = lambda x: x.value
+            unfoldl = lambda l: [j for i in l for j in i]
+            foldl = lambda s: [s]
+            string = some(lambda t: t.type == 'String') >> tokval
+            regex = some(lambda t: t.type == 'Regex') >> tokval
+            op = lambda s: a(Token('Op', s)) >> tokval
+            op_ = lambda s: skip(op(s))
+            re_or_string = maybe(regex | string)
+            form = re_or_string + op_(':') + re_or_string + op_(':') + re_or_string + skip(finished)
+            return form.parse(seq)
+
         try:
-            form, ps, gloss = gstring.split(':')
-            self.form = form
-            self.ps = ps and ps.split('/') or []
-            self.gloss = gloss
-            self.morphemes = morphemes or []
-        except ValueError:
+            form, ps, gloss = parse(tokenize(gstring))
+        except (NoParseError, LexerError, ValueError):
             raise GlossError(gstring)
+
+        self.form = form or ''
+        self.ps = ps and ps.split('/') or []
+        self.gloss = gloss or ''
+        self.morphemes = morphemes or []
 
     def __iter__(self):
         yield self
         if self.morphemes:
             for m in self.morphemes:
                 yield m
+
+    def __len__(self):
+        return len([i for i in self])
 
     def __getitem__(self, index):
         for i,g in enumerate(self):
@@ -73,7 +123,9 @@ class Gloss(object):
                     g.__dict__[k] = other.__dict__[k]
 
     def __eq__(self, other):
-        return all(i == j for i,j in zip(self,other))
+        def glosseq(i,j):
+            return i.form == j.form and set(i.ps) == set(j.ps) and i.gloss == j.gloss
+        return all(glosseq(i,j) for i,j in zip(self,other))
 
     def __unicode__(self):
         gstring = u':'.join([self.form,'/'.join(self.ps),self.gloss])
@@ -90,11 +142,8 @@ class Gloss(object):
             return 'Gloss({0})'.format(repr(gstring))
 
     def psmatch(self, other):
-        if self.ps or other.ps:
-            if not other.ps:
-                return True
-            else:
-                return bool(set(self.ps).intersection(set(other.ps)))
+        if self.ps and other.ps:
+            return bool(set(self.ps).intersection(set(other.ps)))
         else:
             return True
 
@@ -228,11 +277,11 @@ class TestObjects(unittest.TestCase):
         self.gam = Gloss(u'ab:n:gloss', [Gloss(u'a:n:gloss'), Gloss(u'b:mrph:ge')])
         self.m = Gloss(u'::', [Gloss(u':n:'), Gloss(u'b:mrph:ge')])
         self.gre = Gloss(u'<.>:n:<g.*>')
-        self.pat = Pattern(Gloss('::', [Gloss('{.|b}::')]), Gloss('::', [Gloss(':n:gloss'), Gloss(':mrph:ge')]))
+        self.pat = Pattern(Gloss('::', [Gloss('{<.>|b}::')]), Gloss('::', [Gloss(':n:gloss'), Gloss(':mrph:ge')]))
         self.gm = Gloss(u'abw:n:gloss', [Gloss('ab::')])
         self.gmw = Gloss(u'abw:n:gloss', [Gloss('ab::'), Gloss('w::')])
-        self.patm = Gloss('::', [Gloss('{.|b}::')])
-        self.patmw = Gloss('::', [Gloss('{.|b}::'), Gloss('w::')])
+        self.patm = Gloss('::', [Gloss('{<.>|b}::')])
+        self.patmw = Gloss('::', [Gloss('{<.>|b}::'), Gloss('w::')])
 
     def test_gloss_general(self):
         # test gloss creation
@@ -241,21 +290,22 @@ class TestObjects(unittest.TestCase):
         self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a:ps:gloss')))
         self.assertEquals(u'a:n/adj:gloss', unicode(Gloss(u'a:n/adj:gloss')))
         # test equality comparison
-        #self.assertEquals(True, Gloss() == Gloss())
-        #self.assertEquals(True, Gloss(u'a:n/adj:gloss') == Gloss(u'a:adj/n:gloss'))
-        #self.assertEquals(False, Gloss(u'a:ps:gloss') == Gloss())
-        #self.assertEquals(False, Gloss(u'a:n/adj:gloss') == Gloss(u'a:n:gloss'))
-        #self.assertEquals("Gloss(u'::', [Gloss(u':n:'), Gloss(u'b:mrph:ge')])", repr(self.m))
+        self.assertEquals(True, Gloss() == Gloss())
+        self.assertEquals(True, Gloss(u'a:n/adj:gloss') == Gloss(u'a:adj/n:gloss'))
+        self.assertEquals(False, Gloss(u'a:ps:gloss') == Gloss())
+        self.assertEquals(False, Gloss(u'a:n/adj:gloss') == Gloss(u'a:n:gloss'))
+        self.assertEquals("Gloss(u'::', [Gloss(u':n:'), Gloss(u'b:mrph:ge')])", repr(self.m))
 
     def test_gloss_psmatch(self):
         # test gloss psmatch
+        # synopsis: PATTERN.psmatch(FORM)
         self.assertEquals(True, Gloss().psmatch(Gloss(u'b::')))
+        self.assertEquals(True, Gloss().psmatch(Gloss(u':v:')))
         self.assertEquals(True, Gloss(u':n/adj:').psmatch(Gloss(u'b::')))
         self.assertEquals(True, Gloss(u':n:').psmatch(Gloss(u'b:n:')))
         self.assertEquals(True, Gloss(u':n:').psmatch(Gloss(u'b:n/adj:')))
         self.assertEquals(True, Gloss(u':n/adj:').psmatch(Gloss(u'b:n:')))
         self.assertEquals(True, Gloss(u':n/adj:').psmatch(Gloss(u':n/adj:')))
-        self.assertEquals(False, Gloss().psmatch(Gloss(u':v:')))
         self.assertEquals(False, Gloss(u':n:').psmatch(Gloss(u':v:')))
         self.assertEquals(False, Gloss(u':n/adj:').psmatch(Gloss(u':v:')))
         self.assertEquals(False, Gloss(u':n/adj:').psmatch(Gloss(u':v:')))
@@ -272,6 +322,7 @@ class TestObjects(unittest.TestCase):
 
     def test_gloss_matches(self):
         # test gloss pattern matching
+        # synopsis: FORM.matches(PATTERN)
         #NB: empty pattern matches any gloss
         self.assertEquals(True, Gloss().matches(Gloss()))
         self.assertEquals(True, Gloss(u'a:ps:gloss').matches(Gloss()))
@@ -284,6 +335,7 @@ class TestObjects(unittest.TestCase):
         self.assertEquals(False, Gloss(u'a:ps:gloss').matches(Gloss(u'b:ps:gloss')))
         self.assertEquals(False, Gloss(u'a:n/adj:gloss').matches(Gloss(u'b:n:')))
         self.assertEquals(False, Gloss(u'a:n/adj:gloss').matches(Gloss(u'b:v:')))
+        self.assertEquals(False, Gloss(u'sira:n:gloss').matches(Gloss(u':v:')))
         self.assertEquals(False, Gloss(u'w::').matches(Gloss(u'w:mrph:PL')))
         # test regex capabilities
         self.assertEquals(True, Gloss(u'a:n:gloss').matches(self.gre))
