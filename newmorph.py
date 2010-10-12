@@ -10,6 +10,7 @@ def nullgloss(word):
     return Gloss(word + '::')
 
 def lookup_gloss(gloss,gdict):
+    'Gloss, Dictionary -> [Gloss]'
     try:
         pattern = Gloss()
         pattern.ps = gloss.ps
@@ -20,29 +21,42 @@ def lookup_gloss(gloss,gdict):
 
 unfold = lambda l: [j for i in l for j in i]
 unknown = lambda g: not bool(g.gloss)
-parsed = lambda g: len([i for i in g if g.gloss]) == len(g)
+def parsed(g):
+    if g.morphemes:
+        return len([m for m in g.morphemes if m.gloss]) == len(g.morphemes)
+    else:
+        return bool(g.gloss)
 
 def f_add(func, parses):
     '(Gloss -> [Gloss]), [Gloss] -> [Gloss]' 
-    return parses.extend(unfold(filter(None, map(func, parses))))
+    result = (unfold(filter(None, map(func, parses))))
+    parses.extend(result)
+    return parses
 
 def f_apply(func, parses):
     '(Gloss -> [Gloss]), [Gloss] -> [Gloss]' 
-    return unfold(map(func, parses)) or parses
+    return unfold(filter(None, [func(p) or [p] for p in parses]))
 
 def parallel(func, patterns, parses):
-    '(Gloss, [Pattern] -> [Gloss]), [Gloss] -> [Gloss]'
-    return unfold([func(p, g) for p in patterns for g in parses])
+    '(Gloss, [Pattern] -> Gloss), [Gloss] -> [Gloss]'
+    return unfold([filter(None, [func(p, g) for p in patterns]) or [g] for g in parses])
     
 def sequential(func, patterns, parses):
-    '(Gloss, [Pattern] -> [Gloss]), [Gloss] -> [Gloss]'
+    '(Gloss, [Pattern] -> Gloss), [Pattern], [Gloss] -> [Gloss]'
     def seq(f, p, g):
+        '(Pattern, Gloss -> (Gloss | None)), [Pattern], Gloss -> Gloss'
         if not p:
             return g
         else:
-            func(p[0], g) or seq(f, p[1:], g)
+            applied = func(p[0], g) 
+            if applied:
+                return seq(f, p[1:], applied)
+            else:
+                return seq(f, p[1:], g)
 
-    return unfold([seq(func, patterns, g) for g in parses])
+    # TODO: how to process homonimous affixes? (maybe need to return list of results from single form)
+    return [seq(func, patterns, g) for g in parses]
+
 
 class Parser(object):
     def __init__(self, dictionary, grammar):
@@ -62,34 +76,32 @@ class Parser(object):
     def lookup(self, lemma):
         'Gloss -> [Gloss]'
         result = []
-        for i,g in enumerate(lemma):
-            if unknown(g):
-                dictwords = [w for w in lookup_gloss(g, self.dictionary)]
-                if dictwords:
-                    newresult = []
-                    for res in result:
-                        for dictword in dictwords:
-                            new = copy.deepcopy(res)
-                            new[i] = dictword
-                            newresult.append(new)
-                    result = newresult
-                    # TODO: annotate base form with gloss derived from morpheme glosses
-        return result
+        if parsed(lemma):
+            return [lemma]
+        else:
+            for i,g in enumerate(lemma):
+                if not parsed(g):
+                    for dictword in lookup_gloss(g, self.dictionary):
+                        new = copy.deepcopy(lemma)
+                        new[i] = dictword
+                        result.append(new)
+                        # TODO: annotate base form with gloss derived from morpheme glosses
+            return result
 
-    def parse(self, patterns, gloss, joinchar='-'):
-        'Pattern, Gloss, str -> [Gloss]'
+    def parse(self, pattern, gloss, joinchar='-'):
+        'Pattern, Gloss, str -> Gloss'
         # performs formal parsing only, does not lookup words in dict
-        return pattern.apply(gloss) or []
+        return pattern.apply(gloss)
 
     def lemmatize(self,word):
         'word -> (stage, [Gloss])'
-        stage = None
+        stage = -1
         parsedword = [nullgloss(word)]
         for step in self.grammar.plan['token']:
             if step[0] == 'return':
                 filtered = filter(self.funcdict[step[1]], parsedword)
                 if filtered:
-                    return (stage, parsedword)
+                    return (stage, filtered)
             else:
                 funclist = []
                 for f in step[1]:
@@ -98,10 +110,11 @@ class Parser(object):
                     except KeyError:
                         funclist.append(self.grammar.patterns[f])
                 funclist.append(parsedword)
-                stage = step[0]
-                print parsedword
-                parsedword = funclist[0](*funclist[1:])
-        return parsedword
+                newparsed = funclist[0](*funclist[1:])
+                if not newparsed == parsedword:
+                    stage = step[0]
+                    parsedword = newparsed
+        return (stage, parsedword)
 
     def disambiguate(sent):
         # TODO: STUB
