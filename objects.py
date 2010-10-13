@@ -12,7 +12,7 @@ def unwrap_re(string):
     def tokenize(string):
         specs = [
                 ('Regex', (r'<(\w|[-:\[\]|().^$+*?\\])*>', re.UNICODE)),
-                ('String', (r'(\w|[/.])(\w|[/.])*', re.UNICODE)),
+                ('String', (r"[^<{|}>:][^<{|}>:]*", re.UNICODE)),
                 ('Op', (r'[|{}]',)),
                 ]
         tok = make_tokenizer(specs)
@@ -75,7 +75,7 @@ class Gloss(object):
             specs = [
                     ('Regex', (r'({[^}]+}|<[^>]+>)', re.UNICODE)),
                     ('Op', (r':',)),
-                    ('String', (r'(\w|[/.])(\w|[/.])*', re.UNICODE)),
+                    ('String', (r"[^<{|}>:][^<{|}>:]*", re.UNICODE)),
                     ]
             tok = make_tokenizer(specs)
             return [t for t in tok(string)]

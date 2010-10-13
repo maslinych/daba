@@ -13,7 +13,7 @@ def tokenize(string):
             ('NL', (r'[\r\n]+',)),
             ('Space', (r'[ \t\r\n]+',)),
             ('Op', (r'[\[\]|:{}]',)),
-            ('Regex', (r'<(\w|[-\[\]|().^$+*?\\])*>', re.UNICODE)),
+            ('Regex', (r'<(\w|[-\[\]|().^$+*?:\\])*>', re.UNICODE)),
             ('Name', (r'(\w\w*([./]\w+)*|\d\d*)',re.UNICODE))
             ]
     useless = ['Comment', 'NL', 'Space']
@@ -25,15 +25,20 @@ def parse(seq):
     unarg = lambda f: lambda args: f(*args)
     tokval = lambda x: x.value
     joinif = lambda x: ''.join(i for i in x if i)
+    unfoldl = lambda l: [k for j in [i for i in l if i] for k in j]
     make_patterns = lambda x: ('patterns', x)
     name = some(lambda t: t.type == 'Name') >> tokval
     n = lambda s: a(Token('Name', s)) >> tokval
     op = lambda s: a(Token('Op', s)) >> tokval
     # plan syntax
-    f_add = n('add') + name
-    f_parallel = n('parallel') + name + name
-    f_sequential = n('sequential') + name + name
-    stage_clause = skip(n('stage')) + name + (f_add | f_parallel | f_sequential) 
+    f_add = n('add') 
+    f_apply = n('apply') 
+    f_lookup = n('lookup') 
+    f_parallel = n('parallel') 
+    f_sequential = n('sequential') 
+    f_parse = n('parse') + name >> list
+    func_clause = oneplus(f_add | f_apply | f_lookup | f_parallel | f_sequential) + maybe(f_parse) >> unfoldl >> tuple
+    stage_clause = skip(n('stage')) + name + func_clause 
     return_clause = n('return') + skip(n('if')) + name
     for_clause = skip(n('for')) + name + skip(op(':')) + many(stage_clause | return_clause ) >> tuple
     plan_dict = oneplus(for_clause) >> dict

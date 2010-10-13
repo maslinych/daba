@@ -27,36 +27,51 @@ def parsed(g):
     else:
         return bool(g.gloss)
 
-def f_add(func, parses):
-    '(Gloss -> [Gloss]), [Gloss] -> [Gloss]' 
-    result = (unfold(filter(None, map(func, parses))))
-    parses.extend(result)
-    return parses
+def f_add(func, *args):
+    '(Gloss -> Maybe([Gloss])) -> ([Gloss] -> [Gloss])' 
+    if args:
+        f = func(*args)
+    else:
+        f = func
+    return lambda parses: parses + unfold(filter(None, map(f, parses)))
 
-def f_apply(func, parses):
-    '(Gloss -> [Gloss]), [Gloss] -> [Gloss]' 
-    return unfold(filter(None, [func(p) or [p] for p in parses]))
+def f_apply(func, *args):
+    '(Gloss -> Maybe([Gloss])) -> ([Gloss] -> [Gloss])'
+    if args:
+        f = func(*args)
+    else:
+        f = func
+    return lambda parses: unfold([f(p) or [p] for p in parses])
 
-def parallel(func, patterns, parses):
-    '(Gloss, [Pattern] -> Gloss), [Gloss] -> [Gloss]'
-    return unfold([filter(None, [func(p, g) for p in patterns]) or [g] for g in parses])
+#def f_filter(func, *args):
+
+def parallel(func, patterns):
+    '(Gloss, Pattern -> Maybe(Gloss)) -> (Gloss -> Maybe([Gloss]))'
+    return lambda gloss: unfold(filter(None, [func(p, gloss) for p in patterns]))
     
-def sequential(func, patterns, parses):
-    '(Gloss, [Pattern] -> Gloss), [Pattern], [Gloss] -> [Gloss]'
-    def seq(f, p, g):
-        '(Pattern, Gloss -> (Gloss | None)), [Pattern], Gloss -> Gloss'
+def sequential(func, patterns):
+    '(Gloss, Pattern -> Maybe(Gloss) -> (Gloss -> Maybe([Gloss]))'
+    def seq(p, gl, match=False):
+        '(Pattern, Gloss -> Maybe(Gloss)), [Pattern], Gloss -> Gloss'
         if not p:
-            return g
-        else:
-            applied = func(p[0], g) 
-            if applied:
-                return seq(f, p[1:], applied)
+            if match:
+                return gl
             else:
-                return seq(f, p[1:], g)
+                return None
+        else:
+            # FIXME: use copy as workaround for side-effect operation of Pattern.apply()
+            applied = func(p[0], copy.deepcopy(gl[0])) 
+            if applied:
+                # FIXME: here we assume func always returns list of len==1
+                if match:
+                    return seq(p[1:], applied + gl, match=True)
+                else:
+                    return seq(p[1:], applied, match=True)
+            else:
+                return seq(p[1:], gl, match)
 
     # TODO: how to process homonimous affixes? (maybe need to return list of results from single form)
-    return [seq(func, patterns, g) for g in parses]
-
+    return lambda gloss: seq(patterns, [gloss])
 
 class Parser(object):
     def __init__(self, dictionary, grammar):
@@ -74,24 +89,31 @@ class Parser(object):
                 }
 
     def lookup(self, lemma):
-        'Gloss -> [Gloss]'
+        'Gloss -> Maybe([Gloss])'
         result = []
         if parsed(lemma):
             return [lemma]
         else:
-            for i,g in enumerate(lemma):
-                if not parsed(g):
-                    for dictword in lookup_gloss(g, self.dictionary):
-                        new = copy.deepcopy(lemma)
-                        new[i] = dictword
-                        result.append(new)
-                        # TODO: annotate base form with gloss derived from morpheme glosses
-            return result
+            if lemma.morphemes:
+                for i,g in enumerate(lemma.morphemes):
+                    if not parsed(g):
+                        for dictword in lookup_gloss(g, self.dictionary):
+                            new = copy.deepcopy(lemma)
+                            new.morphemes[i] = dictword
+                            result.append(new)
+                            # TODO: annotate base form with gloss derived from morpheme glosses
+            else:
+                result.extend(lookup_gloss(lemma, self.dictionary))
+            return result or None
 
     def parse(self, pattern, gloss, joinchar='-'):
-        'Pattern, Gloss, str -> Gloss'
+        'Pattern, Gloss, str -> Maybe([Gloss])'
         # performs formal parsing only, does not lookup words in dict
-        return pattern.apply(gloss)
+        result = pattern.apply(gloss)
+        if result:
+            return [result]
+        else:
+            return None
 
     def lemmatize(self,word):
         'word -> (stage, [Gloss])'
@@ -109,12 +131,13 @@ class Parser(object):
                         funclist.append(self.funcdict[f])
                     except KeyError:
                         funclist.append(self.grammar.patterns[f])
-                funclist.append(parsedword)
-                newparsed = funclist[0](*funclist[1:])
+                stageparser = funclist[0](*funclist[1:])
+                newparsed = stageparser(parsedword)
+                #print newparsed
                 if not newparsed == parsedword:
                     stage = step[0]
                     parsedword = newparsed
-        return (stage, parsedword)
+        return (-1, parsedword)
 
     def disambiguate(sent):
         # TODO: STUB
