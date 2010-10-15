@@ -13,7 +13,8 @@ def tokenize(string):
             ('NL', (r'[\r\n]+',)),
             ('Space', (r'[ \t\r\n]+',)),
             ('Op', (r'[\[\]|:{}]',)),
-            ('Regex', (r'<(\w|[-\[\]|().^$+*?:\\])*>', re.UNICODE)),
+            #('Regex', (r'<(\w|[-={}\[\]|().,^$+*?:\\])*>', re.UNICODE)),
+            ('Regex', (r'<re>.*?</re>', re.UNICODE)),
             ('Name', (r'(\w\w*([./]\w+)*|\d\d*)',re.UNICODE))
             ]
     useless = ['Comment', 'NL', 'Space']
@@ -81,9 +82,9 @@ class TestGrammarParser(unittest.TestCase):
         return if unparsed
         # some comment
         section n
-        pattern :: [ {<[^n]$>|la}::] | :v: [:v: ::PROG]
+        pattern :: [ {<re>[^n]$</re>|la}::] | :v: [:v: ::PROG]
         """
-        self.greal = {'patterns': {'n': [Pattern(Gloss(u'::', [Gloss(u'{<[^n]$>|la}::')]), Gloss(u':v:', [Gloss(u':v:'), Gloss(u'::PROG')]))]}, 'plan': {'token': [('0', ('add', 'lookup')), ('return', 'unparsed')]}}
+        self.greal = {'patterns': {'n': [Pattern(Gloss(u'::', [Gloss(u'{<re>[^n]$</re>|la}::')]), Gloss(u':v:', [Gloss(u':v:'), Gloss(u'::PROG')]))]}, 'plan': {'token': [('0', ('add', 'lookup')), ('return', 'unparsed')]}}
 
     def test_parser(self):
         self.assertEquals(unicode(self.gmin), unicode(parse(tokenize(self.minimal))))

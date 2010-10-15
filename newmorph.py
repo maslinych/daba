@@ -3,7 +3,7 @@
 
 import re
 import copy
-from objects import Gloss, Pattern, Dictionary
+from objects import Gloss, CompactGloss, Pattern, Dictionary
 
 def nullgloss(word):
     'str -> Gloss'
@@ -90,21 +90,22 @@ class Parser(object):
 
     def lookup(self, lemma):
         'Gloss -> Maybe([Gloss])'
-        result = []
+        result = None
         if parsed(lemma):
             return [lemma]
         else:
             if lemma.morphemes:
+                new = CompactGloss(base=lemma)
                 for i,g in enumerate(lemma.morphemes):
                     if not parsed(g):
-                        for dictword in lookup_gloss(g, self.dictionary):
-                            new = copy.deepcopy(lemma)
-                            new.morphemes[i] = dictword
-                            result.append(new)
-                            # TODO: annotate base form with gloss derived from morpheme glosses
+                        dictlist = lookup_gloss(g, self.dictionary)
+                        if dictlist:
+                            new.morphemes[i] = dictlist
+                result = new.to_glosslist()
+                # TODO: annotate base form with gloss derived from morpheme glosses
             else:
-                result.extend(lookup_gloss(lemma, self.dictionary))
-            return result or None
+                result = lookup_gloss(lemma, self.dictionary)
+            return result
 
     def parse(self, pattern, gloss, joinchar='-'):
         'Pattern, Gloss, str -> Maybe([Gloss])'
@@ -115,7 +116,7 @@ class Parser(object):
         else:
             return None
 
-    def lemmatize(self,word):
+    def lemmatize(self,word, debug=False):
         'word -> (stage, [Gloss])'
         stage = -1
         parsedword = [nullgloss(word)]
@@ -133,7 +134,11 @@ class Parser(object):
                         funclist.append(self.grammar.patterns[f])
                 stageparser = funclist[0](*funclist[1:])
                 newparsed = stageparser(parsedword)
-                #print newparsed
+                #FIXME: debug statement
+                if debug:
+                    print funclist
+                    print stage, '\n'.join(' '.join([unicode(p),repr(type(p.morphemes))]) for p in newparsed),
+                    print 
                 if not newparsed == parsedword:
                     stage = step[0]
                     parsedword = newparsed

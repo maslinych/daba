@@ -4,6 +4,8 @@
 import cPickle
 import operator
 import re
+import itertools
+import copy
 from contextlib import closing
 from funcparserlib.parser import *
 from funcparserlib.lexer import make_tokenizer, Token, LexerError
@@ -11,7 +13,7 @@ from funcparserlib.lexer import make_tokenizer, Token, LexerError
 def unwrap_re(string):
     def tokenize(string):
         specs = [
-                ('Regex', (r'<(\w|[-:\[\]|().^$+*?\\])*>', re.UNICODE)),
+                ('Regex', (r'<re>.+?</re>', re.UNICODE)),
                 ('String', (r"[^<{|}>:][^<{|}>:]*", re.UNICODE)),
                 ('Op', (r'[|{}]',)),
                 ]
@@ -37,14 +39,18 @@ def unwrap_re(string):
     for i,part in enumerate(unfolded):
         if len(unfolded) > 1:
             if part:
-                unfolded[i] = ur'({0})'.format(part.strip('<>'))
+                if part.startswith('<re>') and part.endswith('</re>'):
+                    part = part[4:-5]
+                unfolded[i] = ur'(?P<__group{0}>{1})'.format(i,part)
             else:
-                unfolded[i] = r'(.+)'
+                unfolded[i] = r'(?P<__group{0}>.+)'.format(i)
         else:
-            if part.startswith('<') and part.endswith('>'):
-                return re.compile(part.strip('<>'))
+            if part.startswith('<re>') and part.endswith('</re>'):
+                return re.compile(part[4:-5])
             else:
                 return part
+    # FIXME: degug comment
+    #print ''.join(unfolded)
     return re.compile(ur'^{0}$'.format(''.join(unfolded)))
 
 def match_any(self, other):
@@ -54,13 +60,15 @@ def match_any(self, other):
         return self == other
 
 def provide_morph(gloss):
+    temp = Gloss()
+    temp.form = gloss.form
+    temp.ps = copy.deepcopy(gloss.ps)
+    temp.gloss = gloss.gloss
     if not gloss.morphemes:
-        temp = Gloss()
-        temp[0] = gloss
-        temp.morphemes = [gloss]
-        return temp
+        temp.morphemes = [copy.deepcopy(gloss)]
     else:
-        return gloss
+        temp.morphemes = copy.deepcopy(gloss.morphemes)
+    return temp
 
 class GlossError(Exception):
     def __init__(self, gstring):
@@ -73,7 +81,7 @@ class Gloss(object):
     def __init__(self, gstring = '::', morphemes = None):
         def tokenize(string):
             specs = [
-                    ('Regex', (r'({[^}]+}|<[^>]+>)', re.UNICODE)),
+                    ('Regex', (r'({.+}|<re>.+?</re>)', re.UNICODE)),
                     ('Op', (r':',)),
                     ('String', (r"[^<{|}>:][^<{|}>:]*", re.UNICODE)),
                     ]
@@ -212,6 +220,38 @@ class Gloss(object):
             return Gloss()
 
 
+class CompactGloss(Gloss):
+    'self.morphemes :: [[Gloss]]'
+    def __init__(self, base=None, *args):
+        if not base:
+            base = Gloss(*args)
+        self.form = base.form
+        self.ps = copy.deepcopy(base.ps)
+        self.gloss = base.gloss
+        self.morphemes = copy.deepcopy(base.morphemes)
+
+    def __iter__(self):
+        yield self
+        if self.morphemes:
+            for m in self.morphemes:
+                if isinstance(m, list):
+                    for i in m:
+                        yield i
+                else:
+                    yield m
+
+    def to_glosslist(self):
+        'CompactGloss -> [Gloss]'
+        result = []
+        for mset in itertools.product(*self.morphemes):
+            new = Gloss()
+            new[0] = self[0]
+            # FIXME: don't forget to change to tuple when needed
+            new.morphemes = list(mset)
+            result.append(new)
+        return result
+
+
 class Dictionary(object):
     def __init__(self, filename=None):
         if not filename:
@@ -258,14 +298,21 @@ class Pattern(object):
                     smpattern.append(i+shift)
                     if sm.form.startswith('{') and sm.form.endswith('}'):
                         splitter = unwrap_re(sm.form)
-                        newmorphs = splitter.search(om.form).groups()
+                        newmorphs = filter(lambda x: x[0].startswith('__group'), splitter.search(om.form).groupdict().items())
+                        newmorphs.sort()
+                        newmorphs = list(zip(*newmorphs)[1])
                         target.morphemes[i:i+1] = [Gloss(u':'.join([newform, '', ''])) for newform in newmorphs]
                         for m in newmorphs[1:]:
-                            shift = shift + len(newmorphs)-1
+                            shift += 1
                             smpattern.append(i+shift)
                 # NB: search till the first match only
                 break
-        return target.union(self.mark, pattern=smpattern)
+        # FIXME: should I fix union logic to return None if no psmatch?
+        union = target.union(self.mark, pattern=smpattern)
+        if union == Gloss():
+            return None
+        else:
+            return union
 
 
 import unittest
@@ -276,12 +323,12 @@ class TestObjects(unittest.TestCase):
         self.ga = Gloss(u'ab:n:gloss')
         self.gam = Gloss(u'ab:n:gloss', [Gloss(u'a:n:gloss'), Gloss(u'b:mrph:ge')])
         self.m = Gloss(u'::', [Gloss(u':n:'), Gloss(u'b:mrph:ge')])
-        self.gre = Gloss(u'<.>:n:<g.*>')
-        self.pat = Pattern(Gloss('::', [Gloss('{<.>|b}::')]), Gloss('::', [Gloss(':n:gloss'), Gloss(':mrph:ge')]))
+        self.gre = Gloss(u'<re>.</re>:n:<re>g.*</re>')
+        self.pat = Pattern(Gloss('::', [Gloss('{<re>.</re>|b}::')]), Gloss('::', [Gloss(':n:gloss'), Gloss(':mrph:ge')]))
         self.gm = Gloss(u'abw:n:gloss', [Gloss('ab::')])
         self.gmw = Gloss(u'abw:n:gloss', [Gloss('ab::'), Gloss('w::')])
-        self.patm = Gloss('::', [Gloss('{<.>|b}::')])
-        self.patmw = Gloss('::', [Gloss('{<.>|b}::'), Gloss('w::')])
+        self.patm = Gloss('::', [Gloss('{<re>.</re>|b}::')])
+        self.patmw = Gloss('::', [Gloss('{<re>.</re>|b}::'), Gloss('w::')])
 
     def test_gloss_general(self):
         # test gloss creation
