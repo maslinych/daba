@@ -68,14 +68,27 @@ def parse(seq):
 
 class Grammar(object):
     def __init__(self,filename,encoding='utf-8'):
+        def preprocess(gstring):
+            mdict = {}
+            lines = gstring.split('\n')
+            for line in lines:
+                if line.startswith('macro'):
+                    fields = line.split()
+                    mdict[fields[1]] = fields[2]
+            filtered = '\n'.join(filter(lambda i: not i.startswith('macro'), lines))
+            for macro,replacement in mdict.iteritems():
+                filtered = filtered.replace(macro, replacement)
+            return filtered
+
         with open(filename, 'r') as gf:
-            text = gf.read().decode(encoding)
+            text = preprocess(gf.read().decode(encoding))
             gdict = parse(tokenize(text))
             self.plan = gdict['plan']
             self.patterns = gdict['patterns']
 
 import unittest
 
+# FIXME: TESTS WITH OBSOLETE GLOSS SYNTAX
 class TestGrammarParser(unittest.TestCase):
 
     def setUp(self):
