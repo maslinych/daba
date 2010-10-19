@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 import re
-from objects import Pattern, Gloss
+from ntgloss import Pattern, Gloss
 from funcparserlib.parser import *
 from funcparserlib.lexer import make_tokenizer, Token, LexerError
 
@@ -27,10 +27,14 @@ def parse(seq):
     tokval = lambda x: x.value
     joinif = lambda x: ''.join(i for i in x if i)
     unfoldl = lambda l: [k for j in [i for i in l if i] for k in j]
+    foldl = lambda s: [s]
+    unre = lambda s: s[4:-5]
+    makeset = lambda s: set(s.split('/')) if s else set([])
     make_patterns = lambda x: ('patterns', x)
     name = some(lambda t: t.type == 'Name') >> tokval
     n = lambda s: a(Token('Name', s)) >> tokval
     op = lambda s: a(Token('Op', s)) >> tokval
+    op_ = lambda s: skip(op(s))
     # plan syntax
     f_add = n('add') 
     f_apply = n('apply') 
@@ -45,13 +49,13 @@ def parse(seq):
     plan_dict = oneplus(for_clause) >> dict
     plan = n('plan') + plan_dict  >> tuple
     # pattern syntax
-    regex = some(lambda t: t.type == 'Regex') >> tokval
+    regex = some(lambda t: t.type == 'Regex') >> tokval >> unre
     re_or_string = regex | name
-    splitter = oneplus(op('|') + maybe(re_or_string) >> joinif) >> joinif
-    form_expr = op('{') + maybe(re_or_string) + splitter + op('}') 
-    lemma = (maybe(form_expr) | maybe(re_or_string) ) + op(':') + maybe(name) + op(':') + maybe(re_or_string) >> joinif
+    splitter = oneplus(op_('|') + maybe(re_or_string) ) >> tuple
+    form_expr = op_('{') + (maybe(re_or_string) >> foldl) + splitter + op_('}') >> unfoldl >> tuple
+    lemma = (maybe(form_expr) | maybe(re_or_string) ) + op_(':') + (maybe(name) >> makeset ) + op_(':') + maybe(re_or_string) 
     fullgloss = forward_decl()
-    glosslist = skip(op('[')) + many(fullgloss) + skip(op(']')) 
+    glosslist = skip(op('[')) + many(fullgloss) + skip(op(']')) >> tuple
     fullgloss.define(lemma + maybe(glosslist) >> unarg(Gloss))
     pattern = skip(n('pattern')) + fullgloss + skip(op('|')) + fullgloss >> unarg(Pattern)
     sec_header = skip(n('section')) + name 

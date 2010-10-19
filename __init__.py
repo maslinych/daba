@@ -1,3 +1,3 @@
 #!/usr/bin/pyton
 
-from objects import *
+from ntgloss import *

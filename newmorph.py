@@ -2,22 +2,19 @@
 # -*- coding: utf-8 -*-
 
 import re
-import copy
-from objects import Gloss, CompactGloss, Pattern, Dictionary
+from ntgloss import Gloss, CompactGloss, emptyGloss, Pattern, Dictionary
 
 def nullgloss(word):
     'str -> Gloss'
-    return Gloss(word + '::')
+    return Gloss(word, set([]), '', ())
 
 def lookup_gloss(gloss,gdict):
-    'Gloss, Dictionary -> [Gloss]'
+    'Gloss, Dictionary -> tuple(Gloss)'
     try:
-        pattern = Gloss()
-        pattern.ps = gloss.ps
-        pattern.gloss = gloss.gloss
-        return [dgloss for dgloss in gdict[gloss.form] if dgloss.matches(pattern)]
+        pattern = emptyGloss._replace(ps=gloss.ps, gloss=gloss.gloss)
+        return tuple([dgloss for dgloss in gdict[gloss.form] if dgloss.matches(pattern)])
     except KeyError:
-        return []
+        return ()
 
 unfold = lambda l: [j for i in l for j in i]
 unknown = lambda g: not bool(g.gloss)
@@ -59,8 +56,7 @@ def sequential(func, patterns):
             else:
                 return None
         else:
-            # FIXME: use copy as workaround for side-effect operation of Pattern.apply()
-            applied = func(p[0], copy.deepcopy(gl[0])) 
+            applied = func(p[0], gl[0]) 
             if applied:
                 # FIXME: here we assume func always returns list of len==1
                 if match:
@@ -87,21 +83,33 @@ class Parser(object):
                 'lookup': self.lookup, 
                 'parse': self.parse
                 }
+        self.processing = []
+        for step in self.grammar.plan['token']:
+            if step[0] == 'return':
+                self.processing.append((step[0], lambda l: filter(self.funcdict[step[1]], l), step[1]))
+            else:
+                funclist = []
+                for f in step[1]:
+                    try:
+                        funclist.append(self.funcdict[f])
+                    except KeyError:
+                        funclist.append(self.grammar.patterns[f])
+                self.processing.append((step[0], funclist[0](*funclist[1:]), step[1]))
 
     def lookup(self, lemma):
         'Gloss -> Maybe([Gloss])'
         result = None
         if parsed(lemma):
-            return [lemma]
+            return (lemma,)
         else:
             if lemma.morphemes:
-                new = CompactGloss(base=lemma)
+                new = CompactGloss(*lemma)
                 for i,g in enumerate(lemma.morphemes):
                     if not parsed(g):
                         dictlist = lookup_gloss(g, self.dictionary)
                         if dictlist:
-                            new.morphemes[i] = dictlist
-                result = new.to_glosslist()
+                            new = new._replace(morphemes = tuple([dictlist if j==i else m for j,m in enumerate(new.morphemes)]))
+                result = new.glosslist
                 # TODO: annotate base form with gloss derived from morpheme glosses
             else:
                 result = lookup_gloss(lemma, self.dictionary)
@@ -120,27 +128,19 @@ class Parser(object):
         'word -> (stage, [Gloss])'
         stage = -1
         parsedword = [nullgloss(word)]
-        for step in self.grammar.plan['token']:
-            if step[0] == 'return':
-                filtered = filter(self.funcdict[step[1]], parsedword)
+        for step, stageparser, stagestr in self.processing:
+            if step == 'return':
+                filtered = stageparser(parsedword)
                 if filtered:
                     return (stage, filtered)
             else:
-                funclist = []
-                for f in step[1]:
-                    try:
-                        funclist.append(self.funcdict[f])
-                    except KeyError:
-                        funclist.append(self.grammar.patterns[f])
-                stageparser = funclist[0](*funclist[1:])
                 newparsed = stageparser(parsedword)
                 #FIXME: debug statement
                 if debug:
-                    print funclist
-                    print stage, '\n'.join(' '.join([unicode(p),repr(type(p.morphemes))]) for p in newparsed),
-                    print 
+                    print stagestr
+                    print stage, '\n'.join(unicode(p) for p in newparsed)
                 if not newparsed == parsedword:
-                    stage = step[0]
+                    stage = step
                     parsedword = newparsed
         return (-1, parsedword)
 

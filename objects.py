@@ -41,8 +41,9 @@ def unwrap_re(string):
             if part:
                 if part.startswith('<re>') and part.endswith('</re>'):
                     part = part[4:-5]
+                else:
+                    part = '.+'
                 unfolded[i] = ur'(?P<__group{0}>{1})'.format(i,part)
-            else:
                 unfolded[i] = r'(?P<__group{0}>.+)'.format(i)
         else:
             if part.startswith('<re>') and part.endswith('</re>'):
@@ -77,8 +78,11 @@ class GlossError(Exception):
     def __str__(self):
         return repr(u'malformed gloss: {0}'.format(self.gstring))
 
-class Gloss(object):
-    def __init__(self, gstring = '::', morphemes = None):
+class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
+    def __iter__
+
+class OldGloss(object):
+    def __init__(self, gstring=None, morphemes=None):
         def tokenize(string):
             specs = [
                     ('Regex', (r'({.+}|<re>.+?</re>)', re.UNICODE)),
