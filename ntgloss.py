@@ -6,6 +6,7 @@ from contextlib import closing
 import re
 import cPickle
 import itertools
+import xml.etree.ElementTree as e
 
 unfold = lambda l: [j for i in l for j in i]
 
@@ -129,6 +130,22 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
                 return self
         else:
             return None
+
+    def html(self, root=None, spanclass='w'):
+        w = e.Element('span', {'class': spanclass})
+        w.text = self.form
+        if root:
+            root.append(w)
+        else:
+            root = w
+        ps = e.SubElement(w, 'sub', {'class':'ps'})
+        ps.text = '/'.join(self.ps)
+        gloss = e.SubElement(w, 'sub', {'class':'gloss'})
+        gloss.text = self.gloss
+        for m in self.morphemes:
+            m.html(root=w, spanclass='m')
+        return root
+
 
 emptyGloss = Gloss('',set([]),'',())
 
@@ -292,6 +309,13 @@ class TestObjects(unittest.TestCase):
         # test regex capabilities
         self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',set(['n']),'gloss',()).union(self.gre)))
 
+    def test_gloss_html(self):
+        # text Gloss coercing to html
+        self.assertEquals('<span class="w">ab<sub class="ps">n</sub><sub class="gloss">gloss</sub></span>', 
+                e.tostring(self.ga.html()))
+        self.assertEquals('<span class="w">ab<sub class="ps">n</sub><sub class="gloss">gloss</sub><span class="m">a<sub class="ps">n</sub><sub class="gloss">gloss</sub></span><span class="m">b<sub class="ps">mrph</sub><sub class="gloss">ge</sub></span></span>', 
+                e.tostring(self.gam.html()))
+            
     def test_pattern(self):
         self.assertEquals(True, self.pat.matches(self.ga))
         self.assertEquals(False, self.pat.matches(self.gam))
