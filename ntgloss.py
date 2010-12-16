@@ -6,7 +6,7 @@ from contextlib import closing
 import re
 import cPickle
 import itertools
-import xml.etree.ElementTree as e
+import xml.etree.cElementTree as e
 
 unfold = lambda l: [j for i in l for j in i]
 
@@ -131,20 +131,22 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
         else:
             return None
 
-    def html(self, root=None, spanclass='w'):
+    def html(self, spanclass='w', variant=False):
+        if variant:
+            spanclass = 'lemma var'
+
         w = e.Element('span', {'class': spanclass})
+        
         w.text = self.form
-        if root:
-            root.append(w)
-        else:
-            root = w
-        ps = e.SubElement(w, 'sub', {'class':'ps'})
-        ps.text = '/'.join(self.ps)
+        ps = e.SubElement(w, 'sub', {'class': 'ps'})
+        ps.text = '/'.join(self.ps) or '<?>'
         gloss = e.SubElement(w, 'sub', {'class':'gloss'})
-        gloss.text = self.gloss
+        gloss.text = self.gloss or '<?>'
+
         for m in self.morphemes:
-            m.html(root=w, spanclass='m')
-        return root
+            #NB: SIDE EFFECT!
+            w.append(m.html(spanclass='m'))
+        return w
 
 
 emptyGloss = Gloss('',set([]),'',())
