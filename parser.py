@@ -148,7 +148,14 @@ class Processor(object):
                         if self.script == 'old':
                             #TODO: finish it!
                             wlist = orthography.convertw(token.value)
-                        stage, glosslist = self.parser.lemmatize(token.value.lower())
+                            converts = [self.parser.lemmatize(w.lower()) for w in wlist]
+                            successfull = [x[1] for x in filter(lambda s:s[0]>=0, converts)] or [c[1] for c in converts]
+                            glosslist = []
+                            for gl in successfull:
+                                glosslist.extend(gl)
+                        else:
+                            stage, glosslist = self.parser.lemmatize(token.value.lower())
+
                         variant = False
                         for gloss in glosslist:
                             if not variant:
@@ -174,10 +181,12 @@ class Processor(object):
 
     def write(self, filename):
         e.ElementTree(self.xml).write(filename, self.encoding)
+        self.xml = None
                 
 def main():
     usage = "%prog [options] <infile> <outfile>"
     oparser = optparse.OptionParser(usage)
+    oparser.add_option("-s", "--script", metavar="script", help="Type of script (old, new)", default="new")
     #TODO: implement options
     (options, args) = oparser.parse_args()
     if len(args) != 2:
@@ -185,13 +194,14 @@ def main():
     infile = args[0]
     outfile = args[1]
     # setup parser
-    dl = DictLoader()
-    gr = GrammarLoader()
-    pp = Processor(dl.dictionary, gr.grammar)
-    pp.read_file(infile)
-    pp.parse()
-    pp.write(outfile)
-    exit(0)
+    if infile and outfile:
+        dl = DictLoader()
+        gr = GrammarLoader()
+        pp = Processor(dl.dictionary, gr.grammar, script=options.script)
+        pp.read_file(infile)
+        pp.parse()
+        pp.write(outfile)
+        exit(0)
 
 if __name__ == '__main__':
     main()
