@@ -100,7 +100,7 @@ class MainFrame(wx.Frame):
         def wait_for_parser():
             yield self.processor.parse()
 
-        dlg = wx.MessageDialog(self, 'Please wait: parsing in progress', 'Pleade wait', wx.OK)
+        dlg = wx.MessageDialog(self, 'Please wait: parsing in progress', 'Please wait', wx.OK)
         dlg.ShowModal()
 
         with wait_for_parser():
