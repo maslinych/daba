@@ -57,28 +57,6 @@ class SentText(wx.StaticText):
 
         event.Skip()
 
-class FilePanel(wx.ScrolledWindow):
-    'Text fileview panel'
-    def __init__(self, parent, *args, **kwargs):
-        wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
-        self.parent = parent
-
-    def showFile(self, sentlist):
-        Sizer = wx.BoxSizer(wx.VERTICAL)
-        sentSizer = wx.BoxSizer(wx.VERTICAL)
-        for n, sent in enumerate(sentlist):
-            st = SentText(self, -1, num=n, style=wx.ST_NO_AUTORESIZE)
-            st.SetLabel(sent)
-            st.Wrap(self.GetClientSize().GetWidth()-20)
-            st.Bind(wx.EVT_LEFT_DOWN, st.onMouseEvent)
-            Sizer.Add(st, 1, wx.EXPAND)
-        panel = sentSizer
-        Sizer.Add(panel, 1, wx.EXPAND)
-
-        self.SetSizer(Sizer)
-        self.SetScrollbars(20, 20, 0, 0)
-        self.Sizer.Fit(self)
-        self.Show()
 
 class GlossButton(wx.Panel):
     def __init__(self, parent, gloss, *args, **kwargs):
@@ -109,14 +87,36 @@ class GlossButton(wx.Panel):
         else:
             self.main.SetForegroundColour("Black")
         for child in self.children:
-            child.main.SetValue(not child.main.GetValue())
-            child.OnToggled(event)
+            if bool(child.main.GetValue()) != self.selected:
+                child.main.SetValue(self.selected)
+                child.OnToggled(event)
 
 
-class SentPanel(wx.Panel):
+class FilePanel(wx.ScrolledWindow):
+    'Text fileview panel'
+    def __init__(self, parent, *args, **kwargs):
+        wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
+        self.SetScrollRate(20, 20)
+        self.parent = parent
+
+    def showFile(self, sentlist):
+        Sizer = wx.BoxSizer(wx.VERTICAL)
+        for n, sent in enumerate(sentlist):
+            st = SentText(self, -1, num=n, style=wx.ST_NO_AUTORESIZE)
+            st.SetLabel(sent)
+            st.Wrap(self.GetClientSize().GetWidth()-20)
+            st.Bind(wx.EVT_LEFT_DOWN, st.onMouseEvent)
+            Sizer.Add(st, 1, wx.EXPAND)
+
+        self.SetSizer(Sizer)
+        self.parent.OnUpdate()
+
+
+class SentPanel(wx.ScrolledWindow):
     'Manual disambiguation panel'
     def __init__(self, parent, vertical=True, *args, **kwargs):
-        wx.Panel.__init__(self, parent, *args, **kwargs)
+        wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
+        self.SetScrollRate(20, 20)
         self.parent = parent
         self.vertical = vertical
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
@@ -127,27 +127,6 @@ class SentPanel(wx.Panel):
             text.SetFont(wx.Font(18, None, None, None))
             return text
 
-        def makeGlossBox(parent, gloss, child=False):
-            box = wx.BoxSizer(wx.VERTICAL)
-            #form = makeGlossItem(parent, gloss.form)
-            #ps = makeGlossItem(parent, '/'.join(gloss.ps))
-            #ge = makeGlossItem(parent, gloss.gloss)
-            #box.Add(form, 0, wx.SUNKEN_BORDER)
-            #box.Add(ps, 0, wx.SUNKEN_BORDER)
-            #box.Add(ge, 0, wx.SUNKEN_BORDER)
-            tb = GlossButton(self, -1, u'{0} ({1})\n{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss))
-            tb.Bind(wx.EVT_TOGGLEBUTTON, tb.onToggled)
-            box.Add(tb, 0)
-            #if child:
-            #    parent.children.append(tb)
-            if gloss.morphemes:
-                morphemes = wx.BoxSizer(wx.HORIZONTAL)
-                for morph in gloss.morphemes:
-                    m = makeGlossBox(parent, morph, child=True)
-                    morphemes.Add(m, 0)
-                box.Add(morphemes, 0)
-            return box
-
         def makeGlossSizer(parent, glosslist):
             if self.vertical:
                 box = wx.BoxSizer(wx.HORIZONTAL)
@@ -155,8 +134,7 @@ class SentPanel(wx.Panel):
                 box = wx.BoxSizer(wx.VERTICAL)
             for gloss in glosslist:
                 gbox = GlossButton(parent, gloss)
-                box.Add(gbox, 0, wx.SUNKEN_BORDER)
-                #box.Add(wx.StaticLine(self, wx.HORIZONTAL), 0, wx.EXPAND)
+                box.Add(gbox, 0, wx.TOP | wx.BOTTOM, 4)
             return box
 
         def makeAnnotSizer(parent, annotlist):
@@ -181,10 +159,9 @@ class SentPanel(wx.Panel):
         self.Sizer.Add(self.sent, 0)
         self.annot.Add(makeAnnotSizer(self, sent[1],), wx.EXPAND)
         self.Sizer.Add(self.annot, 0)
-        self.SetSizer(self.Sizer)
-        self.SetAutoLayout(1)
         self.Sizer.Fit(self)
-        self.Show()
+        self.SetSizer(self.Sizer)
+        self.parent.OnUpdate()
 
     def showCurrent(self, nth):
         pass
@@ -213,14 +190,14 @@ class MainFrame(wx.Frame):
         self.filepanel = FilePanel(self)
         self.sentpanel = SentPanel(self)
 
-        Sizer = wx.BoxSizer(wx.HORIZONTAL)
-        Sizer.Add(self.sentpanel, 2, wx.EXPAND)
-        Sizer.Add(self.filepanel, 1, wx.EXPAND)
-        self.SetSizer(Sizer)
-        #self.SetAutoLayout(1)
-        self.Fit()
+        self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.Sizer.Add(self.sentpanel, 2, wx.EXPAND)
+        self.Sizer.Add(self.filepanel, 1, wx.EXPAND)
+        self.SetSizer(self.Sizer)
+        self.Show()
 
-
+    def OnUpdate(self):
+        self.SetSizerAndFit(self.Sizer)
 
     def OnExit(self,e):
         self.Close(True)
@@ -231,7 +208,6 @@ class MainFrame(wx.Frame):
         if dlg.ShowModal() == wx.ID_OK:
             self.infile = os.path.join(dlg.GetDirectory(), dlg.GetFilename())
             self.processor.read_file(self.infile)
-            #self.filepanel.control.SetValue('\n\n'.join(self.processor.txt))
             self.filepanel.showFile(self.processor.txt)
             self.sentpanel.showSent(self.processor.glosses[0])
         dlg.Destroy()
