@@ -80,20 +80,37 @@ class FilePanel(wx.ScrolledWindow):
         self.Sizer.Fit(self)
         self.Show()
 
-class GlossButton(wx.ToggleButton):
-    def __init__(self, parent, *args, **kwargs):
-        wx.ToggleButton.__init__(self, parent, *args, **kwargs)
+class GlossButton(wx.Panel):
+    def __init__(self, parent, gloss, *args, **kwargs):
+        wx.Panel.__init__(self, parent, *args, **kwargs)
         self.selected = False
         self.children = []
 
-    def onToggled(self, event):
+        box = wx.BoxSizer(wx.VERTICAL)
+        # prepare main gloss button
+        self.main = wx.ToggleButton(self, -1, u'{0} ({1})\n{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss))
+        self.main.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggled)
+        box.Add(self.main, 0,wx.EXPAND)
+        # prepare morphemes buttons recursively
+        if gloss.morphemes:
+            morphemes = wx.BoxSizer(wx.HORIZONTAL)
+            for morph in gloss.morphemes:
+                m = GlossButton(self, morph)
+                self.children.append(m)
+                morphemes.Add(m, 0)
+            box.Add(morphemes, 0)
+
+        self.SetSizer(box)
+
+    def OnToggled(self, event):
         self.selected = not self.selected
         if self.selected:
-            self.SetForegroundColour("Blue")
+            self.main.SetForegroundColour("Blue")
         else:
-            self.SetForegroundColour("Black")
+            self.main.SetForegroundColour("Black")
         for child in self.children:
-            child.onToggled(event)
+            child.main.SetValue(not child.main.GetValue())
+            child.OnToggled(event)
 
 
 class SentPanel(wx.Panel):
@@ -137,7 +154,7 @@ class SentPanel(wx.Panel):
             else:
                 box = wx.BoxSizer(wx.VERTICAL)
             for gloss in glosslist:
-                gbox = makeGlossBox(parent, gloss)
+                gbox = GlossButton(parent, gloss)
                 box.Add(gbox, 0, wx.SUNKEN_BORDER)
                 #box.Add(wx.StaticLine(self, wx.HORIZONTAL), 0, wx.EXPAND)
             return box
