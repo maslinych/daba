@@ -80,43 +80,74 @@ class FilePanel(wx.ScrolledWindow):
         self.Sizer.Fit(self)
         self.Show()
 
+class GlossButton(wx.ToggleButton):
+    def __init__(self, parent, *args, **kwargs):
+        wx.ToggleButton.__init__(self, parent, *args, **kwargs)
+        self.selected = False
+        self.children = []
+
+    def onToggled(self, event):
+        self.selected = not self.selected
+        if self.selected:
+            self.SetForegroundColour("Blue")
+        else:
+            self.SetForegroundColour("Black")
+        for child in self.children:
+            child.onToggled(event)
+
+
 class SentPanel(wx.Panel):
     'Manual disambiguation panel'
-    def __init__(self, parent, *args, **kwargs):
+    def __init__(self, parent, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.parent = parent
+        self.vertical = vertical
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
 
     def showSent(self, sent):
         def makeGlossItem(parent, text):
-            return wx.StaticText(parent, -1, text)
+            text = wx.StaticText(parent, -1, text)
+            text.SetFont(wx.Font(18, None, None, None))
+            return text
 
-        def makeGlossBox(parent, gloss):
+        def makeGlossBox(parent, gloss, child=False):
             box = wx.BoxSizer(wx.VERTICAL)
-            form = makeGlossItem(parent, gloss.form)
-            ps = makeGlossItem(parent, '/'.join(gloss.ps))
-            ge = makeGlossItem(parent, gloss.gloss)
-            box.Add(form, 0, wx.SUNKEN_BORDER)
-            box.Add(ps, 0, wx.SUNKEN_BORDER)
-            box.Add(ge, 0, wx.SUNKEN_BORDER)
+            #form = makeGlossItem(parent, gloss.form)
+            #ps = makeGlossItem(parent, '/'.join(gloss.ps))
+            #ge = makeGlossItem(parent, gloss.gloss)
+            #box.Add(form, 0, wx.SUNKEN_BORDER)
+            #box.Add(ps, 0, wx.SUNKEN_BORDER)
+            #box.Add(ge, 0, wx.SUNKEN_BORDER)
+            tb = GlossButton(self, -1, u'{0} ({1})\n{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss))
+            tb.Bind(wx.EVT_TOGGLEBUTTON, tb.onToggled)
+            box.Add(tb, 0)
+            #if child:
+            #    parent.children.append(tb)
             if gloss.morphemes:
                 morphemes = wx.BoxSizer(wx.HORIZONTAL)
                 for morph in gloss.morphemes:
-                    m = makeGlossBox(parent, morph)
+                    m = makeGlossBox(parent, morph, child=True)
                     morphemes.Add(m, 0)
                 box.Add(morphemes, 0)
             return box
 
         def makeGlossSizer(parent, glosslist):
-            box = wx.BoxSizer(wx.VERTICAL)
+            if self.vertical:
+                box = wx.BoxSizer(wx.HORIZONTAL)
+            else:
+                box = wx.BoxSizer(wx.VERTICAL)
             for gloss in glosslist:
                 gbox = makeGlossBox(parent, gloss)
                 box.Add(gbox, 0, wx.SUNKEN_BORDER)
-                box.Add(wx.StaticLine(self, wx.HORIZONTAL), 0, wx.EXPAND)
+                #box.Add(wx.StaticLine(self, wx.HORIZONTAL), 0, wx.EXPAND)
             return box
 
         def makeAnnotSizer(parent, annotlist):
-            box = wx.BoxSizer(wx.HORIZONTAL)
+            if self.vertical:
+                box = wx.BoxSizer(wx.VERTICAL)
+            else:
+                box = wx.BoxSizer(wx.HORIZONTAL)
+
             for glosslist in annotlist:
                 abox = makeGlossSizer(parent, glosslist)
                 box.Add(abox)
@@ -139,7 +170,7 @@ class SentPanel(wx.Panel):
         self.Show()
 
     def showCurrent(self, nth):
-
+        pass
 
 
 class MainFrame(wx.Frame):
