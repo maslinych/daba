@@ -24,6 +24,26 @@ from ntgloss import Gloss
 import xml.etree.cElementTree as e
 from disambiguator import parse_sent
 
+PSLIST = [
+        'n',
+        'adj',
+        'num',
+        'v',
+        'ptcp',
+        'vq',
+        'adv',
+        'onomat',
+        'intj',
+        'conj',
+        'prt',
+        'cop',
+        'dtm',
+        'pers',
+        'pm',
+        'pp',
+        'prn',
+        ]
+
 class FileParser(object):
     def __init__(self):
         self.xml = None
@@ -41,6 +61,7 @@ class FileParser(object):
                     self.txt.append(stup[0])
 
 
+## WIDGETS
 
 
 class SentText(wx.StaticText):
@@ -67,6 +88,7 @@ class GlossButton(wx.Panel):
         box = wx.BoxSizer(wx.VERTICAL)
         # prepare main gloss button
         self.main = wx.ToggleButton(self, -1, u'{0} ({1})\n{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss))
+        self.main.SetBackgroundColour('White')
         self.main.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggled)
         box.Add(self.main, 0,wx.EXPAND)
         # prepare morphemes buttons recursively
@@ -83,7 +105,7 @@ class GlossButton(wx.Panel):
     def OnToggled(self, event):
         self.selected = not self.selected
         if self.selected:
-            self.main.SetForegroundColour("Blue")
+            self.main.SetForegroundColour("Navy")
         else:
             self.main.SetForegroundColour("Black")
         for child in self.children:
@@ -91,6 +113,72 @@ class GlossButton(wx.Panel):
                 child.main.SetValue(self.selected)
                 child.OnToggled(event)
 
+
+class GlossInputDialog(wx.Dialog):
+    def __init__(self, parent, id, title, *args, **kwargs):
+        wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
+        self.morphemes = []
+
+        vbox_top = wx.BoxSizer(wx.VERTICAL)
+        grid = wx.GridBagSizer(1,2)
+        grid.Add(wx.StaticText(self, -1, 'Form:'), (0,0), flag=wx.ALIGN_CENTER_VERTICAL)
+        self.form = wx.ComboBox(self, -1)
+        grid.Add(self.form, (0,1), flag=wx.EXPAND)
+        #grid.Add(wx.StaticText(self, -1, 'PoS tag:'), (0,2), (0,1), wx.ALIGN_CENTER_VERTICAL)
+        self.ps = wx.CheckListBox(self, -1, choices=PSLIST)
+        grid.Add(self.ps, (0,2), (2,1),  flag=wx.EXPAND)
+        grid.Add(wx.StaticText(self, -1, 'Gloss:'), (1,0), flag=wx.ALIGN_CENTER_VERTICAL)
+        self.gloss = wx.ComboBox(self, -1)
+        grid.Add(self.gloss, (1,1), flag=wx.EXPAND)
+        vbox_top.Add(grid, 0, wx.TOP | wx.BOTTOM, 10)
+        addb = wx.Button(self, -1, 'Add morpheme')
+        vbox_top.Add(addb, 0, wx.CENTER)
+        addb.Bind(wx.EVT_BUTTON, self.OnAddMorpheme)
+
+        vbox_top.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0)
+        self.SetSizer(vbox_top)
+
+    def GetGloss(self):
+        form = self.form.GetValue()
+        ps = set(self.ps.GetCheckedStrings())
+        gloss = self.gloss.GetValue()
+        morphemes = tuple(self.morphemes)
+        return Gloss(form, ps, gloss, morphemes)
+
+    def OnAddMorpheme(self, event):
+        if PSLIST[0] is not 'mrph':
+            PSLIST.insert(0, 'mrph')
+        dlg = GlossInputDialog(self, -1, "Add morpheme", pos=map(lambda x: x+10, self.GetPositionTuple()) )
+        if (dlg.ShowModal() == wx.ID_OK):
+            self.morphemes.append(dlg.GetGloss())
+
+
+class ManualAddButton(wx.Panel):
+    def __init__(self, parent, *args, **kwargs):
+        wx.Panel.__init__(self, parent, *args, **kwargs)
+        button = wx.Button(self, -1, "Edit\nmanually")
+        button.Bind(wx.EVT_BUTTON, self.OnShowPopup)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(button, 0, wx.TOP | wx.BOTTOM, 4)
+        self.SetSizer(sizer)
+        
+    def OnShowPopup(self, event):
+        dlg = GlossInputDialog(self, -1, 'Insert gloss manually')
+        if (dlg.ShowModal() == wx.ID_OK):
+            print dlg.GetGloss()
+        dlg.Destroy()
+
+
+    def OnPaneChanged(self, evt=None):
+        self.Layout()
+
+    def MakePaneContent(self, pane):
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(wx.StaticText(self, -1, 'Edit here'), 0)
+        pane.SetSizer(sizer)
+
+
+## PANELS
 
 class FilePanel(wx.ScrolledWindow):
     'Text fileview panel'
@@ -135,6 +223,8 @@ class SentPanel(wx.ScrolledWindow):
             for gloss in glosslist:
                 gbox = GlossButton(parent, gloss)
                 box.Add(gbox, 0, wx.TOP | wx.BOTTOM, 4)
+            ebutton = ManualAddButton(self)
+            box.Add(ebutton, 0)
             return box
 
         def makeAnnotSizer(parent, annotlist):
@@ -197,7 +287,7 @@ class MainFrame(wx.Frame):
         self.Show()
 
     def OnUpdate(self):
-        self.SetSizerAndFit(self.Sizer)
+        self.Layout()
 
     def OnExit(self,e):
         self.Close(True)
