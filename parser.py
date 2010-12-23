@@ -191,10 +191,10 @@ def main():
     (options, args) = oparser.parse_args()
     if len(args) != 2:
         oparser.error("incorrect number of arguments, should be 2: <infile> <outfile>")
-    infile = args[0]
-    outfile = args[1]
-    # setup parser
-    if infile and outfile:
+    else:
+        # setup parser
+        infile = args[0]
+        outfile = args[1]
         dl = DictLoader()
         gr = GrammarLoader()
         pp = Processor(dl.dictionary, gr.grammar, script=options.script)

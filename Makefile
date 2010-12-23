@@ -1,10 +1,16 @@
 PROJECT=mparser
 VERSION := $(shell git describe --abbrev=4)
-WINFILES = newmorph.py orthgraphy.py grammar.py ntgloss.py gparser.pyw
+WINFILES = newmorph.py orthography.py grammar.py ntgloss.py gparser.pyw
 RESOURCES = bamana.bdi bamana.bgr
+FUNCPARSERLIB = /usr/lib/python2.6/site-packages/funcparserlib
 
 %.pyw: %.py
 	cp $< $@
 
-win-bundled:
-	zip -r $(PROJECT)-$(VERSION).zip $(WINFILES) $(RESOURCES)
+default: win-bundled
+
+funcparserlib:
+	cp -r $(FUNCPARSERLIB) .
+
+win-bundled: $(WINFILES) $(RESOURCES) funcparserlib
+	zip -r $(PROJECT)-$(VERSION).zip $(WINFILES) $(RESOURCES) funcparserlib/
