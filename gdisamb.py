@@ -43,9 +43,41 @@ PSLIST = [
         'pm',
         'pp',
         'prn',
+        'PUNCT',
         ]
 
-makeGlossString = lambda gloss: u'{0} ({1})\n{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss)
+def makeGlossString(gloss):
+    if not ''.join(gloss.ps) and not gloss.gloss:
+        return gloss.form
+    else:
+        return u'{0} ({1})\n{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss)
+
+def makeGlossSfm(gloss):
+    sfm = ur"""
+\lx {0}
+\ps {1}
+\ge {2}
+""".format(gloss.form, '/'.join(gloss.ps), gloss.gloss)
+    for m in gloss.morphemes:
+        sfm = sfm + r'\mm ' + ':'.join([gloss.form, '/'.join(gloss.ps), gloss.gloss]) + '\n'
+    return sfm
+
+def makeHtmlAnnotation(annotlist, root=None):
+    if root:
+        annot = root
+        annot.clear()
+        annot.attrib['class'] = 'annot'
+    else:
+        annot = e.Element('span', {'class': 'annot'})
+    for glosslist in annotlist:
+        if len(glosslist) == 1 and 'PUNCT' in glosslist[0].ps:
+            c = e.SubElement(annot, 'span', {'class': 'c'})
+            c.text = glosslist[0].form
+        else:
+            for gloss in glosslist:
+                annot.append(gloss.html())
+    return annot
+
 
 class FileParser(object):
     def __init__(self):
@@ -57,11 +89,19 @@ class FileParser(object):
         self.xml = e.parse(filename)
         self.txt = []
         for p in self.xml.findall('body/p'):
+            annot = None
             for sent in p.findall('span'):
                 if sent.attrib['class'] == 'sent':
-                    stup = parse_sent(sent)
+                    for span in sent.findall('span'):
+                        if span.attrib['class'] == 'annot':
+                            annot = span
+                    stup = parse_sent(sent) + (annot, len(self.glosses))
                     self.glosses.append(stup)
                     self.txt.append(stup[0])
+
+    def write(self, filename):
+        self.xml.write(filename)
+
 
 
 ## WIDGETS
@@ -77,6 +117,7 @@ class SentText(wx.StaticText):
         if event.Moving():
             self.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
         elif event.LeftDown():
+            self.parent.parent.sentpanel.OnSaveResults(event)
             self.parent.parent.sentpanel.ShowSent(self.parent.parent.processor.glosses[self.num])
             self.parent.parent.Layout()
 
@@ -130,6 +171,7 @@ class GlossInputDialog(wx.Dialog):
     def __init__(self, parent, id, title, *args, **kwargs):
         wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
         self.morphemes = []
+        self.parent = parent
 
         vbox_top = wx.BoxSizer(wx.VERTICAL)
         grid = wx.GridBagSizer(2,2)
@@ -149,6 +191,14 @@ class GlossInputDialog(wx.Dialog):
         vbox_top.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0)
         self.SetSizer(vbox_top)
 
+        if self.form in self.parent.parent.parent.parent.localdict:
+            self.SetGloss(self.parent.parent.parent.parent.localdict[self.form])
+
+    def SetGloss(self, gloss):
+        self.form.SetValue(gloss.form)
+        self.ps.SetCheckedStrings(gloss.ps)
+        self.gloss.SetValue(gloss.gloss)
+
     def GetGloss(self):
         form = self.form.GetValue()
         ps = set(self.ps.GetCheckedStrings())
@@ -156,22 +206,26 @@ class GlossInputDialog(wx.Dialog):
         morphemes = tuple(self.morphemes)
         return Gloss(form, ps, gloss, morphemes)
 
+    def SaveGloss(self):
+        self.parent.parent.parent.parent.localdict[self.form] = makeGlossSfm(self.GetGloss())
+
     def OnAddMorpheme(self, event):
         if PSLIST[0] is not 'mrph':
             PSLIST.insert(0, 'mrph')
-        dlg = GlossInputDialog(self, -1, "Add morpheme", pos=map(lambda x: x+20, self.GetPositionTuple()) )
+        dlg = GlossInputDialog(self.GetParent(), -1, "Add morpheme", pos=map(lambda x: x+20, self.GetPositionTuple()) )
         if (dlg.ShowModal() == wx.ID_OK):
             self.morphemes.append(dlg.GetGloss())
 
 
 class GlossEditButton(wx.Panel):
-    def __init__(self, parent, form, *args, **kwargs):
+    def __init__(self, parent, gloss, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         sizer = wx.BoxSizer(wx.VERTICAL)
-        self.button = wx.Button(self, -1, form, style=wx.NO_BORDER)
+        self.gloss = gloss
+        self.button = wx.Button(self, -1, makeGlossString(gloss), style=wx.NO_BORDER)
         sizer.Add(self.button,0)
         self.button.SetSizer(sizer)
-        self.button.Bind(wx.EVT_BUTTON, self.OnShowPopup)
+        self.button.Bind(wx.EVT_BUTTON, self.OnEditGloss)
         self.parent = parent #FIXME: find a better way to reference GlossSelector
         self.statecolours = {
                 1: 'Black',
@@ -181,13 +235,16 @@ class GlossEditButton(wx.Panel):
                 0: 'DarkGreen'
                 }
         
-    def OnShowPopup(self, event):
+    def OnEditGloss(self, event):
         dlg = GlossInputDialog(self, -1, 'Insert gloss manually')
+        dlg.SetGloss(self.gloss)
         if (dlg.ShowModal() == wx.ID_OK):
+            dlg.SaveGloss()
             self.parent.OnSelection(dlg.GetGloss())
         dlg.Destroy()
 
-    def OnStateChange(self, statecode, glossstring):
+    def OnStateChange(self, statecode, gloss):
+        glossstring = makeGlossString(gloss)
         self.button.SetLabel(glossstring)
         self.button.Layout()
         try:
@@ -205,6 +262,7 @@ class GlossSelector(wx.Panel):
         self.selectlist = []
         self.vertical = vertical
         self.mbutton = None
+        self.parent = parent
         self.children = []
 
         if self.vertical:
@@ -214,16 +272,16 @@ class GlossSelector(wx.Panel):
 
         #FIXME: should I keep token string and use it here in spite of glosslist's first form?
         if len(glosslist) > 1:
-            self.glossstring = glosslist[0].form
+            self.gloss = Gloss(glosslist[0].form, set([]), '', ())
             self.statecode = 2
         elif ''.join(glosslist[0].ps) in ['', None, '<?>'] and glosslist[0].gloss in ['', None, '<?>']:
-            self.glossstring = glosslist[0].form
+            self.gloss = Gloss(glosslist[0].form, set([]), '', ())
             self.statecode = -1
         else:
-            self.glossstring = makeGlossString(glosslist[0])
+            self.gloss = glosslist[0]
             self.statecode = 1
         
-        self.UpdateState(self.statecode, self.glossstring)
+        self.UpdateState(self.statecode, self.gloss)
 
         sizerflags = (wx.EXPAND | wx.TOP | wx.BOTTOM, 4)
         sizer.Add(self.mbutton, 0, *sizerflags)
@@ -235,32 +293,32 @@ class GlossSelector(wx.Panel):
 
         self.SetSizer(sizer)
 
-    def UpdateState(self, statecode, glossstring):
+    def UpdateState(self, statecode, gloss):
         if not self.mbutton:
-            self.mbutton = GlossEditButton(self, self.glossstring)
-        self.mbutton.OnStateChange(self.statecode, self.glossstring)
+            self.mbutton = GlossEditButton(self, self.gloss)
+        self.mbutton.OnStateChange(self.statecode, self.gloss)
         self.Layout()
 
     def OnSelection(self, gloss):
         if self.children:
             self.selectlist = [button.gloss for button in self.children if button.selected]
-            print self.selectlist
+            #print self.selectlist
             if len(self.selectlist) > 1:
                 self.statecode = 3
-                self.glosstring = makeGlossString(self.selectlist[0])
+                self.gloss = self.selectlist[0]
             elif len(self.selectlist) == 1:
                 self.statecode = 0
-                self.glossstring = makeGlossString(self.selectlist[0])
+                self.gloss = self.selectlist[0]
             elif len(self.selectlist) == 0:
                 self.statecode = 2
-                self.glossstrng = self.children[0].gloss.form
+                self.gloss = Gloss(self.children[0].gloss.form, set([]), '', ())
             else:
                 print "Bug: Negative selection!", selected
         else:
-            self.glossstring = makeGlossString(gloss)
+            self.gloss = gloss
             self.selectlist = [gloss]
             self.statecode = 0
-        self.UpdateState(self.statecode, self.glossstring)
+        self.UpdateState(self.statecode, self.gloss)
 
 
 class SentenceAnnotation(wx.ScrolledWindow):
@@ -268,6 +326,8 @@ class SentenceAnnotation(wx.ScrolledWindow):
         wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
         self.SetScrollRate(20, 20)
         self.vertical = vertical
+        self.children = []
+        self.parent = parent
 
         if vertical:
             self.Sizer = wx.BoxSizer(wx.VERTICAL)
@@ -275,6 +335,7 @@ class SentenceAnnotation(wx.ScrolledWindow):
             self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
         for glosslist in senttuple[1]:
             abox = GlossSelector(self, glosslist, vertical=self.vertical)
+            self.children.append(abox)
             self.Sizer.Add(abox)
         self.Sizer.Fit(self)
         self.SetSizer(self.Sizer)
@@ -305,25 +366,40 @@ class FilePanel(wx.ScrolledWindow):
 
 class SentPanel(wx.Panel):
     'Manual disambiguation panel'
-    def __init__(self, parent, senttuple=('', ()), vertical=True, *args, **kwargs):
+    def __init__(self, parent, senttuple=('', (), None), vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.senttuple = senttuple
         self.vertical = vertical
+        self.parent = parent
+        self.selectlist = []
+        self.localdict = {}
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
         #self.SetSizer(self.Sizer)
 
     def ShowSent(self, sent):
         self.senttuple = sent
+        self.selectlist = []
         self.Sizer.Clear(deleteWindows=True)
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
+        sentfont = wx.Font(14, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
 
         self.sentsource = wx.StaticText(self, -1, self.senttuple[0])
-        self.sentsource.SetFont(wx.Font(14, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        self.sentsource.SetFont(sentfont)
         self.sentsource.SetForegroundColour('Navy')
+        prevbutton = wx.Button(self, -1, '<')
+        prevbutton.Bind(wx.EVT_BUTTON, self.PrevSentence)
+        nextbutton = wx.Button(self, -1, '>')
+        nextbutton.Bind(wx.EVT_BUTTON, self.NextSentence)
+        prevbutton.SetFont(sentfont)
+        nextbutton.SetFont(sentfont)
         savebutton = wx.Button(self, -1, 'Save results')
-        self.sentsource.Wrap(self.GetClientSize().GetWidth()-savebutton.GetClientSize().GetWidth()-5)
+        savebutton.Bind(wx.EVT_BUTTON, self.OnSaveResults)
+        sentwidth = self.GetClientSize().GetWidth()-savebutton.GetClientSize().GetWidth()-(nextbutton.GetClientSize().GetWidth()*2)-5
+        self.sentsource.Wrap(sentwidth)
         sentsizer = wx.BoxSizer(wx.HORIZONTAL)
+        sentsizer.Add(prevbutton, 0)
         sentsizer.Add(self.sentsource, 1,wx.EXPAND)
+        sentsizer.Add(nextbutton, 0)
         sentsizer.Add(savebutton, 0, wx.ALIGN_RIGHT)
         self.Sizer.Add(sentsizer, 0, wx.EXPAND)
         self.annotlist = SentenceAnnotation(self, self.senttuple, vertical=self.vertical)
@@ -332,9 +408,25 @@ class SentPanel(wx.Panel):
         self.SetSizer(self.Sizer)
         self.Layout()
 
-        #self.Sizer.Fit(self)
-        #self.SetSizer(self.Sizer)
-        #self.parent.OnUpdate()
+    def PrevSentence(self, event):
+        self.OnSaveResults(event)
+        self.ShowSent(self.parent.processor.glosses[self.senttuple[3]-1])
+        self.parent.Layout()
+
+    def NextSentence(self, event):
+        self.OnSaveResults(event)
+        try:
+            self.ShowSent(self.parent.processor.glosses[self.senttuple[3]+1])
+        except IndexError:
+            self.ShowSent(self.parent.processor.glosses[0])
+        self.parent.Layout()
+
+    def OnSaveResults(self, event):
+        for selector in self.annotlist.children:
+            self.selectlist.append(selector.selectlist or selector.glosslist)
+        #NB: operates by SIDE EFFECT on MainFrame().processor.xml
+        makeHtmlAnnotation(self.selectlist, root=self.senttuple[2])
+        self.parent.processor.glosses[self.senttuple[3]] = tuple([self.senttuple[0], self.selectlist, self.senttuple[2], self.senttuple[3]])
 
 
 class MainFrame(wx.Frame):
@@ -355,7 +447,16 @@ class MainFrame(wx.Frame):
         menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
         
+        settingsmenu = wx.Menu()
+        menuVertical = settingsmenu.Append(wx.ID_ANY, "V&ertical", " Toggle horizontal/vertical display mode")
+        self.Bind(wx.EVT_MENU, self.OnVerticalMode, menuVertical)
+        menuBar.Append(settingsmenu,"&Settings") # Adding the "filemenu" to the MenuBar
+        self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
+
         self.dirname = os.curdir
+        self.infile = None
+        self.outfile = None
+        self.dictfile = 'localdict.txt'
         self.processor = FileParser()
         self.filepanel = FilePanel(self)
         self.sentpanel = SentPanel(self)
@@ -366,10 +467,17 @@ class MainFrame(wx.Frame):
         self.SetSizer(self.Sizer)
         self.Show()
 
-    def OnUpdate(self):
+    def OnVerticalMode(self,e):
+        self.sentpanel.vertical = not self.sentpanel.vertical
+        #FIXME: redraw here current sentence
+        self.sentpanel.Layout()
         self.Layout()
 
     def OnExit(self,e):
+        if self.infile:
+            with open(self.dictfile, 'a+') as d:
+                d.write(u'\n\n'.join(self.sentpanel.localdict.values()).encode('utf-8'))
+
         self.Close(True)
 
     def OnOpen(self,e):
@@ -378,10 +486,13 @@ class MainFrame(wx.Frame):
         if dlg.ShowModal() == wx.ID_OK:
             self.infile = os.path.join(dlg.GetDirectory(), dlg.GetFilename())
             self.processor.read_file(self.infile)
-            self.filepanel.ShowFile(self.processor.txt)
+            self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
             self.sentpanel.ShowSent(self.processor.glosses[0])
             self.Layout()
         dlg.Destroy()
+
+    def SaveFiles(self):
+        self.processor.write(self.outfile)
 
     def OnSave(self,e):
         if not self.infile:
@@ -389,22 +500,20 @@ class MainFrame(wx.Frame):
         if not self.outfile:
             self.OnSaveAs(e)
         else:
-            self.OnParse(e)
-            self.processor.write(self.outfile)
+            self.SaveFiles()
 
     def OnSaveAs(self,e):
         if not self.infile:
             self.NoFileError(e)
         else:
-            xfilename = '.'.join([os.path.splitext(self.infile)[0], 'parsed'])
+            xfilename = '.'.join([os.path.splitext(self.infile)[0], 'disamb'])
 
             dlg = wx.FileDialog(self, "Choose a file", os.path.dirname(self.infile), xfilename, "*.html", wx.SAVE)
             if dlg.ShowModal() == wx.ID_OK:
                 self.outfile = os.path.join(dlg.GetDirectory(), dlg.GetFilename())
                 if not os.path.splitext(self.outfile)[1] == '.html' :
                     self.outfile = ''.join([self.outfile, os.path.extsep, 'html'])
-                    self.OnParse(e)
-                    self.processor.write(self.outfile)
+                    self.SaveFiles()
             dlg.Destroy()
 
 
