@@ -1,7 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import re
 import unicodedata
+import funcparserlib.lexer
 
 ## various utility functions (may be moved elsewhere later)
 def multiply_list(amblist):
@@ -29,17 +31,25 @@ def lookup_word(lexicon, word):
 
 conversion_table = {u'è':[u'ɛ'], u'ò':[u'ɔ'], u'èe':[u'ɛɛ'], u'òo':[u'ɔɔ'], u'ng':[u'ng',u'ŋ'], u'ny':[u'ny',u'ɲ']}
 
-from nltk.tokenize import RegexpTokenizer
-
 def graphemes_old(word):
     # split word into maximal length graphemes (old orthography)
-    # !!HACK: converts word to lowercase!!
-    return RegexpTokenizer(r'èe|òo|ny|ng|.').tokenize(word.lower())
+    specs = [
+            ('NG', (r'ng', re.I | re.U)),
+            ('NY', (r'ny', re.I | re.U)),
+            ('EE', (r'è[eè]', re.I | re.U)),
+            ('OO', (r'ò[oò]', re.I | re.U)),
+            ('ANY', (r'.', re.U)),
+            ]
+    tok = funcparserlib.lexer.make_tokenizer(specs)
+    r = [x.value for x in tok(word)]
+    #print 'CW', string, ':', r
+    return r
 
 def convertg(grapheme):
     # convert a single grapheme into a list of corresponding graphemes in new orthography
     try:
-        return conversion_table[grapheme]
+        # !!HACK: converts graphemes to lowercase!!
+        return conversion_table[grapheme.lower()]
     except KeyError:
         return [grapheme]
 
