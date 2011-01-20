@@ -18,7 +18,7 @@
 
 import wx
 import os
-import parser
+import mparser
 from contextlib import contextmanager
 
 class FilePanel(wx.Panel):
@@ -56,9 +56,9 @@ class MainFrame(wx.Frame):
         wx.Frame.__init__(self, parent, *args, **kwargs)
 
         # setup Processor
-        dl = parser.DictLoader()
-        gr = parser.GrammarLoader()
-        self.processor = parser.Processor(dl.dictionary, gr.grammar)
+        dl = mparser.DictLoader()
+        gr = mparser.GrammarLoader()
+        self.processor = mparser.Processor(dl.dictionary, gr.grammar)
 
         self.dirname = os.curdir
         self.infile = None

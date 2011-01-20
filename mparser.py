@@ -55,7 +55,7 @@ class DictLoader(object):
             name, ext = os.path.splitext(f)
             if ext in ['.bdi']:
                 try: 
-                    with open(f) as bdi:
+                    with open(f, 'rb') as bdi:
                         d = cPickle.load(bdi)
                     assert isinstance(d, dict)
                     self.dictionary.update(d)
@@ -73,7 +73,7 @@ class GrammarLoader(object):
             name, ext = os.path.splitext(f)
             if ext in ['.bgr']:
                 try:
-                    with open(f) as gram:
+                    with open(f, 'rb') as gram:
                         g = cPickle.load(gram)
                     assert isinstance(g, grammar.Grammar)
                     self.gramlist.append(f)
