@@ -46,9 +46,11 @@ PSLIST = [
         'PUNCT',
         ]
 
-def makeGlossString(gloss):
-    if not ''.join(gloss.ps) and not gloss.gloss:
+def makeGlossString(gloss, morphemes=False):
+    if not ''.join(gloss.ps) and not gloss.gloss and not gloss.morphemes:
         return gloss.form
+    elif morphemes and gloss.morphemes:
+        return u'{0} ({1}){3}{2}{4}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep, '\n' + os.linesep.join([unicode(m) for m in gloss.morphemes]))
     else:
         return u'{0} ({1}){3}{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep)
 
@@ -225,9 +227,10 @@ class GlossEditButton(wx.Panel):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.gloss = gloss
-        self.button = wx.Button(self, -1, makeGlossString(gloss), style=wx.NO_BORDER)
+        self.button = wx.Button(self, -1, makeGlossString(gloss, morphemes=True), style=wx.NO_BORDER)
         sizer.Add(self.button,0)
-        self.button.SetSizer(sizer)
+
+        self.SetSizer(sizer)
         self.button.Bind(wx.EVT_BUTTON, self.OnEditGloss)
         self.parent = parent #FIXME: find a better way to reference GlossSelector
         self.statecolours = {
@@ -247,9 +250,11 @@ class GlossEditButton(wx.Panel):
         dlg.Destroy()
 
     def OnStateChange(self, statecode, gloss):
-        glossstring = makeGlossString(gloss)
+        glossstring = makeGlossString(gloss, morphemes=True)
         self.button.SetLabel(glossstring)
-        self.button.Layout()
+        self.Layout()
+        self.parent.Layout()
+        self.parent.parent.Layout()
         try:
             self.button.SetForegroundColour(self.statecolours[statecode])
         except KeyError:
