@@ -50,7 +50,7 @@ def makeGlossString(gloss):
     if not ''.join(gloss.ps) and not gloss.gloss:
         return gloss.form
     else:
-        return u'{0} ({1})\n{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss)
+        return u'{0} ({1}){3}{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep)
 
 def makeGlossSfm(gloss):
     sfm = ur"""
@@ -59,7 +59,7 @@ def makeGlossSfm(gloss):
 \ge {2}
 """.format(gloss.form, '/'.join(gloss.ps), gloss.gloss)
     for m in gloss.morphemes:
-        sfm = sfm + r'\mm ' + ':'.join([gloss.form, '/'.join(gloss.ps), gloss.gloss]) + '\n'
+        sfm = sfm + r'\mm ' + ':'.join([gloss.form, '/'.join(gloss.ps), gloss.gloss]) + os.linesep
     return sfm
 
 def makeHtmlAnnotation(annotlist, root=None):
@@ -84,6 +84,7 @@ class FileParser(object):
         self.xml = None
         self.glosses = []
         self.txt = ''
+        self.dirty = False
 
     def read_file(self, filename):
         self.xml = e.parse(filename)
@@ -423,6 +424,8 @@ class SentPanel(wx.Panel):
 
     def OnSaveResults(self, event):
         for selector in self.annotlist.children:
+            if selector.selectlist:
+                self.parent.processor.dirty = True
             self.selectlist.append(selector.selectlist or selector.glosslist)
         #NB: operates by SIDE EFFECT on MainFrame().processor.xml
         makeHtmlAnnotation(self.selectlist, root=self.senttuple[2])
@@ -474,10 +477,8 @@ class MainFrame(wx.Frame):
         self.Layout()
 
     def OnExit(self,e):
-        if self.infile:
-            with open(self.dictfile, 'a+') as d:
-                d.write(u'\n\n'.join(self.sentpanel.localdict.values()).encode('utf-8'))
-
+        if self.processor.dirty:
+            self.OnSave(e)
         self.Close(True)
 
     def OnOpen(self,e):
@@ -491,29 +492,36 @@ class MainFrame(wx.Frame):
             self.Layout()
         dlg.Destroy()
 
-    def SaveFiles(self):
+    def SaveFiles(self,e):
+        if self.sentpanel.localdict:
+            with open(self.dictfile, 'a+') as d:
+                d.write(u'\n\n'.join(self.sentpanel.localdict.values()).encode('utf-8'))
         self.processor.write(self.outfile)
+
 
     def OnSave(self,e):
         if not self.infile:
             self.NoFileError(e)
-        if not self.outfile:
-            self.OnSaveAs(e)
         else:
-            self.SaveFiles()
+            if not self.outfile:
+                self.OnSaveAs(e)
+            else:
+                self.SaveFiles(e)
 
     def OnSaveAs(self,e):
         if not self.infile:
             self.NoFileError(e)
         else:
-            xfilename = '.'.join([os.path.splitext(self.infile)[0], 'disamb'])
+            xfilename = os.path.splitext(self.infile)[0]
+            if not xfilename.endswith('.disamb'):
+                xfilename = '.'.join([xfilename, 'disamb'])
 
             dlg = wx.FileDialog(self, "Choose a file", os.path.dirname(self.infile), xfilename, "*.html", wx.SAVE)
             if dlg.ShowModal() == wx.ID_OK:
                 self.outfile = os.path.join(dlg.GetDirectory(), dlg.GetFilename())
                 if not os.path.splitext(self.outfile)[1] == '.html' :
                     self.outfile = ''.join([self.outfile, os.path.extsep, 'html'])
-                    self.SaveFiles()
+                    self.SaveFiles(e)
             dlg.Destroy()
 
 
