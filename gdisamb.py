@@ -74,8 +74,10 @@ def makeHtmlAnnotation(annotlist, root=None):
             c = e.SubElement(annot, 'span', {'class': 'c'})
             c.text = glosslist[0].form
         else:
-            for gloss in glosslist:
-                annot.append(gloss.html())
+            annot.append(glosslist[0].html())
+            if len(glosslist) > 1:
+                for gloss in glosslist[1:]:
+                    annot[-1].append(gloss.html(variant=True))
     return annot
 
 
