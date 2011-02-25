@@ -234,8 +234,8 @@ class GlossEditButton(wx.Panel):
                 1: 'Black',
                 2: 'Navy',
                 3: 'Blue',
-                -1: 'DarkRed',
-                0: 'DarkGreen'
+                -1: 'Red',
+                0: 'Green'
                 }
         
     def OnEditGloss(self, event):
@@ -243,7 +243,7 @@ class GlossEditButton(wx.Panel):
         dlg.SetGloss(self.gloss)
         if (dlg.ShowModal() == wx.ID_OK):
             dlg.SaveGloss()
-            self.parent.OnSelection(dlg.GetGloss())
+            self.parent.OnEdition(dlg.GetGloss())
         dlg.Destroy()
 
     def OnStateChange(self, statecode, gloss):
@@ -269,9 +269,9 @@ class GlossSelector(wx.Panel):
         self.children = []
 
         if self.vertical:
-            sizer = wx.BoxSizer(wx.HORIZONTAL)
+            self.sizer = wx.BoxSizer(wx.HORIZONTAL)
         else:
-            sizer = wx.BoxSizer(wx.VERTICAL)
+            self.sizer = wx.BoxSizer(wx.VERTICAL)
 
         #FIXME: should I keep token string and use it here in spite of glosslist's first form?
         if len(glosslist) > 1:
@@ -286,26 +286,41 @@ class GlossSelector(wx.Panel):
         
         self.UpdateState(self.statecode, self.gloss)
 
-        sizerflags = (wx.EXPAND | wx.TOP | wx.BOTTOM, 4)
-        sizer.Add(self.mbutton, 0, *sizerflags)
-        if len(glosslist) > 1:
-            for gloss in self.glosslist:
+        self.sizerflags = (wx.EXPAND | wx.TOP | wx.BOTTOM, 4)
+        self.sizer.Add(self.mbutton, 0, *self.sizerflags)
+
+        self.AddButtons(self.glosslist)
+
+    def AddButtons(self, glosslist):
+        if len(self.glosslist) > 1:
+            for gloss in glosslist:
                 gbutton = GlossButton(self, gloss)
                 self.children.append(gbutton)
-                sizer.Add(gbutton, 0, *sizerflags)
-
-        self.SetSizer(sizer)
+                self.sizer.Add(gbutton, 0, *self.sizerflags)
+            self.SetSizer(self.sizer)
+            self.Layout()
 
     def UpdateState(self, statecode, gloss):
         if not self.mbutton:
             self.mbutton = GlossEditButton(self, self.gloss)
         self.mbutton.OnStateChange(self.statecode, self.gloss)
+        self.SetSizer(self.sizer)
         self.Layout()
+
+    def OnEdition(self, gloss):
+        self.gloss = gloss
+        self.glosslist = [gloss] + [button.gloss for button in self.children]
+        self.selectlist.insert(0, gloss)
+        self.statecode = 0
+        self.UpdateState(self.statecode, self.gloss)
 
     def OnSelection(self, gloss):
         if self.children:
-            self.selectlist = [button.gloss for button in self.children if button.selected]
-            #print self.selectlist
+            selected = [button.gloss for button in self.children if button.selected]
+            for i in self.selectlist:
+                if i not in [button.gloss for button in self.children]:
+                    selected.insert(0, i)
+            self.selectlist = selected
             if len(self.selectlist) > 1:
                 self.statecode = 3
                 self.gloss = self.selectlist[0]
@@ -319,6 +334,7 @@ class GlossSelector(wx.Panel):
                 print "Bug: Negative selection!", selected
         else:
             self.gloss = gloss
+            self.glosslist = [gloss]
             self.selectlist = [gloss]
             self.statecode = 0
         self.UpdateState(self.statecode, self.gloss)
