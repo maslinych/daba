@@ -315,7 +315,11 @@ class GlossSelector(wx.Panel):
     def OnEdition(self, gloss):
         self.gloss = gloss
         self.glosslist = [gloss] + [button.gloss for button in self.children]
-        self.selectlist.insert(0, gloss)
+        selectedbuttons = [button.gloss for button in self.children if button.selected]
+        if selectedbuttons:
+            self.selectlist = [gloss] + selectedbuttons
+        else:
+            self.selectlist = [gloss]
         self.statecode = 0
         self.UpdateState(self.statecode, self.gloss)
 
@@ -329,9 +333,11 @@ class GlossSelector(wx.Panel):
             if len(self.selectlist) > 1:
                 self.statecode = 3
                 self.gloss = self.selectlist[0]
+                self.mbutton.gloss = self.selectlist[0]
             elif len(self.selectlist) == 1:
                 self.statecode = 0
                 self.gloss = self.selectlist[0]
+                self.mbutton.gloss = self.selectlist[0]
             elif len(self.selectlist) == 0:
                 self.statecode = 2
                 self.gloss = Gloss(self.children[0].gloss.form, set([]), '', ())
