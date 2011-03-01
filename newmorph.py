@@ -16,6 +16,33 @@ def lookup_gloss(gloss,gdict):
     except KeyError:
         return ()
 
+def parse_composite(form, gdict, numparts):
+    'Str, Dictionary, Int -> [[Str]]'
+    def parse_composite_aux(form, gdict, num, result):
+        if not num:
+            if form:
+                return []
+            else:
+                return result
+        else:
+            prefixes = [p for p in gdict.iter_prefixes(form)][::-1]
+            if not prefixes:
+                return []
+            else:
+                out = []
+                for pref in prefixes:
+                    parsed = parse_composite_aux(form[len(pref):], gdict, num-1, result+[pref])
+                    if parsed:
+                        if isinstance(parsed[0], list):
+                            for i in parsed:
+                                out.append(i)
+                        else:
+                            out.append(parsed)
+                return out
+
+    return [r for r in parse_composite_aux(form, gdict, numparts, []) if r]
+
+
 unfold = lambda l: [j for i in l for j in i]
 unknown = lambda g: not bool(g.gloss)
 def parsed(g):
@@ -81,7 +108,8 @@ class Parser(object):
                 'sequential': sequential, 
                 'parsed': parsed, 
                 'lookup': self.lookup, 
-                'parse': self.parse
+                'parse': self.parse,
+                'decompose': self.decompose
                 }
         self.processing = []
         for step in self.grammar.plan['token']:
@@ -116,13 +144,34 @@ class Parser(object):
             return result
 
     def parse(self, pattern, gloss, joinchar='-'):
-        'Pattern, Gloss, str -> Maybe([Gloss])'
+        'Pattern, Gloss, str="-" -> Maybe([Gloss])'
         # performs formal parsing only, does not lookup words in dict
         result = pattern.apply(gloss)
         if result:
             return [result]
         else:
             return None
+
+    def decompose(self, pattern, gloss):
+        'Pattern, Gloss -> Maybe([Gloss])'
+        try:
+            parts = len(pattern.select.morphemes)
+        except (TypeError):
+            #FIXME: morphemes=None case. Print some error message?
+            pass
+        result = []
+        if  parts < 2:
+            return self.parse(pattern, gloss)
+        else:
+            decomp = [[emptyGloss._replace(form=f) for f in fl] for fl in parse_composite(gloss.form, self.dictionary, parts)]
+            if decomp:
+                newmorphemes = [tuple(m.union(p) for m,p in zip(gl, pattern.select.morphemes)) for gl in decomp]
+                for morphlist in newmorphemes:
+                    if all(morphlist):
+                        result.extend([g for g in self.lookup(gloss._replace(morphemes=morphlist)) if parsed(g)])
+                return result or None
+        return None
+
 
     def lemmatize(self,word, debug=False):
         'word -> (stage, [Gloss])'

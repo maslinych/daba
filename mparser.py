@@ -57,7 +57,7 @@ class DictLoader(object):
                 try: 
                     with open(f, 'rb') as bdi:
                         d = cPickle.load(bdi)
-                    assert isinstance(d, dict)
+                    #assert isinstance(d, dict)
                     self.dictionary.update(d)
                     self.dictlist.append(f)
                 except (cPickle.UnpicklingError, ImportError, AssertionError):
