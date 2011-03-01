@@ -311,6 +311,8 @@ class GlossSelector(wx.Panel):
         self.mbutton.OnStateChange(self.statecode, self.gloss)
         self.SetSizer(self.sizer)
         self.Layout()
+        self.parent.Layout()
+        self.parent.Refresh()
 
     def OnEdition(self, gloss):
         self.gloss = gloss
