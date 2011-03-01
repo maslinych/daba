@@ -49,20 +49,18 @@ class Tokenizer(object):
 
 class DictLoader(object):
     def __init__(self):
-        self.dictlist = []
-        self.dictionary = {}
         for f in os.listdir(os.getcwdu()):
             name, ext = os.path.splitext(f)
             if ext in ['.bdi']:
                 try: 
                     with open(f, 'rb') as bdi:
                         d = cPickle.load(bdi)
-                    #assert isinstance(d, dict)
-                    self.dictionary.update(d)
-                    self.dictlist.append(f)
+                    self.dictionary = d
+                    self.dictlist = [f]
                 except (cPickle.UnpicklingError, ImportError, AssertionError):
                     #FIXME: raise an exception with error message
                     print "Invalid binary dictionary file:", f.encode('utf-8')
+                    break
 
 class GrammarLoader(object):
     def __init__(self):
