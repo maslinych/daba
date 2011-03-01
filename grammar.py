@@ -42,7 +42,8 @@ def parse(seq):
     f_parallel = n('parallel') 
     f_sequential = n('sequential') 
     f_parse = n('parse') + name >> list
-    func_clause = oneplus(f_add | f_apply | f_lookup | f_parallel | f_sequential) + maybe(f_parse) >> unfoldl >> tuple
+    f_decompose = n('decompose') + name >> list
+    func_clause = oneplus(f_add | f_apply | f_lookup | f_parallel | f_sequential) + maybe(f_parse | f_decompose) >> unfoldl >> tuple
     stage_clause = skip(n('stage')) + name + func_clause 
     return_clause = n('return') + skip(n('if')) + name
     for_clause = skip(n('for')) + name + skip(op(':')) + many(stage_clause | return_clause ) >> tuple
