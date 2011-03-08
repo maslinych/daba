@@ -24,6 +24,7 @@ import sys
 import cPickle
 import funcparserlib.lexer 
 import xml.etree.cElementTree as e
+from dictparser import DictParser
 
 
 class Tokenizer(object):
@@ -48,44 +49,100 @@ class Tokenizer(object):
             yield s.group(0) or para
 
 class DictLoader(object):
-    def __init__(self):
-        for f in os.listdir(os.getcwdu()):
+    """ Object holding info about dictionaries state.
+    """
+    def __init__(self, runtimedir='./run'):
+        self.runtimedir = runtimedir
+        self.dictlist = {}
+        self.dictionary = {}
+        for f in os.listdir(self.runtimedir):
             name, ext = os.path.splitext(f)
             if ext in ['.bdi']:
-                try: 
-                    with open(f, 'rb') as bdi:
-                        d = cPickle.load(bdi)
-                    self.dictionary = d
-                    self.dictlist = [f]
-                except (cPickle.UnpicklingError, ImportError, AssertionError):
-                    #FIXME: raise an exception with error message
-                    print "Invalid binary dictionary file:", f.encode('utf-8')
-                    break
+                with open(os.path.join(self.runtimedir, f)) as bdi:
+                    sha, lang, name, ver, dic = cPickle.load(bdi)
+                self.dictlist[(lang, name)] = ( (ver, sha), dic)
+                self.refresh()
+
+    def update(self, dic):
+        if not self.dictionary:
+            self.dictionary = dic
+        else:
+            for key,value in dic.iteritems():
+                if key not in self.dictionary:
+                    self.dictionary[key] = value
+                else:
+                    self.dictionary[key].extend(value)
+
+    def refresh(self):
+        self.dictionary = {}
+        for (ids, dic) in self.dictlist.itervalues():
+            self.update(dic)
+        
+    def add(self, dictfile):
+        with open(dictfile) as f:
+            dp = DictParser(f)
+        if not any(dp.values()):
+            return (None, None)
+        sha, lang, name, ver, dic = dp.values()
+        if (lang, name) not in self.dictlist:
+            self.update(dic)
+        elif not self.dictlist[(lang, name)][0] == (ver, sha):
+            self.remove((lang, name))
+            self.refresh()
+        self.dictlist[(lang, name)] = ((ver, sha), dic)
+        self.save((lang, name))
+        return (lang, name)
+
+    def remove(self, dictid):
+        lang, name = dictid
+        ((ver, sha), dic) = self.dictlist[dictid] 
+        os.unlink(os.path.join(self.runtimedir, os.path.extsep.join(['-'.join([lang, name, sha]), 'bdi'])))
+        del self.dictlist[dictid]
+        self.refresh()
+
+    def save(self, dictid):
+        lang, name = dictid
+        ((ver, sha), dic) = self.dictlist[dictid]
+        with open(os.path.join(self.runtimedir, os.path.extsep.join(['-'.join([lang, name, sha]), 'bdi'])), 'wb') as o:
+            cPickle.dump((sha, lang, name, ver, dic), o)
+
 
 class GrammarLoader(object):
-    def __init__(self):
+    def __init__(self, runtimedir="./run"):
+        self.runtimedir = runtimedir
         self.gramlist = []
         self.grammar = None
         root = os.getcwdu()
-        for f in os.listdir(root):
+        for f in os.listdir(self.runtimedir):
             name, ext = os.path.splitext(f)
             if ext in ['.bgr']:
                 try:
-                    with open(f, 'rb') as gram:
+                    with open(os.path.join(self.runtimedir, f), 'rb') as gram:
                         g = cPickle.load(gram)
                     assert isinstance(g, grammar.Grammar)
-                    self.gramlist.append(f)
+                    self.gramlist = [name]
                     self.grammar = g
                 except (cPickle.UnpicklingError, ImportError, AssertionError):
                     #FIXME: raise an exception with error message
                     print "Invalid binary grammar file:", f
-
+    
+    def load(self, gramfile):
+        self.grammar = grammar.Grammar(gramfile)
+        self.gramlist = [os.path.basename(gramfile)]
+        # take basename of the gramfile as a 
+        for f in os.listdir(self.runtimedir):
+            name, ext= os.path.splitext(f)
+            if ext in ['.bgr']:
+                os.unlink(os.path.join(self.runtimedir, f))
+        with open(os.path.join(self.runtimedir, os.path.extsep.join([os.path.basename(gramfile), 'bgr'])), 'wb') as o:
+            cPickle.dump(self.grammar, o)
 
 class Processor(object):
-    def __init__(self, dictionary, grammar, script='new', encoding='utf-8'):
-        self.parser = newmorph.Parser(dictionary, grammar)
+    def __init__(self, dictloader, grammarloader, script='new', encoding='utf-8'):
+        self.dictloader = dictloader
         self.script = script
         self.encoding = encoding
+        self.grammar = grammarloader.grammar
         self.stylesheet = """
       body { font-size: 120%; }
       span.w, span.c { color: #444; font-size: 14px; display: inline-block; float: none; vertical-align: top; padding: 3px 10px 10px 0; }
@@ -99,6 +156,10 @@ class Processor(object):
       p { vertical-align: top; }
 
         """
+        self.update()
+
+    def update(self):
+        self.parser = newmorph.Parser(self.dictloader.dictionary, self.grammar)
 
     def read_file(self, filename):
         basename, ext = os.path.splitext(filename)
@@ -185,6 +246,7 @@ def main():
     usage = "%prog [options] <infile> <outfile>"
     oparser = optparse.OptionParser(usage)
     oparser.add_option("-s", "--script", metavar="script", help="Type of script (old, new)", default="new")
+    oparser.add_option("-d", "--dictionary", action="append", help="Toolbox dictionary file (may be added multiple times)")
     #TODO: implement options
     (options, args) = oparser.parse_args()
     if len(args) != 2:
@@ -195,6 +257,8 @@ def main():
         outfile = args[1]
         dl = DictLoader()
         gr = GrammarLoader()
+        for dicfile in options.dictionary:
+            dl.add(dicfile)
         pp = Processor(dl.dictionary, gr.grammar, script=options.script)
         pp.read_file(infile)
         pp.parse()

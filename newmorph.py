@@ -100,7 +100,6 @@ class Parser(object):
     def __init__(self, dictionary, grammar):
         'Dictionary, Grammar, str -> Parser'
         self.dictionary = dictionary
-        self.grammar = grammar
         self.funcdict = {
                 'add': f_add, 
                 'apply': f_apply, 
@@ -112,17 +111,21 @@ class Parser(object):
                 'decompose': self.decompose
                 }
         self.processing = []
-        for step in self.grammar.plan['token']:
-            if step[0] == 'return':
-                self.processing.append((step[0], lambda l: filter(self.funcdict[step[1]], l), step[1]))
-            else:
-                funclist = []
-                for f in step[1]:
-                    try:
-                        funclist.append(self.funcdict[f])
-                    except KeyError:
-                        funclist.append(self.grammar.patterns[f])
-                self.processing.append((step[0], funclist[0](*funclist[1:]), step[1]))
+        if grammar is None:
+            self.processing.append((0, f_apply(self.lookup), ('apply', 'lookup')))
+        else:
+            self.grammar = grammar
+            for step in self.grammar.plan['token']:
+                if step[0] == 'return':
+                    self.processing.append((step[0], lambda l: filter(self.funcdict[step[1]], l), step[1]))
+                else:
+                    funclist = []
+                    for f in step[1]:
+                        try:
+                            funclist.append(self.funcdict[f])
+                        except KeyError:
+                            funclist.append(self.grammar.patterns[f])
+                    self.processing.append((step[0], funclist[0](*funclist[1:]), step[1]))
 
     def lookup(self, lemma):
         'Gloss -> Maybe([Gloss])'

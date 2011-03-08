@@ -505,6 +505,7 @@ class MainFrame(wx.Frame):
         self.sentpanel.vertical = not self.sentpanel.vertical
         #FIXME: redraw here current sentence
         self.sentpanel.Layout()
+        self.sentpanel.Refresh()
         self.Layout()
 
     def OnExit(self,e):

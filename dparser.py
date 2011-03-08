@@ -23,7 +23,7 @@ def push_items(d, l, ps=frozenset([]), ge=''):
 
 tlist = []
 key = None
-ps = None
+ps = ''
 ge = None
 with open(sys.argv[1], 'rb') as f:
     for line in f:
@@ -31,7 +31,7 @@ with open(sys.argv[1], 'rb') as f:
             if tlist and ps not in ['mrph']:
                 push_items(findict, tlist, ps, ge)
             tlist = []
-            ps = None
+            ps = ''
             ge = None
             key = None
 

@@ -33,23 +33,118 @@ class FilePanel(wx.Panel):
         self.SetSizer(Sizer)
         self.SetAutoLayout(1)
 
+class DictionaryItem(wx.Panel):
+    def __init__(self, parent, dictloader, dictid, b_id, *args, **kwargs):
+        wx.Panel.__init__(self, parent, *args, **kwargs)
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        (lang, name) = dictid
+        ((ver,sha), dic) = dictloader.dictlist[(lang, name)]
+        hbox.Add(wx.StaticText(self, -1, '\t'.join([lang, name, ver])),0)
+        rbutton = wx.Button(self, b_id, "Remove")
+        self.Bind(wx.EVT_BUTTON, parent.OnRemove, rbutton)
+        hbox.Add(rbutton,0)
+        self.SetSizer(hbox)
+        self.Layout()
+
+
+class DictionaryLister(wx.Panel):
+    def __init__(self, parent, dictloader, *args, **kwargs):
+        wx.Panel.__init__(self, parent, *args, **kwargs)
+        self.buttons = {}
+        self.children = {}
+        self.parent = parent
+        self.dictloader = dictloader
+        dictbox = wx.StaticBox(self, -1, "Available Dictionaries")
+        self.dsizer = wx.StaticBoxSizer(dictbox, wx.VERTICAL)
+        b_id = 0
+        for (lang, name), ((ver, sha), dic) in self.dictloader.dictlist.iteritems():
+            b_id = b_id + 10
+            self.buttons[b_id] = (lang, name)
+            d_item = DictionaryItem(self, self.dictloader, (lang, name), b_id)
+            self.children[(lang, name)] = d_item
+            self.dsizer.Add(d_item,0, wx.TOP|wx.LEFT,10)
+        abutton = wx.Button(self, -1, "Add dictionary")
+        self.Bind(wx.EVT_BUTTON, self.OnAdd, abutton)
+        self.dsizer.Add(abutton,0,wx.TOP|wx.LEFT,10)
+        self.SetSizer(self.dsizer)
+        self.Layout()
+
+    def OnRemove(self, evt):
+        dictid = self.buttons[evt.GetId()]
+        self.dictloader.remove(dictid)
+        self.GetTopLevelParent().processor.update()
+        c_id = self.children[dictid]
+        self.dsizer.Detach(c_id)
+        c_id.Show(False)
+        del self.buttons[evt.GetId()]
+        del self.children[dictid]
+        self.dsizer.Layout()
+        
+        
+    def OnAdd(self, evt):
+        dlg = wx.FileDialog(self, message="Select dictionary file", wildcard="Toolbox dict (*.txt)|*.txt", style=wx.OPEN)
+        if dlg.ShowModal() == wx.ID_OK:
+            dictfile = dlg.GetPath()
+            (lang, name) = self.dictloader.add(dictfile)
+            if lang is None:
+                return
+            self.GetTopLevelParent().processor.update()
+            if not (lang, name) in self.children:
+                ((ver,sha), dic) = self.dictloader.dictlist[(lang, name)]
+                try:
+                    b_id = max(self.buttons.keys())+10
+                except (ValueError):
+                    b_id = 10
+                self.buttons[b_id] = (lang, name)
+                d_item = DictionaryItem(self, self.dictloader, (lang, name), b_id)
+                self.children[(lang,name)] = d_item
+                self.dsizer.Insert(0, d_item, 0, wx.TOP|wx.LEFT,10)
+                self.dsizer.Layout()
+                self.Refresh()
+
+
+class GrammarLister(wx.Panel):
+    def __init__(self, parent, grammarloader, *args, **kwargs):
+        wx.Panel.__init__(self, parent, *args, **kwargs)
+
+        self.grammarloader = grammarloader
+        grambox = wx.StaticBox(self, -1, "Available Grammar")
+        self.gsizer = wx.StaticBoxSizer(grambox, wx.VERTICAL)
+        self.gramlist = wx.StaticText(self, -1, '\n'.join(self.grammarloader.gramlist))
+        self.gsizer.Add(self.gramlist, 0, wx.TOP|wx.LEFT, 10)
+        gbutton = wx.Button(self, -1, "(Re)Load grammar")
+        self.gsizer.Add(gbutton, 0, wx.TOP|wx.LEFT, 10)
+        self.Bind(wx.EVT_BUTTON, self.OnLoad, gbutton)
+        self.SetSizer(self.gsizer)
+        self.Layout()
+
+    def OnLoad(self, evt):
+        dlg = wx.FileDialog(self, message="Select grammar file", wildcard="Mparser grammar (*.txt)|*.txt", style=wx.OPEN)
+        if dlg.ShowModal() == wx.ID_OK:
+            gramfile = dlg.GetPath()
+            self.grammarloader.load(gramfile)
+            self.GetTopLevelParent().processor.update()
+            oldname = self.gramlist
+            oldname.Show(False)
+            self.gramlist = wx.StaticText(self, -1, '\n'.join(self.grammarloader.gramlist))
+            self.gsizer.Replace(oldname, self.gramlist)
+            self.gramlist.Show(True)
+            self.Layout()
+
 class ResourcePanel(wx.Panel):
-    def __init__(self, parent, *args, **kwargs):
+    def __init__(self, parent, dictloader, grammarloader, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
 
         Sizer = wx.BoxSizer(wx.VERTICAL)
-        dictbox = wx.StaticBox(self, -1, "Available Dictionaries")
-        self.dsizer = wx.StaticBoxSizer(dictbox, wx.VERTICAL)
-        Sizer.Add(self.dsizer, 1, wx.EXPAND)
+        dictlist = DictionaryLister(self, dictloader)
+        Sizer.Add(dictlist, 1, wx.EXPAND)
          
-        grambox = wx.StaticBox(self, -1, "Available Grammar")
-        self.gsizer = wx.StaticBoxSizer(grambox, wx.VERTICAL)
-        Sizer.Add(self.gsizer, 1, wx.EXPAND)
+        gramlist = GrammarLister(self, grammarloader)
+        Sizer.Add(gramlist, 1, wx.EXPAND)
 
         self.SetSizer(Sizer)
         self.SetAutoLayout(1)
         
-
 class MainFrame(wx.Frame):
     'Main frame'
     def __init__(self, parent, *args, **kwargs):
@@ -58,20 +153,16 @@ class MainFrame(wx.Frame):
         # setup Processor
         dl = mparser.DictLoader()
         gr = mparser.GrammarLoader()
-        self.processor = mparser.Processor(dl.dictionary, gr.grammar)
 
         self.dirname = os.curdir
         self.infile = None
         self.outfile = None
         
         self.filepanel = FilePanel(self)
-        self.resourcepanel = ResourcePanel(self)
+        self.resourcepanel = ResourcePanel(self, dl, gr)
 
-        dictlist = wx.StaticText(self.resourcepanel, -1, '\n'.join(dl.dictlist))
-        self.resourcepanel.dsizer.Add(dictlist, 0, wx.TOP|wx.LEFT, 10)
 
-        gramlist = wx.StaticText(self.resourcepanel, -1, '\n'.join(gr.gramlist))
-        self.resourcepanel.gsizer.Add(gramlist, 0, wx.TOP|wx.LEFT, 10)
+        self.processor = mparser.Processor(dl, gr)
 
         filemenu= wx.Menu()
         menuOpen = filemenu.Append(wx.ID_OPEN,"O&pen"," Open text file")
