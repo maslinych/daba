@@ -25,19 +25,22 @@ import cPickle
 import funcparserlib.lexer 
 import xml.etree.cElementTree as e
 from dictparser import DictParser
+import formats
 
 
 class Tokenizer(object):
     def tokenize(self, string):
         'unicode -> Sequence(Token)'
         specs = [
+                ('Comment', (r'<c>.*?</c>',)),
+                ('Tag', (r'<.*?>',)),
                 ('NL', (r'[\r\n]+',)),
                 ('Space', (r'\s+',re.UNICODE)),
                 ('Punct', (r'([:;,]+)',re.UNICODE)),
                 ('SentPunct', (r'([.!?]+|[)"])',re.UNICODE)),
                 ('Cardinal', (r'\d+',re.UNICODE)),
                 ('Word', (r"\w+([-]\w+)*[']?",re.UNICODE)),
-                ('Nonword', (r'\W+', re.UNICODE)),
+                ('Nonword', (r'\W', re.UNICODE)),
                 ]
         useless = ['NL', 'Space']
         tok = funcparserlib.lexer.make_tokenizer(specs)
@@ -143,19 +146,6 @@ class Processor(object):
         self.script = script
         self.encoding = encoding
         self.grammar = grammarloader.grammar
-        self.stylesheet = """
-      body { font-size: 120%; }
-      span.w, span.c { color: #444; font-size: 14px; display: inline-block; float: none; vertical-align: top; padding: 3px 10px 10px 0; }
-      span.m { color: red; font-size: 14px; display: block; float: left; vertical-align: top; padding: 3px 10px 10px 0; }
-      span.sent { clear: left; display: inline; float: none; padding: 3px 3px 3px 0; }
-      span.annot { clear: left; display: block; float: none; padding: 3px 3px 3px 0; }
-      sub       { color: #606099; font-size: 12px; display: block; vertical-align: top; }
-      sub.lemma, sub.gloss { white-space: nowrap; }
-      span.lemma.var { clear: left; display: block; margin-top: 2px; padding-top: 2px; border-top: 2px solid #EEE; }
-      p { margin-bottom: 8px; }
-      p { vertical-align: top; }
-
-        """
         self.update()
 
     def update(self):
@@ -164,45 +154,27 @@ class Processor(object):
     def read_file(self, filename):
         basename, ext = os.path.splitext(filename)
         if ext in ['.txt']:
-            with open(filename) as f:
-                self.txt = re.split(r'[\r\n]+', f.read().decode(self.encoding))
-            root = e.Element('html')
-            head = e.SubElement(root, 'head')
-            meta = e.SubElement(head, 'meta', {'http-equiv': 'Content-Type', 'content': 'text/html; charset={0}'.format(self.encoding)})
-            body = e.SubElement(root, 'body')
-            self.xml = root
-        elif ext in ['.html', '.xml', '.xhtml']:
-            tree = e.ElementTree()
-            self.xml = tree.parse(filename)
-            head = self.xml.find('head')
-            body = self.xml.find('body')
-            self.txt = [i.text or '\n'.join([j.text for j in i.findall('span') if j.key('class') == 'sent']) for i in self.xml.findall('body/p')]
-        self.body = body
-        style = e.SubElement(head, 'style', {'type': 'text/css'})
-        style.text = self.stylesheet
+            self.metadata, self.txt = formats.TxtReader(filename).data()
+        elif ext in ['.html', '.htm']:
+            self.metadata, self.txt = formats.HtmlReader(filename).data()
 
     def parse(self):
-        self.body.clear()
+        self.parsed = (self.metadata,[])
         for para in self.txt:
-            par = e.Element('p')
+            par = []
             for sent in Tokenizer().split_sentences(para):
-                st = e.SubElement(par, 'span', {'class': 'sent'})
-                st.text = sent.strip('\r\n')
-                st.tail = '\n'
-                annot = e.SubElement(st, 'span', {'class':'annot'})
-                annot.tail = '\n'
+                st = (sent, [])
+                par.append(st)
+                annot = st[1]
                 prevtoken = None
                 for token in Tokenizer().tokenize(sent):
-                    if token.type in ['Punct', 'SentPunct', 'Nonword']:
-                        c = e.SubElement(annot, 'span', {'class':'c'})
-                        c.text = token.value
-                        c.tail = '\n'
+                    if token.type in ['Comment', 'Tag']:
+                        annot.append((token.type, token.value))
+                    elif token.type in ['Punct', 'SentPunct', 'Nonword']:
+                        annot.append(('c', token.value))
                     elif token.type in ['Cardinal']:
                         gloss = Gloss(token.value, set(['num']), 'CARDINAL', ())
-                        n = gloss.html()
-                        n.text = token.value
-                        n.tail = '\n'
-                        annot.append(n)
+                        annot.append(('w', (token.value, 'tokenizer', [gloss])))
                     elif token.type in ['Word']:
                         if self.script == 'old':
                             #TODO: finish it!
@@ -215,32 +187,20 @@ class Processor(object):
                         else:
                             stage, glosslist = self.parser.lemmatize(token.value.lower())
 
-                        variant = False
-                        for gloss in glosslist:
-                            if not variant:
-                                w = gloss.html()
-                                w.tail = '\n'
-                                variant=True
-                            else:
-                                #NB: SIDE EFFECT!
-                                w.append(gloss.html(variant=True))
-                                w.tail = '\n'
                         # suggest proper name variant for capitalized words (not in sentence-initial position
                         if token.value.istitle() and prevtoken not in [None, 'SentPunct'] and 'n.prop' not in set([]).union(*[g.ps for g in glosslist]):
                             propn = Gloss(token.value, set(['n.prop']), token.value, ())
-                            w.append(propn.html(variant=True))
-                        annot.append(w)
-                        annot.tail = '\n'
-                    prevtoken = token.type
-            self.body.append(par)
-        return self.xml
+                            glosslist.insert(0, propn)
 
-    def html(self):
-        return self.xml
+                        annot.append(('w', (token.value, stage, glosslist)))
+
+                    prevtoken = token.type
+            self.parsed[1].append(par)
+        return self.parsed
 
     def write(self, filename):
-        e.ElementTree(self.xml).write(filename, self.encoding)
-        self.xml = None
+        formats.HtmlWriter(self.parsed, filename, self.encoding).write()
+
                 
 def main():
     usage = "%prog [options] <infile> <outfile>"
@@ -257,9 +217,10 @@ def main():
         outfile = args[1]
         dl = DictLoader()
         gr = GrammarLoader()
-        for dicfile in options.dictionary:
-            dl.add(dicfile)
-        pp = Processor(dl.dictionary, gr.grammar, script=options.script)
+        if options.dictionary:
+            for dicfile in options.dictionary:
+                dl.add(dicfile)
+        pp = Processor(dl, gr, script=options.script)
         pp.read_file(infile)
         pp.parse()
         pp.write(outfile)
