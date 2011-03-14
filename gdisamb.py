@@ -535,6 +535,7 @@ class MainFrame(wx.Frame):
     def OnVerticalMode(self,e):
         vertical = not self.sentpanel.vertical
         snum = self.sentpanel.snum
+        self.sentpanel.OnSaveResults(e)
         oldsentpanel = self.sentpanel
         self.sentpanel = SentPanel(self,vertical=vertical)
         self.Sizer.Detach(oldsentpanel)
