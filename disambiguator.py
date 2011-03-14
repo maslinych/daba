@@ -25,36 +25,6 @@ import xml.etree.cElementTree as e
 #       annot
 #               c|w
 #                       m|lemma var>>
-def elem_to_gloss(xgloss):
-    morphemes = []
-    if xgloss.attrib['class'] in ['w', 'm', 'lemma var']:
-        form = xgloss.text
-        for i in xgloss.getchildren():
-            if i.attrib['class'] == 'ps':
-                ps = set(i.text.split('/'))
-            elif i.attrib['class'] == 'gloss':
-                gloss = i.text
-            elif i.attrib['class'] == 'm':
-                morphemes.append(elem_to_gloss(i))
-    elif xgloss.attrib['class'] in ['c']:
-        form = xgloss.text
-        ps = set(['PUNCT'])
-        gloss = ''
-    return Gloss(form, ps, gloss, tuple(morphemes))
 
-def parse_sent(sent):
-    text = sent.text
-    annot = []
-    for span in sent.findall('span'):
-        if span.attrib['class'] == 'annot':
-            for w in span.findall('span'):
-                if w.attrib['class'] in ['w', 'c']:
-                    glosslist = []
-                    glosslist.append(elem_to_gloss(w))
-                    for var in w.findall('span'):
-                        if var.attrib['class'] == 'lemma var':
-                            glosslist.append(elem_to_gloss(var))
-                    annot.append(glosslist)
-    return (text, annot)
 
 

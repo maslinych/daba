@@ -192,7 +192,7 @@ class Processor(object):
                             propn = Gloss(token.value, set(['n.prop']), token.value, ())
                             glosslist.insert(0, propn)
 
-                        annot.append(('w', (token.value, stage, glosslist)))
+                        annot.append(('w', (token.value, unicode(stage), glosslist)))
 
                     prevtoken = token.type
             self.parsed[1].append(par)

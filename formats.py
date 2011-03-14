@@ -33,11 +33,59 @@ class HtmlReader(BaseReader):
         tree = e.ElementTree()
         self.xml = tree.parse(filename)
         self.metadata = []
+        self.para = []
+        self.glosses = []
         for md in self.xml.findall('head/meta'):
             name = md.get('name')
             if name is not None:
                 self.metadata.append((name, md.get('content')))
-        self.para = [i.text or ''.join([j.text for j in i.findall('span') if j.get('class') == 'sent']) for i in self.xml.findall('body/p')]
+        #self.para = [i.text or ''.join([j.text for j in i.findall('span') if j.get('class') == 'sent']) for i in self.xml.findall('body/p')]
+        def elem_to_gloss(xgloss):
+            morphemes = []
+            if xgloss.attrib['class'] in ['lemma', 'm', 'lemma var']:
+                form = xgloss.text
+                ps = set([])
+                gloss = ''
+                for i in xgloss.getchildren():
+                    if i.attrib['class'] == 'ps':
+                        ps = set(i.text.split('/'))
+                    elif i.attrib['class'] == 'gloss':
+                        gloss = i.text
+                    elif i.attrib['class'] == 'm':
+                        morphemes.append(elem_to_gloss(i))
+            return Gloss(form, ps, gloss, tuple(morphemes))
+
+        def parse_sent(sent):
+            text = sent.text
+            annot = []
+            for span in sent.findall('span'):
+                if span.attrib['class'] == 'annot':
+                    for w in span.findall('span'):
+                        if w.attrib['class'] == 'w':
+                            #, 'c']:
+                            for lem in w.findall('span'):
+                                if lem.attrib['class'] == 'lemma':
+                                    glosslist = []
+                                    glosslist.append(elem_to_gloss(lem))
+                                    for var in lem.findall('span'):
+                                        if var.attrib['class'] == 'lemma var':
+                                            glosslist.append(elem_to_gloss(var))
+                            annot.append(('w', (w.text, w.attrib['stage'], glosslist)))
+                        elif w.attrib['class'] == 'c':
+                            annot.append((w.attrib['class'], w.text))
+                        elif w.attrib['class'] == 't':
+                            annot.append(('Tag', w.text))
+                        elif w.attrib['class'] == 'comment':
+                            annot.append(('Comment', w.text))
+            return (text, annot)
+
+        for p in self.xml.findall('body/p'):
+            self.para.append(p.text or ''.join([j.text for j in p.findall('span') if j.get('class') == 'sent']))
+            par = []
+            for sent in p.findall('span'):
+                if sent.attrib['class'] == 'sent':
+                    par.append(parse_sent(sent))
+            self.glosses.append(par)
 
 class HtmlWriter(object):
     def __init__(self, (metadata, para), filename, encoding="utf-8"):
@@ -69,6 +117,25 @@ class HtmlWriter(object):
         style = e.SubElement(head, 'style', {'type': 'text/css'})
         style.text = self.stylesheet
 
+        def gloss_to_html(gloss, spanclass='lemma', variant=False):
+            if variant:
+                spanclass = 'lemma var'
+            w = e.Element('span', {'class': spanclass})
+            
+            w.text = gloss.form
+            if gloss.ps:
+                ps = e.SubElement(w, 'sub', {'class': 'ps'})
+                ps.text = '/'.join(gloss.ps)
+            if gloss.gloss:
+                ge = e.SubElement(w, 'sub', {'class':'gloss'})
+                ge.text = gloss.gloss
+
+            for m in gloss.morphemes:
+                #NB: SIDE EFFECT!
+                w.append(gloss_to_html(m, spanclass='m'))
+            return w
+
+
         for para in self.para:
             par = e.Element('p')
             for (senttext, sentannot) in para:
@@ -92,20 +159,19 @@ class HtmlWriter(object):
                         c.tail = '\n'
                     elif toktype in ['w']:
                         sourceform, stage, glosslist = tokvalue
+                        w = e.SubElement(annot, 'span', {'class':'w', 'stage':unicode(stage)})
+                        w.text = sourceform
                         variant = False
                         for gloss in glosslist:
                             if not variant:
-                                try:
-                                    w = gloss.html()
-                                except AttributeError:
-                                    print tokvalue
-                                w.tail = '\n'
+                                l = gloss_to_html(gloss)
+                                l.tail = '\n'
                                 variant=True
                             else:
                                 #NB: SIDE EFFECT!
-                                w.append(gloss.html(variant=True))
-                                w.tail = '\n'
-                        annot.append(w)
+                                l.append(gloss_to_html(gloss, variant=True))
+                                l.tail = '\n'
+                        w.append(l)
             body.append(par)
         self.xml = root
 

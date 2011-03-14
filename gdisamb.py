@@ -22,7 +22,7 @@ from wx.lib.stattext import GenStaticText
 import os
 from ntgloss import Gloss
 import xml.etree.cElementTree as e
-from disambiguator import parse_sent
+import formats
 
 PSLIST = [
         'n.prop',
@@ -85,24 +85,12 @@ def makeHtmlAnnotation(annotlist, root=None):
 
 class FileParser(object):
     def __init__(self):
-        self.xml = None
         self.glosses = []
-        self.txt = ''
         self.dirty = False
 
     def read_file(self, filename):
+        self.metadata, self.txt = formats.HtmlReader(filename).data()
         self.xml = e.parse(filename)
-        self.txt = []
-        for p in self.xml.findall('body/p'):
-            annot = None
-            for sent in p.findall('span'):
-                if sent.attrib['class'] == 'sent':
-                    for span in sent.findall('span'):
-                        if span.attrib['class'] == 'annot':
-                            annot = span
-                    stup = parse_sent(sent) + (annot, len(self.glosses))
-                    self.glosses.append(stup)
-                    self.txt.append(stup[0])
 
     def write(self, filename):
         self.xml.write(filename)
