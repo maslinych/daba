@@ -537,7 +537,11 @@ class MainFrame(wx.Frame):
         snum = self.sentpanel.snum
         oldsentpanel = self.sentpanel
         self.sentpanel = SentPanel(self,vertical=vertical)
-        self.Sizer.Replace(oldsentpanel, self.sentpanel)
+        self.Sizer.Detach(oldsentpanel)
+        oldsentpanel.Show(False)
+        self.Refresh()
+        self.Sizer.Insert(0, self.sentpanel,2,wx.EXPAND)
+        self.Layout()
         self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
         self.Layout()
 
