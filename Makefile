@@ -1,6 +1,6 @@
 PROJECT=mparser
 VERSION := $(shell git describe --abbrev=4)
-WINFILES = newmorph.py orthography.py grammar.py ntgloss.py gparser.pyw mparser.py disambiguator.py gdisamb.pyw dparser.py
+WINFILES = newmorph.py orthography.py grammar.py dictparser.py formats.py ntgloss.py gparser.pyw mparser.py gdisamb.pyw 
 RESOURCES = bamana.bdi bamana.bgr
 FUNCPARSERLIB = /usr/lib/python2.6/site-packages/funcparserlib
 PYTRIE = /usr/lib/python2.6/site-packages/pytrie.py
