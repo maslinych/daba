@@ -261,6 +261,7 @@ class GlossSelector(wx.Panel):
         self.mbutton = None
         self.parent = parent
         self.children = []
+        self.parserstage = self.stage
 
         if self.vertical:
             self.sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -335,13 +336,16 @@ class GlossSelector(wx.Panel):
                 self.statecode = 3
                 self.gloss = self.selectlist[0]
                 self.mbutton.gloss = self.selectlist[0]
+                self.stage = 'gdisamb.3'
             elif len(self.selectlist) == 1:
                 self.statecode = 0
                 self.gloss = self.selectlist[0]
                 self.mbutton.gloss = self.selectlist[0]
+                self.stage = 'gdisamb.0'
             elif len(self.selectlist) == 0:
                 self.statecode = 2
                 self.gloss = Gloss(self.children[0].gloss.form, set([]), '', ())
+                self.stage = self.parserstage
             else:
                 print "Bug: Negative selection!", selected
         else:
@@ -349,6 +353,7 @@ class GlossSelector(wx.Panel):
             self.glosslist = [gloss]
             self.selectlist = [gloss]
             self.statecode = 0
+            self.stage = 'gdisamb.-1'
         self.UpdateState(self.statecode, self.gloss)
 
     def GetToken(self):
