@@ -74,7 +74,9 @@ class DictLoader(object):
                 if key not in self.dictionary:
                     self.dictionary[key] = value
                 else:
-                    self.dictionary[key].extend(value)
+                    for gloss in value:
+                        if gloss not in self.dictionary[key]:
+                            self.dictionary[key].append(gloss)
 
     def refresh(self):
         self.dictionary = {}
@@ -181,6 +183,7 @@ class Processor(object):
                             wlist = orthography.convertw(token.value)
                             converts = [self.parser.lemmatize(w.lower()) for w in wlist]
                             successfull = [x[1] for x in filter(lambda s:s[0]>=0, converts)] or [c[1] for c in converts]
+                            stage = max([c[0] for c in converts])
                             glosslist = []
                             for gl in successfull:
                                 glosslist.extend(gl)
