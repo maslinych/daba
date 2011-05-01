@@ -188,13 +188,13 @@ class Parser(object):
             else:
                 newparsed = stageparser(parsedword)
                 #FIXME: debug statement
-                if debug:
-                    print stagestr
-                    print stage, '\n'.join(unicode(p) for p in newparsed)
                 if not newparsed == parsedword:
                     stage = step
                     parsedword = newparsed
-        return (-1, parsedword)
+                if debug:
+                    print stagestr
+                    print stage, '\n'.join(unicode(p) for p in newparsed)
+        return (stage, parsedword)
 
     def disambiguate(sent):
         # TODO: STUB
