@@ -24,7 +24,7 @@ def tokenize(string):
 def unwrap_re(tupl):
     unre = lambda s: s[4:-5]
     if not isinstance(tupl, tuple):
-        return re.compile(ur'^{0}$'.format(unre(tupl)))
+        return re.compile(ur'^(?P<__group0>{0})$'.format(unre(tupl)))
     unfolded = []
     for i,part in enumerate(tupl):
         # FIXME: to be done by formparser

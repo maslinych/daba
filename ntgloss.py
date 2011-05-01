@@ -188,9 +188,8 @@ class Pattern(object):
                         try:
                             newmorphs = list(zip(*newmorphs)[1])
                         except IndexError:
-                            print newmorphs
-                            for i in self.splitterdict.values():
-                                print i.pattern
+                            #FIXME: should not happen, add proper error handling
+                            print "Error matching pattern:", newmorphs
                         target = target._replace(morphemes = tuple(unfold([[emptyGloss._replace(form=newform) for newform in newmorphs] if j==i else [tm] for j,tm in enumerate(target.morphemes)])))
                         for m in newmorphs[1:]:
                             shift += 1
