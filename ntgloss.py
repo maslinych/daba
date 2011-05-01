@@ -24,9 +24,9 @@ def unwrap_re(tupl):
     return re.compile(ur'^{0}$'.format(''.join(unfolded)))
 
 def match_any(my, other):
-    if isinstance(other, tuple):
-        return bool(unwrap_re(other).search(my))
-    else:
+    try:
+        return bool(other.search(my))
+    except AttributeError:
         return my == other
 
 def provide_morph(gloss):
@@ -157,8 +157,12 @@ class Pattern(object):
         self.mark = mark
         self.splitterdict = {}
         for i,sm in enumerate(self.select.morphemes):
-            if isinstance(sm.form, tuple):
-                self.splitterdict[i] = unwrap_re(sm.form)
+            try:
+                #FIXME: instead of proper checking for regexp
+                if sm.form.pattern:
+                    self.splitterdict[i] = sm.form
+            except AttributeError:
+                pass
 
     def __repr__(self):
         return 'Pattern({0}, {1})'.format(repr(self.select), repr(self.mark))
@@ -181,7 +185,12 @@ class Pattern(object):
                     if k in self.splitterdict: 
                         newmorphs = filter(lambda x: x[0].startswith('__group'), self.splitterdict[k].search(om.form).groupdict().items())
                         newmorphs.sort()
-                        newmorphs = list(zip(*newmorphs)[1])
+                        try:
+                            newmorphs = list(zip(*newmorphs)[1])
+                        except IndexError:
+                            print newmorphs
+                            for i in self.splitterdict.values():
+                                print i.pattern
                         target = target._replace(morphemes = tuple(unfold([[emptyGloss._replace(form=newform) for newform in newmorphs] if j==i else [tm] for j,tm in enumerate(target.morphemes)])))
                         for m in newmorphs[1:]:
                             shift += 1

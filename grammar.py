@@ -21,6 +21,20 @@ def tokenize(string):
     tok = make_tokenizer(specs)
     return [x for x in tok(string) if x.type not in useless]
 
+def unwrap_re(tupl):
+    unre = lambda s: s[4:-5]
+    if not isinstance(tupl, tuple):
+        return re.compile(ur'^{0}$'.format(unre(tupl)))
+    unfolded = []
+    for i,part in enumerate(tupl):
+        # FIXME: to be done by formparser
+        #if part.startswith(('') and part.endswith('',)):
+        #    part = part[4:-5]
+        if not part:
+            part = '.+'
+        unfolded.append(ur'(?P<__group{0}>{1})'.format(i,part))
+    return re.compile(ur'^{0}$'.format(''.join(unfolded)))
+
 def parse(seq):
     'Sequence(Token) -> grammar dict'
     unarg = lambda f: lambda args: f(*args)
@@ -28,7 +42,6 @@ def parse(seq):
     joinif = lambda x: ''.join(i for i in x if i)
     unfoldl = lambda l: [k for j in [i for i in l if i] for k in j]
     foldl = lambda s: [s]
-    unre = lambda s: s[4:-5]
     makeset = lambda s: set(s.split('/')) if s else set([])
     make_patterns = lambda x: ('patterns', x)
     name = some(lambda t: t.type == 'Name') >> tokval
@@ -50,11 +63,12 @@ def parse(seq):
     plan_dict = oneplus(for_clause) >> dict
     plan = n('plan') + plan_dict  >> tuple
     # pattern syntax
-    regex = some(lambda t: t.type == 'Regex') >> tokval >> unre
+    regex = some(lambda t: t.type == 'Regex') >> tokval
     re_or_string = regex | name
+    unregex = regex >> unwrap_re
     splitter = oneplus(op_('|') + maybe(re_or_string) ) >> tuple
-    form_expr = op_('{') + (maybe(re_or_string) >> foldl) + splitter + op_('}') >> unfoldl >> tuple
-    lemma = (maybe(form_expr) | maybe(re_or_string) ) + op_(':') + (maybe(name) >> makeset ) + op_(':') + maybe(re_or_string) 
+    form_expr = op_('{') + (maybe(re_or_string) >> foldl) + splitter + op_('}') >> unfoldl >> tuple >> unwrap_re
+    lemma = maybe(form_expr | unregex | name ) + op_(':') + (maybe(name) >> makeset ) + op_(':') + maybe(name | unregex) 
     fullgloss = forward_decl()
     glosslist = skip(op('[')) + many(fullgloss) + skip(op(']')) >> tuple
     fullgloss.define(lemma + maybe(glosslist) >> unarg(Gloss))

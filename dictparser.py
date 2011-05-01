@@ -30,16 +30,16 @@ class DictParser(object):
         ids = {}
         tlist = []
         key = None
-        ps = ''
+        ps = set()
         ge = ''
 
         for line in fileobj:
             sha.update(line)
             if not line or line.isspace():
-                if tlist and ps is not set(['mrph']):
+                if tlist and not ps == set(['mrph']):
                     push_items(findict, tlist, ps, ge)
                 tlist = []
-                ps = ''
+                ps = set()
                 ge = ''
                 key = None
 
