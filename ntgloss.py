@@ -52,7 +52,11 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
                 yield m
     
     def __unicode__(self):
-        untuple = lambda f: '{%s}' % '|'.join(f) if isinstance(f, tuple) else f
+        def untuple(f):
+            try:
+                return f.pattern
+            except AttributeError:
+                return f
         form = untuple(self.form)
         gloss = untuple(self.gloss)
         gstring = u':'.join([i if i else '' for i in [form,'/'.join(self.ps),gloss]])
@@ -172,30 +176,35 @@ class Pattern(object):
         return provide_morph(other).matches(self.select,fuzzy)
 
     def apply(self, other):
-        target = provide_morph(other)
+        if self.select.morphemes:
+            target = provide_morph(other)
+        else:
+            target = other
         if not self.matches(target):
             return None
+
         smpattern = []
-        shift = 0
-        for k,sm in enumerate(self.select.morphemes):
-            for i,om in enumerate(target.morphemes):
-                # FIXME: should match by whole morphemes pattern
-                if om.matches(sm):
-                    smpattern.append(i+shift)
-                    if k in self.splitterdict: 
-                        newmorphs = filter(lambda x: x[0].startswith('__group'), self.splitterdict[k].search(om.form).groupdict().items())
-                        newmorphs.sort()
-                        try:
-                            newmorphs = list(zip(*newmorphs)[1])
-                        except IndexError:
-                            #FIXME: should not happen, add proper error handling
-                            print "Error matching pattern:", newmorphs
-                        target = target._replace(morphemes = tuple(unfold([[emptyGloss._replace(form=newform) for newform in newmorphs] if j==i else [tm] for j,tm in enumerate(target.morphemes)])))
-                        for m in newmorphs[1:]:
-                            shift += 1
-                            smpattern.append(i+shift)
-                    # NB: search till the first match only
-                    break
+        if self.select.morphemes:
+            shift = 0
+            for k,sm in enumerate(self.select.morphemes):
+                for i,om in enumerate(target.morphemes):
+                    # FIXME: should match by whole morphemes pattern
+                    if om.matches(sm):
+                        smpattern.append(i+shift)
+                        if k in self.splitterdict: 
+                            newmorphs = filter(lambda x: x[0].startswith('__group'), self.splitterdict[k].search(om.form).groupdict().items())
+                            newmorphs.sort()
+                            try:
+                                newmorphs = list(zip(*newmorphs)[1])
+                            except IndexError:
+                                #FIXME: should not happen, add proper error handling
+                                print "Error matching pattern:", newmorphs
+                            target = target._replace(morphemes = tuple(unfold([[emptyGloss._replace(form=newform) for newform in newmorphs] if j==i else [tm] for j,tm in enumerate(target.morphemes)])))
+                            for m in newmorphs[1:]:
+                                shift += 1
+                                smpattern.append(i+shift)
+                        # NB: search till the first match only
+                        break
 
         return target.union(self.mark, pattern=smpattern)
 

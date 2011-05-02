@@ -42,6 +42,7 @@ def parse(seq):
     joinif = lambda x: ''.join(i for i in x if i)
     unfoldl = lambda l: [k for j in [i for i in l if i] for k in j]
     foldl = lambda s: [s]
+    denone = lambda s: s or ()
     makeset = lambda s: set(s.split('/')) if s else set([])
     make_patterns = lambda x: ('patterns', x)
     name = some(lambda t: t.type == 'Name') >> tokval
@@ -71,7 +72,7 @@ def parse(seq):
     lemma = maybe(form_expr | unregex | name ) + op_(':') + (maybe(name) >> makeset ) + op_(':') + maybe(name | unregex) 
     fullgloss = forward_decl()
     glosslist = skip(op('[')) + many(fullgloss) + skip(op(']')) >> tuple
-    fullgloss.define(lemma + maybe(glosslist) >> unarg(Gloss))
+    fullgloss.define(lemma + ( maybe(glosslist) >> denone ) >> unarg(Gloss))
     pattern = skip(n('pattern')) + fullgloss + skip(op('|')) + fullgloss >> unarg(Pattern)
     sec_header = skip(n('section')) + name 
     section = sec_header + many(pattern) 
