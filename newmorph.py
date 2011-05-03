@@ -96,6 +96,21 @@ def sequential(func, patterns):
     # TODO: how to process homonimous affixes? (maybe need to return list of results from single form)
     return lambda gloss: seq(patterns, [gloss])
 
+def firstmatch(func, patterns):
+    '(Gloss, Pattern -> Maybe(Gloss) -> (Gloss -> Maybe([Gloss]))'
+    def seq(p, gl):
+        '(Pattern, Gloss -> Maybe(Gloss)), [Pattern], Gloss -> Gloss'
+        if not p:
+            return None
+        else:
+            applied = func(p[0], gl[0]) 
+            if applied:
+                return applied
+            else:
+                return seq(p[1:], gl)
+
+    return lambda gloss: seq(patterns, [gloss])
+
 class Parser(object):
     def __init__(self, dictionary, grammar):
         'Dictionary, Grammar, str -> Parser'
@@ -105,6 +120,7 @@ class Parser(object):
                 'apply': f_apply, 
                 'parallel': parallel, 
                 'sequential': sequential, 
+                'firstmatch': firstmatch, 
                 'parsed': parsed, 
                 'lookup': self.lookup, 
                 'parse': self.parse,
