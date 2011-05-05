@@ -20,9 +20,10 @@ import wx
 import wx.lib.scrolledpanel as scrolled
 from wx.lib.stattext import GenStaticText
 import os
-from ntgloss import Gloss
-import xml.etree.cElementTree as e
 import formats
+import xml.etree.cElementTree as e
+from ntgloss import Gloss
+from pytrie import StringTrie as trie
 
 PSLIST = [
         'n.prop',
@@ -53,17 +54,6 @@ def makeGlossString(gloss, morphemes=False):
         return u'{0} ({1}){3}{2}{4}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep, '\n' + os.linesep.join([unicode(m) for m in gloss.morphemes]))
     else:
         return u'{0} ({1}){3}{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep)
-
-def makeGlossSfm(gloss):
-    sfm = ur"""
-\lx {0}
-\ps {1}
-\ge {2}
-""".format(gloss.form, '/'.join(gloss.ps), gloss.gloss)
-    for m in gloss.morphemes:
-        sfm = sfm + r'\mm ' + ':'.join([gloss.form, '/'.join(gloss.ps), gloss.gloss]) + os.linesep
-    return sfm
-
 
 class FileParser(object):
     def __init__(self):
@@ -159,7 +149,6 @@ class GlossButton(wx.Panel):
         # do proper referencing to parent GlossSelector widget
         pass
 
-
 class GlossInputDialog(wx.Dialog):
     def __init__(self, parent, id, title, *args, **kwargs):
         wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
@@ -180,16 +169,17 @@ class GlossInputDialog(wx.Dialog):
         grid.Add(addb, (2,1), flag=wx.EXPAND)
         vbox_top.Add(grid, 0, wx.TOP | wx.BOTTOM, 10)
         addb.Bind(wx.EVT_BUTTON, self.OnAddMorpheme)
+        self.form.SetInsertionPoint(0)
+        self.form.Bind(wx.EVT_TEXT, self.OnEditForm)
 
         vbox_top.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0)
         self.SetSizer(vbox_top)
 
-        localdict = self.parent.GetTopLevelParent().localdict
-        if self.form in localdict:
-            self.SetGloss(localdict[self.form])
+        self.localdict = self.parent.GetTopLevelParent().localdict
 
     def SetGloss(self, gloss):
-        self.form.SetValue(gloss.form)
+        if not gloss.form == self.form.GetValue():
+            self.form.SetValue(gloss.form)
         self.ps.SetCheckedStrings(gloss.ps)
         self.gloss.SetValue(gloss.gloss)
 
@@ -200,8 +190,20 @@ class GlossInputDialog(wx.Dialog):
         morphemes = tuple(self.morphemes)
         return Gloss(form, ps, gloss, morphemes)
 
+    def OnEditForm(self, evt):
+        newform = evt.GetString()
+        if newform in self.localdict:
+            self.SetGloss(self.localdict[newform][0])
+            self.key = newform
+    
     def SaveGloss(self):
-        self.parent.GetTopLevelParent().localdict[self.form] = makeGlossSfm(self.GetGloss())
+        #FIXME: homonymous forms will only save last
+        gloss = self.GetGloss()
+        if gloss.form in self.localdict:
+            if gloss not in self.localdict[gloss.form]:
+                self.localdict[gloss.form].insert(0, gloss)
+        else:
+            self.localdict[gloss.form] = [gloss]
 
     def OnAddMorpheme(self, event):
         if PSLIST[0] is not 'mrph':
@@ -216,6 +218,7 @@ class GlossEditButton(wx.Panel):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.gloss = gloss
+        self.state = None
         self.button = wx.Button(self, -1, makeGlossString(gloss, morphemes=True), style=wx.NO_BORDER)
         sizer.Add(self.button,0)
 
@@ -232,10 +235,17 @@ class GlossEditButton(wx.Panel):
         
     def OnEditGloss(self, event):
         dlg = GlossInputDialog(self, -1, 'Insert gloss manually')
-        dlg.SetGloss(self.gloss)
+        localdict = self.GetTopLevelParent().localdict
+        try:
+            dlg.SetGloss(localdict[self.gloss.form][0])
+        except KeyError:
+            dlg.SetGloss(self.gloss)
+
         if (dlg.ShowModal() == wx.ID_OK):
             dlg.SaveGloss()
-            self.parent.OnEdition(dlg.GetGloss())
+            newgloss = dlg.GetGloss()
+            self.gloss = newgloss
+            self.parent.OnEdition(newgloss)
         dlg.Destroy()
 
     def OnStateChange(self, statecode, gloss):
@@ -246,6 +256,7 @@ class GlossEditButton(wx.Panel):
         self.parent.parent.Layout()
         try:
             self.button.SetForegroundColour(self.statecolours[statecode])
+            self.state = statecode
         except KeyError:
             #FIXME: proper error message
             print 'Unknown state code:', statecode
@@ -521,10 +532,15 @@ class MainFrame(wx.Frame):
         self.infile = None
         self.outfile = None
         self.dictfile = 'localdict.txt'
-        self.localdict = {}
         self.processor = FileParser()
         self.filepanel = FilePanel(self)
         self.sentpanel = SentPanel(self)
+
+        #FIXME: loading localdict right on start, should give user possibility to choose
+        if os.path.exists(self.dictfile):
+            self.localdict = formats.DictReader(self.dictfile).udict
+        else:
+            self.localdict = trie({})
 
         self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.Sizer.Add(self.sentpanel, 2, wx.EXPAND)
@@ -564,8 +580,7 @@ class MainFrame(wx.Frame):
 
     def SaveFiles(self,e):
         if self.localdict:
-            with open(self.dictfile, 'a+') as d:
-                d.write(u'\n\n'.join(self.localdict.values()).encode('utf-8'))
+            formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict',ver='0').write()
         self.processor.write(self.outfile)
 
 

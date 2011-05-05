@@ -5,8 +5,14 @@
 
 import os
 import re
+import codecs
+import unicodedata
+import hashlib
 import xml.etree.cElementTree as e
 from ntgloss import Gloss
+from orthography import detone
+from pytrie import StringTrie as trie
+from collections import namedtuple
 
 # Data structure for internal bare text representation:
 # ({metadata}, [para+])
@@ -177,4 +183,110 @@ class HtmlWriter(object):
 
     def write(self):
         e.ElementTree(self.xml).write(self.filename, self.encoding)
+
+
+class DictWriter(object):
+    def __init__(self, udict, filename, lang='', name='', ver='', add=False, encoding='utf-8'):
+        self.lang = lang
+        self.name = name
+        self.ver = ver
+        self.udict = udict
+        self.filename = filename
+        self.encoding = encoding
+        self.add = add
+
+    def write(self):
+        def makeGlossSfm(gloss,morpheme=False):
+            if not morpheme:
+                sfm = ur"""
+\lx {0}
+\ps {1}
+\ge {2}
+                """.format(gloss.form, '/'.join(gloss.ps), gloss.gloss)
+                for m in gloss.morphemes:
+                    sfm = sfm + makeGlossSfm(m, morpheme=True)
+            else:
+                sfm = r'\mm ' + ':'.join([gloss.form, '/'.join(gloss.ps), gloss.gloss]) + os.linesep
+            return sfm
+
+        with codecs.open(self.filename, 'w', encoding=self.encoding) as dictfile:
+            dictfile.write(u'\\lang {0}\n'.format(self.lang))
+            dictfile.write(u'\\name {0}\n'.format(self.name))
+            dictfile.write(u'\\ver {0}\n'.format(self.ver))
+            wordlist = self.udict.keys()
+            #FIXME: poor man's ordering of dictionary articles
+            wordlist.sort()
+            for glosslist in [self.udict[w] for w in wordlist]:
+                for gloss in glosslist:
+                    dictfile.write(makeGlossSfm(gloss))
+                    dictfile.write('\n')
+
+
+class DictReader(object):
+    def __init__(self, filename,encoding='utf-8'):
+
+        def parsemm(v):
+            f, p, g = v.split(':')
+            return Gloss(f, set(p.split('/')), g, ())
+
+        def push_items(d, l, ps=frozenset([]), ge=''):
+            for k, i in l:
+                lx = i._replace(ps=ps,gloss=ge)
+                d.setdefault(k,[]).append(lx)
+                detoned = detone(k)
+                if not detoned == k:
+                    d.setdefault(detoned,[]).append(lx)
+
+        findict = trie({})
+        sha = hashlib.sha1()
+        ids = {}
+        tlist = []
+        key = None
+        ps = set()
+        ge = ''
+
+        with codecs.open(filename, 'r', encoding=encoding) as dictfile:
+            for line in dictfile:
+                sha.update(repr(line))
+                if not line or line.isspace():
+                    if tlist and not ps == set(['mrph']):
+                        push_items(findict, tlist, ps, ge)
+                    tlist = []
+                    ps = set()
+                    ge = ''
+                    key = None
+
+                elif line.startswith('\\'):
+                    tag, space, value = line[1:].partition(' ')
+                    value = value.strip()
+                    if tag in ['lang', 'ver', 'name']:
+                            ids[tag] = value
+                    if tag in ['lx', 'le', 'va', 'vc']:
+                        key = unicodedata.normalize('NFC', value.translate({ord(u'.'):None,ord(u'-'):None}).lower())
+                        tlist.append([key, Gloss(form=value,ps=set([]),gloss="",morphemes=())])
+                    if tag in ['mm']:
+                        tlist[-1][1] = tlist[-1][1]._replace(morphemes=tlist[-1][1].morphemes+(parsemm(value),))
+                    if tag in ['ps'] and not ps:
+                        ps = set(value.split('/'))
+                    if tag in ['ge'] and not ge:
+                        ge = value
+                else:
+                    if tlist:
+                        push_items(findict, tlist, ps, ge)
+
+            self.hash = sha.hexdigest()
+            try:
+                self.lang = ids['lang']
+                self.name = ids['name']
+                self.ver = ids['ver']
+            except KeyError:
+                print r"Dictionary does not contain obligatory \lang, \name or \ver fields.\n\
+                        Please specify them and try to load again."
+            self.udict = findict
+            
+        def values(self):
+            try:
+                return (self.hash, self.lang, self.name, self.ver, self.udict)
+            except AttributeError:
+                return (None, None, None, None, {})
 

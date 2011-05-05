@@ -24,7 +24,6 @@ import sys
 import cPickle
 import funcparserlib.lexer 
 import xml.etree.cElementTree as e
-from dictparser import DictParser
 import formats
 
 
@@ -84,8 +83,7 @@ class DictLoader(object):
             self.update(dic)
         
     def add(self, dictfile):
-        with open(dictfile) as f:
-            dp = DictParser(f)
+        dp = formats.DictReader(dictfile)
         if not any(dp.values()):
             return (None, None)
         sha, lang, name, ver, dic = dp.values()
