@@ -168,14 +168,19 @@ class GlossInputDialog(wx.Dialog):
         addb = wx.Button(self, -1, 'Add morpheme')
         grid.Add(addb, (2,1), flag=wx.EXPAND)
         vbox_top.Add(grid, 0, wx.TOP | wx.BOTTOM, 10)
+        cb = wx.CheckBox(self, -1, "Save to localdict")
+        vbox_top.Add(cb, 0, wx.TOP | wx.BOTTOM, 10)
+
+        cb.Bind(wx.EVT_CHECKBOX, self.OnCheckLocaldict)
         addb.Bind(wx.EVT_BUTTON, self.OnAddMorpheme)
-        self.form.SetInsertionPoint(0)
         self.form.Bind(wx.EVT_TEXT, self.OnEditForm)
 
         vbox_top.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0)
         self.SetSizer(vbox_top)
 
         self.localdict = self.parent.GetTopLevelParent().localdict
+        self.save = True
+        cb.SetValue(True)
 
     def SetGloss(self, gloss):
         if not gloss.form == self.form.GetValue():
@@ -196,14 +201,18 @@ class GlossInputDialog(wx.Dialog):
             self.SetGloss(self.localdict[newform][0])
             self.key = newform
     
+    def OnCheckLocaldict(self, evt):
+        self.save = not self.save
+
     def SaveGloss(self):
         #FIXME: homonymous forms will only save last
-        gloss = self.GetGloss()
-        if gloss.form in self.localdict:
-            if gloss not in self.localdict[gloss.form]:
-                self.localdict[gloss.form].insert(0, gloss)
-        else:
-            self.localdict[gloss.form] = [gloss]
+        if self.save:
+            gloss = self.GetGloss()
+            if gloss.form in self.localdict:
+                if gloss not in self.localdict[gloss.form]:
+                    self.localdict[gloss.form].insert(0, gloss)
+            else:
+                self.localdict[gloss.form] = [gloss]
 
     def OnAddMorpheme(self, event):
         if PSLIST[0] is not 'mrph':
@@ -566,6 +575,11 @@ class MainFrame(wx.Frame):
         if self.processor.dirty:
             self.OnSave(e)
         self.Close(True)
+
+    def NoFileError(self,e):
+        dlg = wx.MessageDialog(self, 'Error: no file opened!', 'No file opened', wx.OK)
+        dlg.ShowModal()
+        dlg.Destroy()
 
     def OnOpen(self,e):
         """ Open a file"""

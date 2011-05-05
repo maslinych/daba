@@ -213,13 +213,15 @@ class DictWriter(object):
             dictfile.write(u'\\lang {0}\n'.format(self.lang))
             dictfile.write(u'\\name {0}\n'.format(self.name))
             dictfile.write(u'\\ver {0}\n'.format(self.ver))
-            wordlist = self.udict.keys()
+            wordlist = []
+            for glosslist in self.udict.values():
+                for gloss in glosslist:
+                    if gloss not in wordlist:
+                        wordlist.append(gloss)
             #FIXME: poor man's ordering of dictionary articles
             wordlist.sort()
-            for glosslist in [self.udict[w] for w in wordlist]:
-                for gloss in glosslist:
-                    dictfile.write(makeGlossSfm(gloss))
-                    dictfile.write('\n')
+            for gloss in wordlist:
+                dictfile.write(makeGlossSfm(gloss))
 
 
 class DictReader(object):
