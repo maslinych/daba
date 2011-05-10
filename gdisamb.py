@@ -273,15 +273,21 @@ class GlossEditButton(wx.Panel):
 
 
 class GlossSelector(wx.Panel):
-    def __init__(self, parent, glosstoken, selectlist, vertical=True, *args, **kwargs):
+    def __init__(self, parent, index, glosstoken, selectlist, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
-        self.toktype, (self.form, self.stage, self.glosslist) = glosstoken
+        try:
+            self.toktype, (self.form, self.stage, self.glosslist) = glosstoken
+        except ValueError:
+            print glosstoken
         self.selectlist = selectlist
         self.vertical = vertical
         self.mbutton = None
         self.parent = parent
         self.children = []
         self.parserstage = self.stage
+        self.index = index
+
+        self.Bind(wx.EVT_CONTEXT_MENU, self.OnContextMenu)
 
         if self.vertical:
             self.sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -379,11 +385,75 @@ class GlossSelector(wx.Panel):
     def GetToken(self):
         return (self.toktype, (self.form, self.stage, self.glosslist))
 
+    def OnContextMenu(self, evt):
+        if not hasattr(self, "joinfwID"):
+            self.joinfwID = wx.NewId()
+            self.joinbwID = wx.NewId()
+            self.splitID = wx.NewId()
+            self.changeID = wx.NewId()
+
+        self.Bind(wx.EVT_MENU, self.OnJoinForward, id=self.joinfwID)
+        self.Bind(wx.EVT_MENU, self.OnJoinBackward, id=self.joinbwID)
+        self.Bind(wx.EVT_MENU, self.OnSplitToken, id=self.splitID)
+        self.Bind(wx.EVT_MENU, self.OnChangeTokenType, id=self.changeID)
+
+        menu = wx.Menu()
+        menu.Append(-1, "Options for: " + self.form)
+        menu.AppendSeparator()
+        joinfw = menu.Append(self.joinfwID, "Join with next token")
+        joinbw = menu.Append(self.joinbwID, "Join with previous token")
+        split = menu.Append(self.splitID, "Split token")
+        change = menu.Append(self.changeID, "Change token type (not implemented)")
+        #FIXME: not implemented yet
+        change.Enable(False)
+
+        #FIXME: lacks elegance, duplicate code, see JoinTwo
+        glosses = self.GetTopLevelParent().processor.glosses
+        sentpanel = self.GetTopLevelParent().sentpanel
+        tokens = glosses[sentpanel.snum][2]
+        if self.index == 0:
+            joinbw.Enable(False)
+        if self.index == len(tokens)-1:
+            joinfw.Enable(False)
+
+        self.PopupMenu(menu)
+        menu.Destroy()
+
+    def JoinTwo(self, first, second):
+        glosses = self.GetTopLevelParent().processor.glosses
+        sentpanel = self.GetTopLevelParent().sentpanel
+        sentstate = glosses[sentpanel.snum]
+        sentpanel.savedstate = tuple([sentstate[0], [i[:] for i in sentstate[1]], sentstate[2][:], sentstate[3]])
+
+        firsttoken = glosses[sentpanel.snum][2][first]
+        nexttoken = glosses[sentpanel.snum][2][second]
+        #FIXME: will break on non-word tokens
+        newform = firsttoken[1][0] + nexttoken[1][0]
+        newtoken = ('w', (newform, -1, [Gloss(newform, set([]),'',())]))
+        sentstate[1][first] = []
+        del sentstate[1][second]
+        sentstate[2][first] = newtoken
+        del sentstate[2][second]
+        sentpanel.ShowSent(glosses[sentpanel.snum], sentpanel.snum)
+
+    def OnJoinForward(self, evt):
+        self.JoinTwo(self.index, self.index+1)
+
+    def OnJoinBackward(self, evt):
+        self.JoinTwo(self.index-1, self.index)
+
+    def OnSplitToken(self, evt):
+        pass
+
+    def OnChangeTokenType(self, evt):
+        pass
+
 class NonglossToken(wx.Panel):
-    def __init__(self, parent, nonglosstoken, selectlist, vertical=True, *args, **kwargs):
+    def __init__(self, parent, index, nonglosstoken, selectlist, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.toktype, self.toktext = nonglosstoken
         self.selectlist = selectlist
+        self.index = index
         if self.toktype in ['c', 'Tag']:
             text = self.toktext
         else:
@@ -398,7 +468,7 @@ class NonglossToken(wx.Panel):
 
 
 class SentenceAnnotation(wx.ScrolledWindow):
-    def __init__(self, parent, sentglosses, sentselect, vertical=True, *args, **kwargs):
+    def __init__(self, parent, sentglosses, sentselect, vertical=False, *args, **kwargs):
         wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
         self.SetScrollRate(20, 20)
         self.vertical = vertical
@@ -408,14 +478,13 @@ class SentenceAnnotation(wx.ScrolledWindow):
             self.Sizer = wx.BoxSizer(wx.VERTICAL)
         else:
             self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
-        for glosstoken,selectlist in zip(sentglosses,sentselect):
+        for (index, (glosstoken,selectlist)) in enumerate(zip(sentglosses,sentselect)):
             if glosstoken[0] == 'w':
-                abox = GlossSelector(self, glosstoken, selectlist, vertical=self.vertical)
+                abox = GlossSelector(self, index, glosstoken, selectlist, vertical=self.vertical)
             else:
-                abox = NonglossToken(self, glosstoken, selectlist)
+                abox = NonglossToken(self, index, glosstoken, selectlist)
             self.children.append(abox)
             self.Sizer.Add(abox)
-        #self.Sizer.Fit(self)
         self.SetSizer(self.Sizer)
         self.Layout()
 
@@ -448,13 +517,20 @@ class SentPanel(wx.Panel):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.vertical = vertical
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
-        #self.SetSizer(self.Sizer)
+        self.savedstate = None
 
     def ShowSent(self, senttuple, snum):
         self.senttext, self.selectlist, self.tokenlist, self.sentindex = senttuple
         self.snum = snum
-        self.Sizer.Clear(deleteWindows=True)
-        self.Sizer = wx.BoxSizer(wx.VERTICAL)
+        #FIXME: segfaults here
+        for c in self.Sizer.GetChildren():
+            if c.IsWindow():
+                w = c.GetWindow()
+            elif c.IsSizer():
+                w = c.GetSizer()
+            self.Sizer.Detach(w)
+            w.Show(False)
+        #self.Sizer = wx.BoxSizer(wx.VERTICAL)
         sentfont = wx.Font(14, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
 
         self.sentsource = wx.StaticText(self, -1, self.senttext)
@@ -478,7 +554,7 @@ class SentPanel(wx.Panel):
         self.Sizer.Add(sentsizer, 0, wx.EXPAND)
         self.annotlist = SentenceAnnotation(self, self.tokenlist, self.selectlist, vertical=self.vertical)
         self.Sizer.Add(self.annotlist, 1, wx.EXPAND)
-        self.SetSizer(self.Sizer)
+        #self.SetSizer(self.Sizer)
         self.Layout()
 
     def PrevSentence(self, event):
@@ -533,7 +609,9 @@ class MainFrame(wx.Frame):
         
         settingsmenu = wx.Menu()
         menuVertical = settingsmenu.Append(wx.ID_ANY, "V&ertical", " Toggle horizontal/vertical display mode")
+        menuUndoTokens = settingsmenu.Append(wx.ID_ANY, "U&ndo join/split tokens", "Undo join/split tokens")
         self.Bind(wx.EVT_MENU, self.OnVerticalMode, menuVertical)
+        self.Bind(wx.EVT_MENU, self.OnUndoTokens, menuUndoTokens)
         menuBar.Append(settingsmenu,"&Settings") 
         self.SetMenuBar(menuBar)  
 
@@ -570,6 +648,16 @@ class MainFrame(wx.Frame):
         self.Layout()
         self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
         self.Layout()
+
+    def OnUndoTokens(self,e):
+        savedstate = self.sentpanel.savedstate
+        if savedstate:
+            snum = self.sentpanel.snum
+            self.processor.glosses[snum] = savedstate
+            self.sentpanel.ShowSent(savedstate, snum)
+            savedstate = None
+        else:
+            print "No undo information"
 
     def OnExit(self,e):
         if self.processor.dirty:
