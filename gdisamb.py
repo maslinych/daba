@@ -222,6 +222,43 @@ class GlossInputDialog(wx.Dialog):
             self.morphemes.append(dlg.GetGloss())
 
 
+class TokenSplitDialog(wx.Dialog):
+    def __init__(self, parent, form, *args, **kwargs):
+        wx.Dialog.__init__(self, parent, -1, "Split gloss")
+        self.form = form
+        self.split = (self.form,)
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        vbox.Add(wx.StaticText(self, -1, "Move cursor to the split point:"))
+        self.formfield = wx.TextCtrl(self, -1, self.form)
+        self.formfield.SetInsertionPoint(0)
+        self.splittext = wx.StaticText(self, -1, self.form)
+        vbox.Add(self.formfield)
+        vbox.Add(self.splittext)
+        splitbutton = wx.Button(self, -1, "Split")
+        vbox.Add(splitbutton)
+        vbox.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0)
+        self.SetSizer(vbox)
+
+        splitbutton.Bind(wx.EVT_BUTTON, self.OnSplit)
+
+    def OnSplit(self, evt):
+        pos = self.formfield.GetInsertionPoint()
+        last = self.formfield.GetLastPosition()
+        if not pos == 0 and not pos == last:
+            first = self.formfield.GetRange(0,pos)
+            second = self.formfield.GetRange(pos,last)
+            self.split = (first, second)
+            sizer = self.GetSizer()
+            sizer.Detach(self.splittext)
+            self.splittext.Show(False)
+            self.splittext = wx.StaticText(self, -1, ' | '.join(self.split))
+            sizer.Insert(2, self.splittext, 0, wx.EXPAND)
+            self.Layout()
+    
+    def GetResult(self):
+        return self.split
+
 class GlossEditButton(wx.Panel):
     def __init__(self, parent, gloss, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
@@ -269,7 +306,6 @@ class GlossEditButton(wx.Panel):
         except KeyError:
             #FIXME: proper error message
             print 'Unknown state code:', statecode
-
 
 
 class GlossSelector(wx.Panel):
@@ -413,7 +449,11 @@ class GlossSelector(wx.Panel):
         tokens = glosses[sentpanel.snum][2]
         if self.index == 0:
             joinbw.Enable(False)
+        elif not tokens[self.index-1][0] == 'w':
+            joinbw.Enable(False)
         if self.index == len(tokens)-1:
+            joinfw.Enable(False)
+        elif not tokens[self.index+1][0] == 'w':
             joinfw.Enable(False)
 
         self.PopupMenu(menu)
@@ -429,12 +469,12 @@ class GlossSelector(wx.Panel):
         nexttoken = glosses[sentpanel.snum][2][second]
         #FIXME: will break on non-word tokens
         newform = firsttoken[1][0] + nexttoken[1][0]
-        newtoken = ('w', (newform, -1, [Gloss(newform, set([]),'',())]))
+        newtoken = ('w', (newform, '-1', [Gloss(newform, set([]),'',())]))
         sentstate[1][first] = []
         del sentstate[1][second]
         sentstate[2][first] = newtoken
         del sentstate[2][second]
-        sentpanel.ShowSent(glosses[sentpanel.snum], sentpanel.snum)
+        sentpanel.ShowSent(sentstate, sentpanel.snum)
 
     def OnJoinForward(self, evt):
         self.JoinTwo(self.index, self.index+1)
@@ -443,7 +483,23 @@ class GlossSelector(wx.Panel):
         self.JoinTwo(self.index-1, self.index)
 
     def OnSplitToken(self, evt):
-        pass
+        dlg = TokenSplitDialog(self,self.form)
+        if dlg.ShowModal() == wx.ID_OK:
+            result = dlg.GetResult()
+            if len(result) > 1:
+                glosses = self.GetTopLevelParent().processor.glosses
+                sentpanel = self.GetTopLevelParent().sentpanel
+                sentstate = glosses[sentpanel.snum]
+                sentpanel.savedstate = tuple([sentstate[0], [i[:] for i in sentstate[1]], sentstate[2][:], sentstate[3]])
+
+                del sentstate[1][self.index]
+                del sentstate[2][self.index]
+                shift = 0
+                for token in result:
+                    sentstate[1].insert(self.index+shift, [])
+                    sentstate[2].insert(self.index+shift, ('w', (token, '-1', [Gloss(token, set([]), '', ())])))
+                    shift = shift+1
+                sentpanel.ShowSent(sentstate, sentpanel.snum)
 
     def OnChangeTokenType(self, evt):
         pass
