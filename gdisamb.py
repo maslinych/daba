@@ -21,6 +21,8 @@ import wx.lib.scrolledpanel as scrolled
 from wx.lib.stattext import GenStaticText
 import os
 import formats
+import datetime
+import codecs
 import xml.etree.cElementTree as e
 from ntgloss import Gloss
 from pytrie import StringTrie as trie
@@ -85,7 +87,25 @@ class FileParser(object):
         fwriter = formats.HtmlWriter((self.metadata, out), filename)
         fwriter.write()
 
+class EditLogger(object):
+    def __init__(self, filename, encoding='utf-8'):
+        self.fileobj = codecs.open(filename, 'a+', encoding=encoding)
 
+    @property
+    def timestamp(self):
+        return datetime.datetime.now().isoformat()
+
+    def LogEdit(self, firstgloss, secondgloss):
+        self.fileobj.write(u'{0}\n'.format('\t'.join([self.timestamp, 'edit', unicode(firstgloss), unicode(secondgloss)])))
+
+    def LogSplit(self, srctoken, tokentuple):
+        self.fileobj.write(u'{0}\n'.format('\t'.join([self.timestamp, 'split', srctoken, ''.join(tokentuple)])))
+
+    def LogJoin(self, srctuple, restoken):
+        self.fileobj.write(u'{0}\n'.format('\t'.join([self.timestamp, 'join', ''.join(srctuple), restoken])))
+
+    def OnExit(self):
+        self.fileobj.close()
 
 ## WIDGETS
 
@@ -230,7 +250,7 @@ class TokenSplitDialog(wx.Dialog):
 
         vbox = wx.BoxSizer(wx.VERTICAL)
         vbox.Add(wx.StaticText(self, -1, "Move cursor to the split point:"))
-        self.formfield = wx.TextCtrl(self, -1, self.form)
+        self.formfield = wx.TextCtrl(self, -1, self.form, style=wx.TE_READONLY)
         self.formfield.SetInsertionPoint(0)
         self.splittext = wx.StaticText(self, -1, self.form)
         vbox.Add(self.formfield)
@@ -322,6 +342,7 @@ class GlossSelector(wx.Panel):
         self.children = []
         self.parserstage = self.stage
         self.index = index
+        self.logger = self.GetTopLevelParent().logger
 
         self.Bind(wx.EVT_CONTEXT_MENU, self.OnContextMenu)
 
@@ -377,6 +398,7 @@ class GlossSelector(wx.Panel):
         self.parent.Refresh()
 
     def OnEdition(self, gloss):
+        oldgloss = self.gloss
         self.gloss = gloss
         self.glosslist = [gloss] + [button.gloss for button in self.children]
         selectedbuttons = [button.gloss for button in self.children if button.selected]
@@ -386,6 +408,7 @@ class GlossSelector(wx.Panel):
             self.selectlist = [gloss]
         self.statecode = 0
         self.UpdateState(self.statecode, self.gloss)
+        self.logger.LogEdit(oldgloss, self.gloss)
 
     def OnSelection(self, gloss):
         if self.children:
@@ -475,6 +498,7 @@ class GlossSelector(wx.Panel):
         sentstate[2][first] = newtoken
         del sentstate[2][second]
         sentpanel.ShowSent(sentstate, sentpanel.snum)
+        self.logger.LogJoin((firsttoken[1][0],nexttoken[1][0]), newform)
 
     def OnJoinForward(self, evt):
         self.JoinTwo(self.index, self.index+1)
@@ -500,6 +524,7 @@ class GlossSelector(wx.Panel):
                     sentstate[2].insert(self.index+shift, ('w', (token, '-1', [Gloss(token, set([]), '', ())])))
                     shift = shift+1
                 sentpanel.ShowSent(sentstate, sentpanel.snum)
+                self.logger.LogSplit(self.form, result)
 
     def OnChangeTokenType(self, evt):
         pass
@@ -584,6 +609,11 @@ class SentPanel(wx.Panel):
                 w = c.GetWindow()
             elif c.IsSizer():
                 w = c.GetSizer()
+                for cc in w.GetChildren():
+                    if cc.IsWindow():
+                        ww = cc.GetWindow()
+                        w.Detach(ww)
+                        ww.Show(False)
             self.Sizer.Detach(w)
             w.Show(False)
         #self.Sizer = wx.BoxSizer(wx.VERTICAL)
@@ -678,6 +708,7 @@ class MainFrame(wx.Frame):
         self.processor = FileParser()
         self.filepanel = FilePanel(self)
         self.sentpanel = SentPanel(self)
+        self.logger = None
 
         #FIXME: loading localdict right on start, should give user possibility to choose
         if os.path.exists(self.dictfile):
@@ -718,6 +749,8 @@ class MainFrame(wx.Frame):
     def OnExit(self,e):
         if self.processor.dirty:
             self.OnSave(e)
+        if self.logger:
+            self.logger.OnExit()
         self.Close(True)
 
     def NoFileError(self,e):
@@ -730,6 +763,8 @@ class MainFrame(wx.Frame):
         dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             self.infile = os.path.join(dlg.GetDirectory(), dlg.GetFilename())
+            logfile = os.path.extsep.join([os.path.splitext(self.infile)[0], 'log'])
+            self.logger = EditLogger(logfile)
             self.processor.read_file(self.infile)
             self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
             self.sentpanel.ShowSent(self.processor.glosses[0], 0)
