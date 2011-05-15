@@ -367,6 +367,8 @@ class GlossSelector(wx.Panel):
 
         self.sizerflags = (wx.EXPAND | wx.TOP | wx.BOTTOM, 4)
         self.sizer.Add(self.mbutton, 0, *self.sizerflags)
+        self.SetSizer(self.sizer)
+        self.Layout()
 
         self.AddButtons(self.glosslist)
 
@@ -543,6 +545,7 @@ class NonglossToken(wx.Panel):
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(widget,0)
         self.SetSizer(sizer)
+        self.Layout()
 
     def GetToken(self):
         return (self.toktype, self.toktext)
@@ -598,6 +601,7 @@ class SentPanel(wx.Panel):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.vertical = vertical
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(self.Sizer)
         self.savedstate = None
 
     def ShowSent(self, senttuple, snum):
@@ -607,15 +611,15 @@ class SentPanel(wx.Panel):
         for c in self.Sizer.GetChildren():
             if c.IsWindow():
                 w = c.GetWindow()
+                self.Sizer.Detach(w)
+                w.Show(False)
             elif c.IsSizer():
-                w = c.GetSizer()
-                for cc in w.GetChildren():
+                s = c.GetSizer()
+                for cc in s.GetChildren():
                     if cc.IsWindow():
                         ww = cc.GetWindow()
-                        w.Detach(ww)
+                        s.Detach(ww)
                         ww.Show(False)
-            self.Sizer.Detach(w)
-            w.Show(False)
         #self.Sizer = wx.BoxSizer(wx.VERTICAL)
         sentfont = wx.Font(14, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
 

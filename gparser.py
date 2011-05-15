@@ -163,6 +163,7 @@ class MainFrame(wx.Frame):
 
 
         self.processor = mparser.Processor(dl, gr)
+        self.parsed = False
 
         filemenu= wx.Menu()
         menuOpen = filemenu.Append(wx.ID_OPEN,"O&pen"," Open text file")
@@ -194,9 +195,14 @@ class MainFrame(wx.Frame):
         dlg = wx.MessageDialog(self, 'Please wait: parsing in progress', 'Please wait', wx.OK)
         dlg.ShowModal()
 
-        with wait_for_parser():
-            dlg.Destroy()
-            self.FinishedParsing(e)
+        if not self.parsed:
+            with wait_for_parser():
+                self.parsed = True
+                dlg.Destroy()
+                self.FinishedParsing(e)
+        else:
+            #FIXME: proper error message or better avoid this case!
+            print "File already parsed!"
 
     def NoFileError(self,e):
         dlg = wx.MessageDialog(self, 'Error: no file opened!', 'No file opened', wx.OK)
@@ -217,6 +223,7 @@ class MainFrame(wx.Frame):
         if dlg.ShowModal() == wx.ID_OK:
             self.infile = os.path.join(dlg.GetDirectory(), dlg.GetFilename())
             self.processor.read_file(self.infile)
+            self.parsed = False
             self.filepanel.control.SetValue('\n\n'.join(self.processor.txt))
         dlg.Destroy()
 

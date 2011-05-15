@@ -286,9 +286,9 @@ class DictReader(object):
                         Please specify them and try to load again."
             self.udict = findict
             
-        def values(self):
-            try:
-                return (self.hash, self.lang, self.name, self.ver, self.udict)
-            except AttributeError:
-                return (None, None, None, None, {})
+    def values(self):
+        try:
+            return (self.hash, self.lang, self.name, self.ver, self.udict)
+        except AttributeError:
+            return (None, None, None, None, {})
 
