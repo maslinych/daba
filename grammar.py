@@ -32,6 +32,8 @@ def unwrap_re(tupl):
         #    part = part[4:-5]
         if not part:
             part = '.+'
+        elif part.startswith('<re>'):
+            part = unre(part)
         unfolded.append(ur'(?P<__group{0}>{1})'.format(i,part))
     return re.compile(ur'^{0}$'.format(''.join(unfolded)))
 
