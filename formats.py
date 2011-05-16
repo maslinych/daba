@@ -229,7 +229,11 @@ class DictReader(object):
 
         def parsemm(v):
             f, p, g = v.split(':')
-            return Gloss(f, set(p.split('/')), g, ())
+            if p:
+                ps = p.split('/')
+            else:
+                ps = []
+            return Gloss(f, set(ps), g, ())
 
         def push_items(d, l, ps=frozenset([]), ge=''):
             for k, i in l:
@@ -269,7 +273,10 @@ class DictReader(object):
                     if tag in ['mm']:
                         tlist[-1][1] = tlist[-1][1]._replace(morphemes=tlist[-1][1].morphemes+(parsemm(value),))
                     if tag in ['ps'] and not ps:
-                        ps = set(value.split('/'))
+                        if value:
+                            ps = set(value.split('/'))
+                        else:
+                            ps = set([])
                     if tag in ['ge'] and not ge:
                         ge = value
                 else:
