@@ -194,6 +194,7 @@ class GlossInputDialog(wx.Dialog):
         cb.Bind(wx.EVT_CHECKBOX, self.OnCheckLocaldict)
         addb.Bind(wx.EVT_BUTTON, self.OnAddMorpheme)
         self.form.Bind(wx.EVT_TEXT, self.OnEditForm)
+        self.Bind(wx.EVT_CHECKLISTBOX, self.OnCheckPS, self.ps)
 
         vbox_top.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0)
         self.SetSizer(vbox_top)
@@ -221,6 +222,17 @@ class GlossInputDialog(wx.Dialog):
             self.SetGloss(self.localdict[newform][0])
             self.key = newform
     
+    def OnCheckPS(self, evt):
+        index = evt.GetSelection()
+        label = self.ps.GetString(index)
+        #FIXME: hardcoded proper name PoS label and capitalization logic
+        if label == 'n.prop':
+            form = self.form.GetValue()
+            if self.ps.IsChecked(index):
+                self.form.SetValue(form.capitalize())
+            elif form.istitle():
+                self.form.SetValue(form.lower())
+
     def OnCheckLocaldict(self, evt):
         self.save = not self.save
 
