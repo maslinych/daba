@@ -208,6 +208,7 @@ def main():
     oparser = optparse.OptionParser(usage)
     oparser.add_option("-s", "--script", metavar="script", help="Type of script (old, new)", default="new")
     oparser.add_option("-d", "--dictionary", action="append", help="Toolbox dictionary file (may be added multiple times)")
+    oparser.add_option("-g", "--grammar", dest="grammar", help="Grammar specification file")
     #TODO: implement options
     (options, args) = oparser.parse_args()
     if len(args) != 2:
@@ -221,6 +222,8 @@ def main():
         if options.dictionary:
             for dicfile in options.dictionary:
                 dl.add(dicfile)
+        if options.grammar:
+            gr.load(options.grammar)
         pp = Processor(dl, gr, script=options.script)
         pp.read_file(infile)
         pp.parse()
