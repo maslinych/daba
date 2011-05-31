@@ -196,8 +196,10 @@ class GlossInputDialog(wx.Dialog):
         self.form.Bind(wx.EVT_TEXT, self.OnEditForm)
         self.Bind(wx.EVT_CHECKLISTBOX, self.OnCheckPS, self.ps)
 
-        vbox_top.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0)
+        vbox_top.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.TOP | wx.BOTTOM, 10)
         self.SetSizer(vbox_top)
+        self.Fit()
+        self.Layout()
 
         self.localdict = self.parent.GetTopLevelParent().localdict
         self.save = True
