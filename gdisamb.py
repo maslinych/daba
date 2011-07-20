@@ -18,6 +18,7 @@
 
 import wx
 import wx.lib.scrolledpanel as scrolled
+import wx.combo
 from wx.lib.stattext import GenStaticText
 import os
 import formats
@@ -169,6 +170,27 @@ class GlossButton(wx.Panel):
         # do proper referencing to parent GlossSelector widget
         pass
 
+class PslistComboPopup(wx.CheckListBox, wx.combo.ComboPopup):
+    def __init__(self):
+        self.PostCreate(wx.PreCheckListBox())
+        wx.combo.ComboPopup.__init__(self)
+
+    def Create(self, parent):
+        wx.CheckListBox.Create(self, parent, -1, choices=PSLIST)
+        return True
+
+    def GetControl(self):
+        return self
+
+    def SetCheckedStrings(self, strings):
+        wx.CheckListBox.SetCheckedStrings(self, strings)
+        self.OnChangedPS()
+
+    def OnChangedPS(self):
+        ps = self.GetCheckedStrings()
+        self.GetCombo().SetText('/'.join(ps))
+
+
 class GlossInputDialog(wx.Dialog):
     def __init__(self, parent, id, title, *args, **kwargs):
         wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
@@ -180,8 +202,11 @@ class GlossInputDialog(wx.Dialog):
         grid.Add(wx.StaticText(self, -1, 'Form:'), (0,0), flag=wx.ALIGN_CENTER_VERTICAL)
         self.form = wx.TextCtrl(self, -1)
         grid.Add(self.form, (0,1), flag=wx.EXPAND)
-        self.ps = wx.CheckListBox(self, -1, choices=PSLIST)
-        grid.Add(self.ps, (0,2), (3,1),  flag=wx.EXPAND)
+        pscombo = wx.combo.ComboCtrl(self, style=wx.CB_READONLY)
+        self.ps = PslistComboPopup()
+        pscombo.SetPopupControl(self.ps)
+        #self.ps = wx.CheckListBox(self, -1, choices=PSLIST)
+        grid.Add(pscombo, (0,2), (3,1),  flag=wx.EXPAND)
         grid.Add(wx.StaticText(self, -1, 'Gloss:'), (1,0), flag=wx.ALIGN_TOP)
         self.gloss = wx.TextCtrl(self, -1)
         grid.Add(self.gloss, (1,1))
@@ -234,6 +259,7 @@ class GlossInputDialog(wx.Dialog):
                 self.form.SetValue(form.capitalize())
             elif form.istitle():
                 self.form.SetValue(form.lower())
+        self.ps.OnChangedPS()
 
     def OnCheckLocaldict(self, evt):
         self.save = not self.save
