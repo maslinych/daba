@@ -20,4 +20,4 @@ pytrie:
 	cp $(PYTRIE) .
 
 win-bundled: $(WINFILES) $(RESOURCES) funcparserlib 
-	zip -r $(PROJECT)-$(VERSION).zip $(WINFILES) $(RESOURCES) funcparserlib/ pytrie.py
+	zip -r $(PROJECT)-$(VERSION).zip $(WINFILES) $(RESOURCES) -x run/* funcparserlib/ pytrie.py
