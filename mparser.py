@@ -33,7 +33,8 @@ class Tokenizer(object):
         specs = [
                 ('Comment', (r'<c>.*?</c>',)),
                 ('Tag', (r'<.*?>',)),
-                ('NL', (r'[\r\n]+',)),
+                ('Par', (r'(\r?\n){2,}',)),
+                ('NL', (r'[\r\n]',)),
                 ('Space', (r'\s+',re.UNICODE)),
                 ('Punct', (r'([:;,]+)',re.UNICODE)),
                 ('SentPunct', (r'([.!?]+|[)"])',re.UNICODE)),
@@ -46,7 +47,7 @@ class Tokenizer(object):
         return [x for x in tok(string) if x.type not in useless]
 
     def split_sentences(self, para):
-        sent = re.compile(r'(([^?!.]|\.\.+)+([?!.]+(\s*[)"])?|$))', re.U)
+        sent = re.compile(r'(([^?!.]|\.\.+)+?([?!.]+(\s*[)"])?|(\r?\n){2,}|$))', re.U)
         for s in re.finditer(sent, para):
             yield s.group(0) or para
 
