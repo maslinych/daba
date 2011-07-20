@@ -24,6 +24,7 @@ import os
 import formats
 import datetime
 import codecs
+import unicodedata
 import xml.etree.cElementTree as e
 from ntgloss import Gloss
 from pytrie import StringTrie as trie
@@ -49,6 +50,22 @@ PSLIST = [
         'prn',
         'PUNCT',
         ]
+
+normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
+
+
+class NormalizedTextCtrl(wx.TextCtrl):
+    def __init__(*args, **kwargs):
+        if len(args)>3:
+            args[4] = normalizeText(args[4])
+        if 'value' in kwargs:
+            kwargs['value'] = normalizetext(kwargs['value'])
+
+        wx.TextCtrl.__init__(*args, **kwargs)
+
+    def SetValue(self, string):
+        wx.TextCtrl.SetValue(self, normalizeText(string))
+
 
 def makeGlossString(gloss, morphemes=False):
     if not ''.join(gloss.ps) and not gloss.gloss and not gloss.morphemes:
@@ -200,15 +217,14 @@ class GlossInputDialog(wx.Dialog):
         vbox_top = wx.BoxSizer(wx.VERTICAL)
         grid = wx.GridBagSizer(2,2)
         grid.Add(wx.StaticText(self, -1, 'Form:'), (0,0), flag=wx.ALIGN_CENTER_VERTICAL)
-        self.form = wx.TextCtrl(self, -1)
+        self.form = NormalizedTextCtrl(self, -1)
         grid.Add(self.form, (0,1), flag=wx.EXPAND)
         pscombo = wx.combo.ComboCtrl(self, style=wx.CB_READONLY)
         self.ps = PslistComboPopup()
         pscombo.SetPopupControl(self.ps)
-        #self.ps = wx.CheckListBox(self, -1, choices=PSLIST)
         grid.Add(pscombo, (0,2), (3,1),  flag=wx.EXPAND)
         grid.Add(wx.StaticText(self, -1, 'Gloss:'), (1,0), flag=wx.ALIGN_TOP)
-        self.gloss = wx.TextCtrl(self, -1)
+        self.gloss = NormalizedTextCtrl(self, -1)
         grid.Add(self.gloss, (1,1))
         addb = wx.Button(self, -1, 'Add morpheme')
         grid.Add(addb, (2,1), flag=wx.EXPAND)
@@ -290,7 +306,7 @@ class TokenSplitDialog(wx.Dialog):
 
         vbox = wx.BoxSizer(wx.VERTICAL)
         vbox.Add(wx.StaticText(self, -1, "Move cursor to the split point:"))
-        self.formfield = wx.TextCtrl(self, -1, self.form, style=wx.TE_READONLY)
+        self.formfield = NormalizedTextCtrl(self, -1, self.form, style=wx.TE_READONLY)
         self.formfield.SetInsertionPoint(0)
         self.splittext = wx.StaticText(self, -1, self.form)
         vbox.Add(self.formfield)
