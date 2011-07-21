@@ -412,7 +412,7 @@ class GlossSelector(wx.Panel):
         if len(self.glosslist) > 1:
             self.gloss = Gloss(self.form, set([]), '', ())
             self.statecode = 2
-        elif ''.join(self.glosslist[0].ps) in ['', None, '<?>'] and self.glosslist[0].gloss in ['', None, '<?>']:
+        elif ''.join(self.glosslist[0].ps) in ['', None, '<?>'] and self.glosslist[0].gloss in ['', None, '<?>'] and not self.glosslist[0].morphemes:
             self.gloss = Gloss(self.glosslist[0].form, set([]), '', ())
             self.statecode = -1
         else:
