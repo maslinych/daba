@@ -21,6 +21,22 @@ import os
 import mparser
 from contextlib import contextmanager
 
+def get_outdir(fname):
+    dirname = os.path.dirname(fname)
+    basename = os.path.basename(fname)
+    if os.path.basename(dirname) == 'txt':
+        dirname = os.path.join(os.path.dirname(dirname), 'pars')
+        if not os.path.exists(dirname):
+            try:
+                os.mkdir(dirname)
+            except OSError:
+                print "Could not create output directory, please do it manually"
+    return dirname
+
+def get_outfile(fname):
+    return '.'.join([os.path.splitext(fname)[0], 'pars'])
+
+
 class FilePanel(wx.Panel):
     'Text fileview panel'
     def __init__(self, parent, *args, **kwargs):
@@ -242,7 +258,7 @@ class MainFrame(wx.Frame):
         else:
             xfilename = '.'.join([os.path.splitext(self.infile)[0], 'parsed'])
 
-            dlg = wx.FileDialog(self, "Choose a file", os.path.dirname(self.infile), xfilename, "*.html", wx.SAVE)
+            dlg = wx.FileDialog(self, "Choose a file", get_outdir(self.infile), get_outfile(self.infile), "*.html", wx.SAVE)
             if dlg.ShowModal() == wx.ID_OK:
                 self.outfile = os.path.join(dlg.GetDirectory(), dlg.GetFilename())
                 if not os.path.splitext(self.outfile)[1] == '.html' :
