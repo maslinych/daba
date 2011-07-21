@@ -243,8 +243,10 @@ class GlossInputDialog(wx.Dialog):
         self.Layout()
 
         self.localdict = self.parent.GetTopLevelParent().localdict
+        self.fromlocaldict = False
         self.save = True
         cb.SetValue(True)
+
 
     def SetGloss(self, gloss):
         if not gloss.form == self.form.GetValue():
@@ -261,9 +263,10 @@ class GlossInputDialog(wx.Dialog):
 
     def OnEditForm(self, evt):
         newform = evt.GetString()
-        if newform in self.localdict:
+        if newform in self.localdict and not self.fromlocaldict:
             self.SetGloss(self.localdict[newform][0])
             self.key = newform
+            self.fromlocaldict = True
     
     def OnCheckPS(self, evt):
         index = evt.GetSelection()
