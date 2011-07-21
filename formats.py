@@ -24,6 +24,10 @@ from collections import namedtuple
 # t: (start|end|tag, name)
 # comment: (text,)
 
+#FIXME: duplicate, move to common util
+normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
+
+
 class BaseReader(object):
     def data(self):
         return (self.metadata, self.para)
@@ -32,7 +36,7 @@ class TxtReader(BaseReader):
     def __init__(self, filename, encoding="utf-8"):
         self.metadata = []
         with open(filename) as f:
-            self.para = re.split(os.linesep + '{2,}', f.read().decode(encoding).strip())
+            self.para = re.split(os.linesep + '{2,}', normalizeText(f.read().decode(encoding).strip()))
 
 class HtmlReader(BaseReader):
     def __init__(self, filename):
@@ -49,20 +53,20 @@ class HtmlReader(BaseReader):
         def elem_to_gloss(xgloss):
             morphemes = []
             if xgloss.attrib['class'] in ['lemma', 'm', 'lemma var']:
-                form = xgloss.text
+                form = normalizeText(xgloss.text)
                 ps = set([])
                 gloss = ''
                 for i in xgloss.getchildren():
                     if i.attrib['class'] == 'ps':
                         ps = set(i.text.split('/'))
                     elif i.attrib['class'] == 'gloss':
-                        gloss = i.text
+                        gloss = normalizeText(i.text)
                     elif i.attrib['class'] == 'm':
                         morphemes.append(elem_to_gloss(i))
             return Gloss(form, ps, gloss, tuple(morphemes))
 
         def parse_sent(sent):
-            text = sent.text
+            text = normalizeText(sent.text)
             annot = []
             for span in sent.findall('span'):
                 if span.attrib['class'] == 'annot':
@@ -76,17 +80,17 @@ class HtmlReader(BaseReader):
                                     for var in lem.findall('span'):
                                         if var.attrib['class'] == 'lemma var':
                                             glosslist.append(elem_to_gloss(var))
-                            annot.append(('w', (w.text, w.attrib['stage'], glosslist)))
+                            annot.append(('w', (normalizeText(w.text), w.attrib['stage'], glosslist)))
                         elif w.attrib['class'] == 'c':
                             annot.append((w.attrib['class'], w.text))
                         elif w.attrib['class'] == 't':
                             annot.append(('Tag', w.text))
                         elif w.attrib['class'] == 'comment':
-                            annot.append(('Comment', w.text))
+                            annot.append(('Comment', normalizeText(w.text)))
             return (text, annot)
 
         for p in self.xml.findall('body/p'):
-            self.para.append(p.text or ''.join([j.text for j in p.findall('span') if j.get('class') == 'sent']))
+            self.para.append(p.text or ''.join([normalizeText(j.text) for j in p.findall('span') if j.get('class') == 'sent']))
             par = []
             for sent in p.findall('span'):
                 if sent.attrib['class'] == 'sent':
@@ -268,7 +272,7 @@ class DictReader(object):
                     if tag in ['lang', 'ver', 'name']:
                             ids[tag] = value
                     if tag in ['lx', 'le', 'va', 'vc']:
-                        key = unicodedata.normalize('NFC', value.translate({ord(u'.'):None,ord(u'-'):None}).lower())
+                        key = normalizeText(value.translate({ord(u'.'):None,ord(u'-'):None}).lower())
                         tlist.append([key, Gloss(form=value,ps=set([]),gloss="",morphemes=())])
                     if tag in ['mm']:
                         tlist[-1][1] = tlist[-1][1]._replace(morphemes=tlist[-1][1].morphemes+(parsemm(value),))
