@@ -53,6 +53,16 @@ PSLIST = [
 
 normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
 
+def get_basename(fname):
+    basename = os.path.splitext(fname)[0]
+    pars = basename.rfind('.pars')
+    if pars > 0:
+        return basename[:pars]
+    #FIXME: may occasionally cut off part of filename
+    dis = basename.rfind('.dis')
+    if dis > 0 and len(basename)-dis <= 7:
+        return basename[:dis]
+    return basename
 
 class NormalizedTextCtrl(wx.TextCtrl):
     def __init__(*args, **kwargs):
@@ -826,7 +836,7 @@ class MainFrame(wx.Frame):
         dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             self.infile = os.path.join(dlg.GetDirectory(), dlg.GetFilename())
-            logfile = os.path.extsep.join([os.path.splitext(self.infile)[0], 'log'])
+            logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
             self.logger = EditLogger(logfile)
             self.processor.read_file(self.infile)
             self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
@@ -853,9 +863,7 @@ class MainFrame(wx.Frame):
         if not self.infile:
             self.NoFileError(e)
         else:
-            xfilename = os.path.splitext(self.infile)[0]
-            if not xfilename.endswith('.disamb'):
-                xfilename = '.'.join([xfilename, 'disamb'])
+            xfilename = '.'.join([get_basename(self.infile), 'dis'])
 
             dlg = wx.FileDialog(self, "Choose a file", os.path.dirname(self.infile), xfilename, "*.html", wx.SAVE)
             if dlg.ShowModal() == wx.ID_OK:
