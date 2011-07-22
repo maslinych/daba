@@ -1,4 +1,4 @@
-PROJECT=mparser
+PROJECT=daba
 VERSION := $(shell git describe --abbrev=4)
 WINFILES = newmorph.py orthography.py grammar.py formats.py ntgloss.py gparser.pyw mparser.py gdisamb.pyw 
 RESOURCES = run/
@@ -20,4 +20,4 @@ pytrie:
 	cp $(PYTRIE) .
 
 win-bundled: $(WINFILES) $(RESOURCES) funcparserlib 
-	zip -r $(PROJECT)-$(VERSION).zip $(WINFILES) $(RESOURCES) -x run/* funcparserlib/ pytrie.py
+	zip -r $(PROJECT)-$(VERSION).zip $(WINFILES) $(RESOURCES) funcparserlib/ pytrie.py -x run/*
