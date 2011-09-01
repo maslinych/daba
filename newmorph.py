@@ -182,13 +182,28 @@ class Parser(object):
         if  parts < 2:
             return self.parse(pattern, gloss)
         else:
-            decomp = [[emptyGloss._replace(form=f) for f in fl] for fl in parse_composite(gloss.form, self.dictionary, parts)]
-            if decomp:
-                newmorphemes = [tuple(m.union(p) for m,p in zip(gl, pattern.select.morphemes)) for gl in decomp]
-                for morphlist in newmorphemes:
-                    if all(morphlist):
-                        result.extend([g for g in self.lookup(gloss._replace(morphemes=morphlist)) if parsed(g)])
-                return result or None
+            if gloss.morphemes:
+                #FIXME: use only first non-glossed morpheme as possible stem
+                stemgloss, stempos = [(m,pos) for pos,m in enumerate(gloss.morphemes) if not m.gloss][0]
+            else:
+                stemgloss = gloss
+                stempos = -1
+            if stemgloss.psmatch(pattern.select):
+                stem = stemgloss.form
+
+                decomp = [[emptyGloss._replace(form=f) for f in fl] for fl in parse_composite(stem, self.dictionary, parts)]
+                if decomp:
+                    newmorphemes = [tuple(m.union(p) for m,p in zip(gl, pattern.select.morphemes)) for gl in decomp]
+                    for morphlist in newmorphemes:
+                        if all(morphlist):
+                            if stempos < 0:
+                                newgloss = gloss._replace(morphemes=morphlist)
+                            else:
+                                mlist = list(gloss.morphemes)
+                                mlist[stempos:stempos+1] = list(morphlist)
+                                newgloss = gloss._replace(morphemes=tuple(mlist))
+                            result.extend([pattern.apply(g) for g in self.lookup(newgloss) if parsed(g)])
+                    return result or None
         return None
 
 
