@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import re
+import operator
 from ntgloss import Gloss, CompactGloss, emptyGloss, Pattern, Dictionary
 
 def nullgloss(word):
@@ -202,7 +203,7 @@ class Parser(object):
                                 mlist = list(gloss.morphemes)
                                 mlist[stempos:stempos+1] = list(morphlist)
                                 newgloss = gloss._replace(morphemes=tuple(mlist))
-                            result.extend([pattern.apply(g) for g in self.lookup(newgloss) if parsed(g)])
+                            result.extend(filter(operator.truth, [pattern.apply(g) for g in self.lookup(newgloss) if parsed(g)]))
                     return result or None
         return None
 
