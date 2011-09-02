@@ -67,9 +67,10 @@ def get_basename(fname):
 class NormalizedTextCtrl(wx.TextCtrl):
     def __init__(*args, **kwargs):
         if len(args)>3:
-            args[4] = normalizeText(args[4])
+            arglist = list(args)
+            arglist[3] = normalizeText(args[3])
         if 'value' in kwargs:
-            kwargs['value'] = normalizetext(kwargs['value'])
+            kwargs['value'] = normalizeText(kwargs['value'])
 
         wx.TextCtrl.__init__(*args, **kwargs)
 
