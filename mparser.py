@@ -39,7 +39,8 @@ class Tokenizer(object):
                 ('Punct', (r'([:;,]+)',re.UNICODE)),
                 ('SentPunct', (r'([.!?]+|[)"])',re.UNICODE)),
                 ('Cardinal', (r'\d+',re.UNICODE)),
-                ('Word', (r"\w+([-]\w+)*[']?",re.UNICODE)),
+                #FIXME: hardcoded acute and grave accents (shoud not split words)
+                ('Word', (ur"(\w[\u0300\u0301]?)+([-](\w[\u0300\u0301]?)+)*[']?",re.UNICODE)),
                 ('Nonword', (r'\W', re.UNICODE)),
                 ]
         useless = ['NL', 'Space']
