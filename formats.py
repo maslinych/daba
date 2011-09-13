@@ -27,6 +27,20 @@ from collections import namedtuple
 #FIXME: duplicate, move to common util
 normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
 
+class GlossToken(object):
+    def __init__(self, toktuple=None):
+        if toktuple:
+            self.type, self.value = toktuple
+        else:
+            self.type, self.value = '', ''
+        if self.type == 'w':
+            self.token, self.stage, self.glosslist = self.value
+            self.gloss = self.glosslist[0]
+        else:
+            self.token = self.value
+            self.stage = ''
+            self.gloss = Gloss(self.token, set(), self.type, ())
+            self.glosslist = [self.gloss]
 
 class BaseReader(object):
     def data(self):
