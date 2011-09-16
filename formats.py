@@ -41,6 +41,12 @@ class GlossToken(object):
             self.stage = ''
             self.gloss = Gloss(self.token, set(), self.type, ())
             self.glosslist = [self.gloss]
+     
+    def as_tuple(self):
+        if self.type == 'w':
+            return (self.type, (self.token, self.stage, self.glosslist))
+        else:
+            return (self.type, self.value)
 
 class BaseReader(object):
     def data(self):

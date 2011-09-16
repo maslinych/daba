@@ -86,6 +86,7 @@ def makeGlossString(gloss, morphemes=False):
     else:
         return u'{0} ({1}){3}{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep)
 
+
 class FileParser(object):
     def __init__(self):
         self.glosses = []
@@ -111,7 +112,11 @@ class FileParser(object):
                 if not selectlist:
                     outgloss.append(glosstoken)
                 else:
-                    outgloss.append((glosstoken[0], (glosstoken[1][0], glosstoken[1][1], selectlist)))
+                    #FIXME: remove when GlossedText interface is ready
+                    token = formats.GlossToken(glosstoken)
+                    if token.type == 'w':
+                        token.glosslist = selectlist
+                    outgloss.append(token.as_tuple())
             out[-1].append((sent[0], outgloss))
         fwriter = formats.HtmlWriter((self.metadata, out), filename)
         fwriter.write()
@@ -154,6 +159,7 @@ class SentText(wx.StaticText):
             self.GetTopLevelParent().Layout()
 
         event.Skip()
+
 
 
 class GlossButton(wx.Panel):
@@ -217,6 +223,8 @@ class PslistComboPopup(wx.CheckListBox, wx.combo.ComboPopup):
     def OnChangedPS(self):
         ps = self.GetCheckedStrings()
         self.GetCombo().SetText('/'.join(ps))
+
+
 
 
 class GlossInputDialog(wx.Dialog):
@@ -601,24 +609,47 @@ class GlossSelector(wx.Panel):
     def OnChangeTokenType(self, evt):
         pass
 
-class NonglossToken(wx.Panel):
-    def __init__(self, parent, index, nonglosstoken, selectlist, vertical=True, *args, **kwargs):
-        wx.Panel.__init__(self, parent, *args, **kwargs)
-        self.toktype, self.toktext = nonglosstoken
-        self.selectlist = selectlist
-        self.index = index
-        if self.toktype in ['c', 'Tag']:
-            text = self.toktext
-        else:
-            text = '<...>'
-        widget = wx.StaticText(self, -1, text)
+
+class TokenInputDialog(wx.Dialog):
+    def __init__(self, parent, id, title, glosstoken, *args, **kwargs):
+        wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
+        self.typedict = dict([("Comment", "Comment"), ("Punctuation", "c"), ("Markup", "Tag")])
+
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(widget,0)
+        self.tokenfield = NormalizedTextCtrl(self, -1, glosstoken.token)
+        sizer.Add(self.tokenfield)
+        self.typefield = wx.RadioBox(self, -1, "Token type", wx.DefaultPosition, wx.DefaultSize, self.typedict.keys(), 1)
+        self.typefield.SetStringSelection(dict((v,k) for k,v in self.typedict.items())[glosstoken.type])
+        sizer.Add(self.typefield)
+        sizer.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.TOP | wx.BOTTOM, 10)
         self.SetSizer(sizer)
-        self.Layout()
 
     def GetToken(self):
-        return (self.toktype, self.toktext)
+        return formats.GlossToken((self.typedict[self.typefield.GetStringSelection()], self.tokenfield.GetValue()))
+
+
+class TokenEditButton(wx.Panel):
+    def __init__(self, parent, index, token, selectlist, vertical=True, *args, **kwargs):
+        wx.Panel.__init__(self, parent, *args, **kwargs)
+        self.index = index
+        self.selectlist = selectlist
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        self.token = formats.GlossToken(token)
+        self.button = wx.Button(self, -1, self.token.token, style=wx.NO_BORDER)
+        sizer.Add(self.button,0)
+        self.SetSizer(sizer)
+        self.button.Bind(wx.EVT_BUTTON, self.OnEditToken)
+
+    def OnEditToken(self, event):
+        dlg = TokenInputDialog(self, -1, 'Edit token', self.token)
+        if (dlg.ShowModal() == wx.ID_OK):
+            self.token = dlg.GetToken()
+            self.button.SetLabel(self.token.token)
+            self.selectlist = [self.token.as_tuple()]
+        dlg.Destroy()
+
+    def GetToken(self):
+        return self.token.as_tuple()
 
 
 class SentenceAnnotation(wx.ScrolledWindow):
@@ -636,7 +667,7 @@ class SentenceAnnotation(wx.ScrolledWindow):
             if glosstoken[0] == 'w':
                 abox = GlossSelector(self, index, glosstoken, selectlist, vertical=self.vertical)
             else:
-                abox = NonglossToken(self, index, glosstoken, selectlist)
+                abox = TokenEditButton(self, index, glosstoken, selectlist)
             self.children.append(abox)
             self.Sizer.Add(abox)
         self.SetSizer(self.Sizer)
