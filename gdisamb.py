@@ -425,9 +425,9 @@ class GlossSelector(wx.Panel):
         self.Bind(wx.EVT_CONTEXT_MENU, self.OnContextMenu)
 
         if self.vertical:
-            self.sizer = wx.BoxSizer(wx.HORIZONTAL)
-        else:
             self.sizer = wx.BoxSizer(wx.VERTICAL)
+        else:
+            self.sizer = wx.BoxSizer(wx.HORIZONTAL) 
 
 
         #FIXME: should I keep token string and use it here in spite of glosslist's first form?
@@ -653,16 +653,16 @@ class TokenEditButton(wx.Panel):
 
 
 class SentenceAnnotation(wx.ScrolledWindow):
-    def __init__(self, parent, sentglosses, sentselect, vertical=False, *args, **kwargs):
+    def __init__(self, parent, sentglosses, sentselect, vertical=True, *args, **kwargs):
         wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
         self.SetScrollRate(20, 20)
         self.vertical = vertical
         self.children = []
 
         if vertical:
-            self.Sizer = wx.BoxSizer(wx.VERTICAL)
-        else:
             self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
+        else:
+            self.Sizer = wx.BoxSizer(wx.VERTICAL) 
         for (index, (glosstoken,selectlist)) in enumerate(zip(sentglosses,sentselect)):
             if glosstoken[0] == 'w':
                 abox = GlossSelector(self, index, glosstoken, selectlist, vertical=self.vertical)
@@ -792,6 +792,8 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnSave, menuSave)
         menuSaveAs = filemenu.Append(wx.ID_SAVEAS,"S&ave as"," Save an xhtml file")
         self.Bind(wx.EVT_MENU, self.OnSaveAs, menuSaveAs)
+        menuClose = filemenu.Append(wx.ID_CLOSE,"C&lose","Close current file")
+        self.Bind(wx.EVT_MENU,self.OnClose, menuClose)
         menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
         self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
         menuBar = wx.MenuBar()
@@ -806,14 +808,10 @@ class MainFrame(wx.Frame):
         menuBar.Append(settingsmenu,"&Settings") 
         self.SetMenuBar(menuBar)  
 
+        # constants, no need to reinit on opening next file
         self.dirname = os.curdir
-        self.infile = None
-        self.outfile = None
         self.dictfile = 'localdict.txt'
-        self.processor = FileParser()
-        self.filepanel = FilePanel(self)
-        self.sentpanel = SentPanel(self)
-        self.logger = None
+        self.InitValues()
 
         #FIXME: loading localdict right on start, should give user possibility to choose
         if os.path.exists(self.dictfile):
@@ -826,6 +824,14 @@ class MainFrame(wx.Frame):
         self.Sizer.Add(self.filepanel, 1, wx.EXPAND)
         self.SetSizer(self.Sizer)
         self.Show()
+
+    def InitValues(self):
+        self.infile = None
+        self.outfile = None
+        self.processor = FileParser()
+        self.filepanel = FilePanel(self)
+        self.sentpanel = SentPanel(self)
+        self.logger = None
 
     def OnVerticalMode(self,e):
         vertical = not self.sentpanel.vertical
@@ -851,11 +857,22 @@ class MainFrame(wx.Frame):
         else:
             print "No undo information"
 
-    def OnExit(self,e):
+    def OnClose(self,e):
         if self.processor.dirty:
             self.OnSave(e)
         if self.logger:
             self.logger.OnExit()
+        self.Sizer.Detach(self.filepanel)
+        self.filepanel.Show(False)
+        self.Sizer.Detach(self.sentpanel)
+        self.sentpanel.Show(False)
+        self.InitValues()
+        self.Sizer.Insert(0, self.sentpanel,2,wx.EXPAND)
+        self.Sizer.Insert(1, self.filepanel,1,wx.EXPAND)
+        self.Layout()
+
+    def OnExit(self,e):
+        self.OnClose(e)
         self.Close(True)
 
     def NoFileError(self,e):
@@ -867,7 +884,8 @@ class MainFrame(wx.Frame):
         """ Open a file"""
         dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
         if dlg.ShowModal() == wx.ID_OK:
-            self.infile = os.path.join(dlg.GetDirectory(), dlg.GetFilename())
+            self.dirname = dlg.GetDirectory()
+            self.infile = os.path.join(self.dirname, dlg.GetFilename())
             logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
             self.logger = EditLogger(logfile)
             self.processor.read_file(self.infile)
