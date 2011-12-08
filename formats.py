@@ -132,7 +132,7 @@ class HtmlWriter(object):
       span.annot { clear: left; display: block; float: none; padding: 3px 3px 3px 0; }
       sub       { color: #606099; font-size: 12px; display: block; vertical-align: top; }
       sub.lemma, sub.gloss { white-space: nowrap; }
-      span.lemma.var { clear: left; display: block; margin-top: 2px; padding-top: 2px; border-top: 2px solid #EEE; }
+      span.lemma, span.lemma.var { clear: left; display: block; margin-top: 2px; padding-top: 2px; border-top: 2px solid #EEE; }
       p { margin-bottom: 8px; }
       p { vertical-align: top; }
 
