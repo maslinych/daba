@@ -41,7 +41,7 @@ def graphemes_old(word):
             ('ANY', (r'.', re.U)),
             ]
     tok = funcparserlib.lexer.make_tokenizer(specs)
-    r = [x.value for x in tok(word)]
+    r = [x.value for x in tok(unicodedata.normalize('NFKC', word))]
     #print 'CW', string, ':', r
     return r
 
