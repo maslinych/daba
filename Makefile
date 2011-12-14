@@ -4,6 +4,8 @@ WINFILES = newmorph.py orthography.py grammar.py formats.py ntgloss.py gparser.p
 RESOURCES = run/
 FUNCPARSERLIB = /usr/lib/python2.6/site-packages/funcparserlib
 #PYTRIE = /usr/lib/python2.6/site-packages/pytrie.py
+PYTRIE = pytrie.py
+DOC = doc/LICENSE doc/PyTrie-LICENSE doc/README.ru.txt doc/html/
 
 
 .PHONY: %.pyw
@@ -19,5 +21,11 @@ funcparserlib:
 pytrie:
 	cp $(PYTRIE) .
 
-win-bundled: $(WINFILES) $(RESOURCES) funcparserlib 
-	zip -r $(PROJECT)-$(VERSION).zip $(WINFILES) $(RESOURCES) funcparserlib/ pytrie.py -x run/*
+docs:
+	pushd doc
+	make html
+	mv _build/html .
+	popd
+
+win-bundled: $(WINFILES) $(RESOURCES) funcparserlib doc
+	zip -r $(PROJECT)-$(VERSION).zip $(WINFILES) $(RESOURCES) $(DOC) funcparserlib/ pytrie.py -x run/*
