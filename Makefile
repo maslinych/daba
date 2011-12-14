@@ -2,8 +2,7 @@ PROJECT=daba
 VERSION := $(shell git describe --abbrev=4)
 WINFILES = newmorph.py orthography.py grammar.py formats.py ntgloss.py gparser.pyw mparser.py gdisamb.pyw 
 RESOURCES = run/
-FUNCPARSERLIB = /usr/lib/python2.6/site-packages/funcparserlib
-#PYTRIE = /usr/lib/python2.6/site-packages/pytrie.py
+FUNCPARSERLIB = /usr/lib/python2.7/site-packages/funcparserlib
 PYTRIE = pytrie.py
 DOC = doc/LICENSE doc/PyTrie-LICENSE doc/README.ru.txt doc/html/
 
