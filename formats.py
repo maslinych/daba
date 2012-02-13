@@ -41,6 +41,8 @@ class GlossToken(object):
             self.stage = ''
             self.gloss = Gloss(self.token, set(), self.type, ())
             self.glosslist = [self.gloss]
+        #FIXME: hack
+        self.token = unicode(self.token)
      
     def as_tuple(self):
         if self.type == 'w':
