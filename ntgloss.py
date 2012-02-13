@@ -104,19 +104,26 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
                 if self.psmatch(other):
                     return self.morphmatch(other,fuzzy)
         return False
+    
+    def psunion(self, otherps):
+        assert isinstance(otherps, set)
+        assert isinstance(self.ps, set)
+        if self.ps and otherps:
+            ps = self.ps.intersection(otherps)
+            if not ps:
+                raise ValueError
+        else:
+            ps = self.ps.union(otherps)
+        return ps
 
     def union(self, other, pattern=None):
         if self.form or self.ps or self.gloss:
         #if other.form and match_any(self.form, other.form) or not other.form:
             #if self.psmatch(other):
-                if self.ps and other.ps:
-                    common = self.ps.intersection(other.ps)
-                    if not common:
-                        return None
-                    else:
-                        self = self._replace(ps = common)
-                else:
-                    self = self._replace(ps=self.ps.union(other.ps))
+                try:
+                    self = self._replace(ps = self.psunion(other.ps))
+                except (ValueError):
+                    return None
                 if other.gloss and not match_any(self.gloss, other.gloss):
                     self = self._replace(gloss = other.gloss)
                 if other.form and not match_any(self.form, other.form):
