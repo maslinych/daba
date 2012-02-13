@@ -157,8 +157,19 @@ class Parser(object):
                         dictlist = lookup_gloss(g, self.dictionary)
                         if dictlist:
                             new = new._replace(morphemes = tuple([dictlist if j==i else m for j,m in enumerate(new.morphemes)]))
-                result = new.glosslist
-                # TODO: annotate base form with gloss derived from morpheme glosses
+                result = []
+                # annotate base form with gloss derived from morpheme glosses
+                for ngloss in new.glosslist:
+                    commongloss = u'-'.join([m.gloss for m in ngloss.morphemes])
+                    stemps = [m.ps for m in ngloss.morphemes if 'mrph' not in m.ps]
+                    if len(stemps) == 1:
+                        try:
+                            commonps = lemma.psunion(stemps[0])
+                        except (ValueError):
+                            commonps = lemma.ps
+                    else:
+                        commonps = lemma.ps
+                    result.append(ngloss._replace(gloss = commongloss, ps = commonps))
             else:
                 result = lookup_gloss(lemma, self.dictionary)
             return result
