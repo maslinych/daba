@@ -82,7 +82,7 @@ class HtmlReader(BaseReader):
                     if i.attrib['class'] == 'ps':
                         ps = set(i.text.split('/'))
                     elif i.attrib['class'] == 'gloss':
-                        gloss = normalizeText(i.text)
+                        gloss = normalizeText(i.text) 
                     elif i.attrib['class'] == 'm':
                         morphemes.append(elem_to_gloss(i))
             return Gloss(form, ps, gloss, tuple(morphemes))
@@ -104,11 +104,11 @@ class HtmlReader(BaseReader):
                                             glosslist.append(elem_to_gloss(var))
                             annot.append(('w', (normalizeText(w.text), w.attrib['stage'], glosslist)))
                         elif w.attrib['class'] == 'c':
-                            annot.append((w.attrib['class'], w.text))
+                            annot.append((w.attrib['class'], w.text or ''))
                         elif w.attrib['class'] == 't':
-                            annot.append(('Tag', w.text))
+                            annot.append(('Tag', w.text or ''))
                         elif w.attrib['class'] == 'comment':
-                            annot.append(('Comment', normalizeText(w.text)))
+                            annot.append(('Comment', normalizeText(w.text) or ''))
             return (text, annot)
 
         for p in self.xml.findall('body/p'):
