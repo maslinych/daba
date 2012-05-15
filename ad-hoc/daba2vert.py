@@ -6,7 +6,9 @@ import os
 import formats
 from orthography import detone
 
+
 infile = sys.argv[1]
+tonal = bool(int(sys.argv[2]))
 
 reader = formats.HtmlReader(infile)
 
@@ -31,15 +33,34 @@ for par in reader.glosses:
     print "<p>"
     for sent,annot in par:
         print "<s>"
-        #print u'<sent source="{0}">'.format(sent).encode('utf-8')
         for token in annot:
             gt = formats.GlossToken(token)
             print u"{0}\t".format(gt.token).encode('utf-8'),
             if gt.type == 'w':
-                print u"\t".join([u'|'.join(filter(None, set(s))) for s in zip(*[(g.form, '|'.join(g.ps), g.gloss) for g in gt.glosslist])]).encode('utf-8'),
-                print u"\t{0}".format(u'|'.join(filter(None, set([detone(g.form).lower() for g in gt.glosslist])))).encode('utf-8')
+                if tonal:
+                    get_lemma = lambda x: ''.join(c for c in x if c not in '.')
+                else:
+                    get_lemma = lambda x: detone(''.join(c for c in x if c not in '.')
+)
+
+                lemmas = []
+                tags = set([])
+                glosses = []
+                for g in gt.glosslist:
+                    if not (g.gloss and g.ps) and g.morphemes:
+                        for m in g.morphemes:
+                            if 'mrph' not in m.ps:
+                                lemmas.append(get_lemma(m.form))
+                                tags = tags.union(m.ps)
+                            glosses.append(m.gloss)
+                    else:
+                        lemmas.append(get_lemma(g.form))
+                        tags = tags.union(g.ps)
+                        glosses.append(g.gloss)
+                
+                print u"\t".join([u'|'.join(filter(None, set(s))) for s in [lemmas, tags, glosses]]).encode('utf-8')
             else:
-                print u"\t".join([gt.token, gt.type, gt.token, gt.token]).encode('utf-8')
+                print u"\t".join([gt.token, gt.type, gt.token]).encode('utf-8')
         print "</s>"
     print "</p>"
 
