@@ -58,7 +58,7 @@ for par in reader.glosses:
                         tags = tags.union(g.ps)
                         glosses.append(g.gloss)
                 
-                print u"\t".join([u'|'.join(filter(None, set(s))) for s in [lemmas, tags, glosses]]).encode('utf-8')
+                print u"\t".join([u'|'.join(filter(None, s)) for s in [lemmas, tags, glosses]]).encode('utf-8')
             else:
                 print u"\t".join([gt.token, gt.type, gt.token]).encode('utf-8')
         print "</s>"
