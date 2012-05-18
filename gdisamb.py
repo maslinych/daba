@@ -628,6 +628,28 @@ class TokenInputDialog(wx.Dialog):
     def GetToken(self):
         return formats.GlossToken((self.typedict[self.typefield.GetStringSelection()], self.tokenfield.GetValue()))
 
+class SearchDialog(wx.Dialog):
+    def __init__(self, parent, id, title, searchstr, *args, **kwargs):
+        wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        self.searchfield = NormalizedTextCtrl(self, -1, searchstr)
+        sizer.Add(wx.StaticText(self, -1, "Search for word or part of word:"))
+        sizer.Add(self.searchfield)
+        sizer.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.TOP | wx.BOTTOM, 10)
+        self.SetSizer(sizer)
+
+    def GetSearchString(self):
+        return self.searchfield.GetValue()
+
+class NotFoundDialog(wx.Dialog):
+    def __init__(self, parent, id, title, searchstr, *args, **kwargs):
+        wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(wx.StaticText(self, -1, u"String {0} not found".format(searchstr)))
+        sizer.Add(self.CreateButtonSizer(wx.OK), 0, wx.TOP | wx.BOTTOM, 10)
+        self.SetSizer(sizer)
 
 class TokenEditButton(wx.Panel):
     def __init__(self, parent, index, token, selectlist, vertical=True, *args, **kwargs):
@@ -795,6 +817,8 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnSaveAs, menuSaveAs)
         menuClose = filemenu.Append(wx.ID_CLOSE,"C&lose","Close current file")
         self.Bind(wx.EVT_MENU,self.OnClose, menuClose)
+        menuSearch = filemenu.Append(wx.ID_FIND,"F&ind","Find text")
+        self.Bind(wx.EVT_MENU, self.OnSearch, menuSearch)
         menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
         self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
         menuBar = wx.MenuBar()
@@ -833,6 +857,7 @@ class MainFrame(wx.Frame):
         self.filepanel = FilePanel(self)
         self.sentpanel = SentPanel(self)
         self.logger = None
+        self.searchstr = ""
 
     def OnVerticalMode(self,e):
         vertical = not self.sentpanel.vertical
@@ -857,6 +882,29 @@ class MainFrame(wx.Frame):
             savedstate = None
         else:
             print "No undo information"
+
+    def OnSearch(self,e):
+        dlg = SearchDialog(self, -1, "Search word", self.searchstr)
+        if (dlg.ShowModal() == wx.ID_OK):
+            self.searchstr = dlg.GetSearchString()
+
+        if not self.searchstr:
+            return
+        for snum, sent in enumerate(self.processor.glosses):
+            if snum > self.sentpanel.snum:
+                for word in sent[2]:
+                    try:
+                        if self.searchstr in formats.GlossToken(word).token:
+                            self.sentpanel.ShowSent(sent, snum)
+                            break
+                    except (AttributeError):
+                        print word
+                else:
+                    continue
+                break
+        else:
+            notf = NotFoundDialog(self, -1, "Not found", self.searchstr)
+            notf.ShowModal()
 
     def OnClose(self,e):
         if self.processor.dirty:
