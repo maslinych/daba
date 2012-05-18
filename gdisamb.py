@@ -636,18 +636,23 @@ class SearchDialog(wx.Dialog):
         self.searchfield = NormalizedTextCtrl(self, -1, searchstr)
         sizer.Add(wx.StaticText(self, -1, "Search for word or part of word:"))
         sizer.Add(self.searchfield)
+        self.typefield = wx.RadioBox(self, -1, "Search type", wx.DefaultPosition, wx.DefaultSize, ['word part', 'sentence part'], 1)
+        sizer.Add(self.typefield)
         sizer.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.TOP | wx.BOTTOM, 10)
         self.SetSizer(sizer)
 
     def GetSearchString(self):
         return self.searchfield.GetValue()
 
+    def GetSearchType(self):
+        return self.typefield.GetStringSelection()
+
 class NotFoundDialog(wx.Dialog):
     def __init__(self, parent, id, title, searchstr, *args, **kwargs):
         wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
 
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(wx.StaticText(self, -1, u"String {0} not found".format(searchstr)))
+        sizer.Add(wx.StaticText(self, -1, u'String "{0}" not found'.format(searchstr)))
         sizer.Add(self.CreateButtonSizer(wx.OK), 0, wx.TOP | wx.BOTTOM, 10)
         self.SetSizer(sizer)
 
@@ -887,21 +892,31 @@ class MainFrame(wx.Frame):
         dlg = SearchDialog(self, -1, "Search word", self.searchstr)
         if (dlg.ShowModal() == wx.ID_OK):
             self.searchstr = dlg.GetSearchString()
+            searchtype = dlg.GetSearchType()
 
         if not self.searchstr:
             return
         for snum, sent in enumerate(self.processor.glosses):
             if snum > self.sentpanel.snum:
-                for word in sent[2]:
-                    try:
-                        if self.searchstr in formats.GlossToken(word).token:
-                            self.sentpanel.ShowSent(sent, snum)
-                            break
-                    except (AttributeError):
-                        print word
-                else:
-                    continue
+                if searchtype == 'word part':
+                    for word in sent[2]:
+                        try:
+                            if self.searchstr in formats.GlossToken(word).token:
+                                self.sentpanel.ShowSent(sent, snum)
+                                break
+                        except (AttributeError):
+                            print word
+                    else:
+                        continue
+
+                elif searchtype == 'sentence part':
+                    if self.searchstr in sent[0]:
+                        self.sentpanel.ShowSent(sent, snum)
+                    else:
+                        continue
+
                 break
+
         else:
             notf = NotFoundDialog(self, -1, "Not found", self.searchstr)
             notf.ShowModal()
