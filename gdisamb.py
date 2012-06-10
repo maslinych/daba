@@ -948,8 +948,8 @@ class MainFrame(wx.Frame):
         """ Open a file"""
         dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
         if dlg.ShowModal() == wx.ID_OK:
-            self.dirname = dlg.GetDirectory()
-            self.infile = os.path.join(self.dirname, dlg.GetFilename())
+            self.infile = dlg.GetPath()
+            self.dirname = os.path.dirname(self.infile)
             logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
             self.logger = EditLogger(logfile)
             self.processor.read_file(self.infile)
