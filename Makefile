@@ -1,6 +1,6 @@
 PROJECT=daba
 VERSION := $(shell git describe --abbrev=4)
-WINFILES = newmorph.py orthography.py grammar.py formats.py ntgloss.py gparser.pyw mparser.py gdisamb.pyw 
+WINFILES = newmorph.py orthography.py grammar.py formats.py ntgloss.py gparser.pyw mparser.py gdisamb.pyw plugins/*.py
 RESOURCES = run/
 FUNCPARSERLIB = /usr/lib/python2.7/site-packages/funcparserlib
 PYTRIE = pytrie.py
