@@ -6,17 +6,6 @@ import unicodedata
 import funcparserlib.lexer
 
 ## various utility functions (may be moved elsewhere later)
-def multiply_list(amblist):
-    # given list of lists, returns list of all possible concatenations
-    # taking a single element from each list
-    def multiply_list_aux(l, amblist):
-        if len(amblist)>0:
-            m = [ l[k]+[amblist[0][i]] for k in range(len(l)) for i in range(len(amblist[0]))]
-            return multiply_list_aux(m, amblist[1:])
-        else:
-            return l
-    return multiply_list_aux([[]], amblist)
-
 def detone(string):
     # remove all tonemarking from string
     return "".join([c for c in unicodedata.normalize('NFD', string) if not unicodedata.category(c) == 'Mn'])
@@ -29,36 +18,7 @@ def lookup_word(lexicon, word):
     else:
         return 0
 
-conversion_table = {u'è':[u'ɛ'], u'ò':[u'ɔ'], u'èe':[u'ɛɛ'], u'òo':[u'ɔɔ'], u'ng':[u'ng',u'ŋ'], u'ny':[u'ny',u'ɲ']}
-
-def graphemes_old(word):
-    # split word into maximal length graphemes (old orthography)
-    specs = [
-            ('NG', (r'ng', re.I | re.U)),
-            ('NY', (r'ny', re.I | re.U)),
-            ('EE', (r'è[eè]', re.I | re.U)),
-            ('OO', (r'ò[oò]', re.I | re.U)),
-            ('ANY', (r'.', re.U)),
-            ]
-    tok = funcparserlib.lexer.make_tokenizer(specs)
-    r = [x.value for x in tok(unicodedata.normalize('NFKC', word))]
-    #print 'CW', string, ':', r
-    return r
-
-def convertg(grapheme):
-    # convert a single grapheme into a list of corresponding graphemes in new orthography
-    try:
-        # !!HACK: converts graphemes to lowercase!!
-        return conversion_table[grapheme.lower()]
-    except KeyError:
-        return [grapheme]
-
-def convertw(word):
-    # given single word in old orthography returns 
-    # list of all possible translations to new orthography
-    graphemes = [convertg(g) for g in graphemes_old(word)]
-    return [''.join(w) for w in multiply_list(graphemes)]
-        
+       
 def orth_compliant(word):
     # check word for compliance with orthographic rules
     if word.startswith(u'ny'):

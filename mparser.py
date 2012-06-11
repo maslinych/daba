@@ -19,12 +19,13 @@ import grammar
 from ntgloss import Gloss
 import os
 import re
-import optparse 
+import argparse
 import sys
 import cPickle
 import funcparserlib.lexer 
 import xml.etree.cElementTree as e
 import formats
+from plugins import OrthographyConverter
 
 
 class Tokenizer(object):
@@ -51,6 +52,7 @@ class Tokenizer(object):
         sent = re.compile(r'(([^?!.]|\.\.+)+?([?!.]+(\s*[)"])?|(\r?\n){2,}|$))', re.U)
         for s in re.finditer(sent, para):
             yield s.group(0) or para
+
 
 class DictLoader(object):
     """ Object holding info about dictionaries state.
@@ -142,10 +144,11 @@ class GrammarLoader(object):
         with open(os.path.join(self.runtimedir, os.path.extsep.join([os.path.basename(gramfile), 'bgr'])), 'wb') as o:
             cPickle.dump(self.grammar, o)
 
+
 class Processor(object):
-    def __init__(self, dictloader, grammarloader, script='new', encoding='utf-8'):
+    def __init__(self, dictloader, grammarloader, converters=None, encoding='utf-8'):
         self.dictloader = dictloader
-        self.script = script
+        self.converters = converters
         self.encoding = encoding
         self.grammar = grammarloader.grammar
         self.update()
@@ -178,9 +181,14 @@ class Processor(object):
                         gloss = Gloss(token.value, set(['num']), 'CARDINAL', ())
                         annot.append(('w', (token.value, 'tokenizer', [gloss])))
                     elif token.type in ['Word']:
-                        if self.script == 'old':
-                            #TODO: finish it!
-                            wlist = orthography.convertw(token.value)
+                        if self.converters:
+                            wlist = [token.value]
+                            for plugin in self.converters:
+                                converted = []
+                                for w in wlist:
+                                    for result in OrthographyConverter.get_plugins()[plugin].convert(w):
+                                        converted.append(result)
+                                wlist = converted
                             converts = [self.parser.lemmatize(w.lower()) for w in wlist]
                             successfull = [x[1] for x in filter(lambda s:s[0]>=0, converts)] or [c[1] for c in converts]
                             stage = max([c[0] for c in converts])
@@ -190,7 +198,7 @@ class Processor(object):
                         else:
                             stage, glosslist = self.parser.lemmatize(token.value.lower())
 
-                        # suggest proper name variant for capitalized words (not in sentence-initial position
+                        # suggest proper name variant for capitalized words (not in sentence-initial position)
                         if token.value.istitle() and prevtoken not in [None, 'SentPunct'] and 'n.prop' not in set([]).union(*[g.ps for g in glosslist]):
                             propn = Gloss(token.value, set(['n.prop']), token.value, ())
                             glosslist.insert(0, propn)
@@ -204,33 +212,34 @@ class Processor(object):
     def write(self, filename):
         formats.HtmlWriter(self.parsed, filename, self.encoding).write()
 
+def load_plugins():
+    plugins = [x[:-3] for x in os.listdir('plugins') if x.endswith('.py') and not x.startswith('__')]
+    for plugin in plugins:
+        mod = __import__('.'.join(['plugins', plugin]))
                 
 def main():
-    usage = "%prog [options] <infile> <outfile>"
-    oparser = optparse.OptionParser(usage)
-    oparser.add_option("-s", "--script", metavar="script", help="Type of script (old, new)", default="new")
-    oparser.add_option("-d", "--dictionary", action="append", help="Toolbox dictionary file (may be added multiple times)")
-    oparser.add_option("-g", "--grammar", dest="grammar", help="Grammar specification file")
-    #TODO: implement options
-    (options, args) = oparser.parse_args()
-    if len(args) != 2:
-        oparser.error("incorrect number of arguments, should be 2: <infile> <outfile>")
-    else:
-        # setup parser
-        infile = args[0]
-        outfile = args[1]
-        dl = DictLoader()
-        gr = GrammarLoader()
-        if options.dictionary:
-            for dicfile in options.dictionary:
-                dl.add(dicfile)
-        if options.grammar:
-            gr.load(options.grammar)
-        pp = Processor(dl, gr, script=options.script)
-        pp.read_file(infile)
-        pp.parse()
-        pp.write(outfile)
-        exit(0)
+    
+    load_plugins() 
+
+    aparser = argparse.ArgumentParser(description='Daba suite. Command line morphological parser.')
+    aparser.add_argument('infile', help='Input file (.txt or .html)')
+    aparser.add_argument('outfile', help='Output file')
+    aparser.add_argument('-s', '--script', action='append', choices=OrthographyConverter.get_plugins().keys(), default=None, help='Perform orthographic conversion operations (defined in plugins). Conversions will be applied in the order they appear on command line.')
+    aparser.add_argument("-d", "--dictionary", action="append", help="Toolbox dictionary file (may be added multiple times)")
+    aparser.add_argument("-g", "--grammar", help="Grammar specification file")
+    args = aparser.parse_args()
+    dl = DictLoader()
+    gr = GrammarLoader()
+    if args.dictionary:
+        for dicfile in args.dictionary:
+            dl.add(dicfile)
+    if args.grammar:
+        gr.load(args.grammar)
+    pp = Processor(dl, gr, converters=args.script)
+    pp.read_file(args.infile)
+    pp.parse()
+    pp.write(args.outfile)
+    exit(0)
 
 if __name__ == '__main__':
     main()

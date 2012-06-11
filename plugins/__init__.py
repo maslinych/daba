@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: utf8 -*-
+
 class PluginMount(type):
     def __init__(cls, name, bases, attrs):
         if not hasattr(cls, 'plugins'):
@@ -12,5 +15,27 @@ class PluginMount(type):
             # track of it later.
             cls.plugins.append(cls)
 
-class OrthographyPlugin(object):
+    def get_plugins(self):
+        plugin_dict = {}
+        for p in self.plugins:
+            obj = p()
+            plugin_dict[obj.title] = obj
+        return plugin_dict
+
+
+class OrthographyConverter(object):
+    """
+    Mount point for orthography conversion plugins.
+
+    Plugins implementing this reference should provide the following interface:
+
+    @title  Title to be displayed
+    @desc   Text describing converter
+
+    @convert    Main conversion method. Takes single token as input, returns
+    list of possible conversions
+    """
     __metaclass__ = PluginMount
+
+
+
