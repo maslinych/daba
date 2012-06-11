@@ -6,7 +6,7 @@ from pprint import pprint
 def main():
     dl = DictLoader()
     gr = GrammarLoader()
-    pp = Processor(dl, gr, script="new")
+    pp = Processor(dl, gr)
     while True:
         word = raw_input('Enter word:').decode(sys.stdin.encoding)
         result = pp.parser.lemmatize(word, debug=True)
