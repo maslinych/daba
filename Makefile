@@ -4,7 +4,7 @@ WINFILES = newmorph.py orthography.py grammar.py formats.py ntgloss.py gparser.p
 RESOURCES = run/
 FUNCPARSERLIB = /usr/lib/python2.7/site-packages/funcparserlib
 PYTRIE = pytrie.py
-DOC = doc/LICENSE doc/PyTrie-LICENSE doc/README.ru.txt doc/html/
+DOC = doc/LICENSE doc/PyTrie-LICENSE doc/README.ru.txt doc/html/ doc/samples/*
 
 
 .PHONY: %.pyw
