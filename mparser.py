@@ -145,27 +145,34 @@ class GrammarLoader(object):
             cPickle.dump(self.grammar, o)
 
 
-class Processor(object):
-    def __init__(self, dictloader, grammarloader, converters=None, encoding='utf-8'):
-        self.dictloader = dictloader
-        self.converters = converters
+class FileWrapper(object):
+    def __init__(self, encoding='utf-8'):
         self.encoding = encoding
-        self.grammar = grammarloader.grammar
-        self.update()
 
-    def update(self):
-        self.parser = newmorph.Parser(self.dictloader.dictionary, self.grammar)
-
-    def read_file(self, filename):
+    def read(self, filename):
         basename, ext = os.path.splitext(filename)
         if ext in ['.txt']:
             self.metadata, self.txt = formats.TxtReader(filename).data()
         elif ext in ['.html', '.htm']:
             self.metadata, self.txt = formats.HtmlReader(filename).data()
 
-    def parse(self):
-        self.parsed = (self.metadata,[])
-        for para in self.txt:
+    def write(self, parsed, filename):
+        formats.HtmlWriter((self.metadata, parsed), filename, self.encoding).write()
+
+
+class Processor(object):
+    def __init__(self, dictloader, grammarloader, converters=None):
+        self.dictloader = dictloader
+        self.converters = converters
+        self.grammar = grammarloader.grammar
+        self.update()
+
+    def update(self):
+        self.parser = newmorph.Parser(self.dictloader.dictionary, self.grammar)
+
+    def parse(self, txt):
+        self.parsed = []
+        for para in txt:
             par = []
             for sent in Tokenizer().split_sentences(para):
                 st = (sent, [])
@@ -206,11 +213,9 @@ class Processor(object):
                         annot.append(('w', (token.value, unicode(stage), glosslist)))
 
                     prevtoken = token.type
-            self.parsed[1].append(par)
+            self.parsed.append(par)
         return self.parsed
 
-    def write(self, filename):
-        formats.HtmlWriter(self.parsed, filename, self.encoding).write()
 
 def load_plugins():
     plugins = [x[:-3] for x in os.listdir('plugins') if x.endswith('.py') and not x.startswith('__')]
@@ -236,9 +241,9 @@ def main():
     if args.grammar:
         gr.load(args.grammar)
     pp = Processor(dl, gr, converters=args.script)
-    pp.read_file(args.infile)
-    pp.parse()
-    pp.write(args.outfile)
+    io = FileWrapper()
+    io.read(args.infile)
+    io.write(pp.parse(io.txt), args.outfile)
     exit(0)
 
 if __name__ == '__main__':
