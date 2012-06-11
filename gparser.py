@@ -20,6 +20,7 @@ import wx
 import os
 import mparser
 from contextlib import contextmanager
+from plugins import OrthographyConverter
 
 def get_outdir(fname):
     dirname = os.path.dirname(fname)
@@ -147,6 +148,24 @@ class GrammarLister(wx.Panel):
             self.gramlist.Show(True)
             self.Layout()
 
+class ConverterLister(wx.Panel):
+    def __init__(self, parent, *args, **kwargs):
+        wx.Panel.__init__(self, parent, *args, **kwargs)
+
+        self.selection = None
+        mparser.load_plugins()
+        self.converters = OrthographyConverter.get_plugins().keys()
+        converterbox = wx.StaticBox(self, -1, "Available Orthographic Converters")
+        self.csizer = wx.StaticBoxSizer(converterbox, wx.VERTICAL)
+        self.converterlist = wx.CheckListBox(self, -1, choices=self.converters)
+        self.Bind(wx.EVT_CHECKLISTBOX, self.OnSelection, self.converterlist)
+        self.csizer.Add(self.converterlist, 0, wx.TOP|wx.LEFT, 10)
+        self.SetSizer(self.csizer)
+        self.Layout()
+
+    def OnSelection(self, evt):
+        self.selection = self.converterlist.GetCheckedStrings()
+
 class ResourcePanel(wx.Panel):
     def __init__(self, parent, dictloader, grammarloader, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
@@ -158,6 +177,9 @@ class ResourcePanel(wx.Panel):
         gramlist = GrammarLister(self, grammarloader)
         Sizer.Add(gramlist, 1, wx.EXPAND)
 
+        self.convlist = ConverterLister(self)
+        Sizer.Add(self.convlist, 1, wx.EXPAND)
+
         self.SetSizer(Sizer)
         self.SetAutoLayout(1)
         
@@ -166,19 +188,17 @@ class MainFrame(wx.Frame):
     def __init__(self, parent, *args, **kwargs):
         wx.Frame.__init__(self, parent, *args, **kwargs)
 
-        # setup Processor
-        dl = mparser.DictLoader()
-        gr = mparser.GrammarLoader()
-
         self.dirname = os.curdir
         self.infile = None
         self.outfile = None
+        self.io = mparser.FileWrapper()
         
         self.filepanel = FilePanel(self)
-        self.resourcepanel = ResourcePanel(self, dl, gr)
 
-
-        self.processor = mparser.Processor(dl, gr)
+        # setup Resources
+        self.dl = mparser.DictLoader()
+        self.gr = mparser.GrammarLoader()
+        self.resourcepanel = ResourcePanel(self, self.dl, self.gr)
         self.parsed = False
 
         filemenu= wx.Menu()
@@ -194,7 +214,6 @@ class MainFrame(wx.Frame):
         menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
         
-
         Sizer = wx.BoxSizer(wx.HORIZONTAL)
         Sizer.Add(self.filepanel, 2, wx.EXPAND)
         Sizer.Add(self.resourcepanel, 1, wx.EXPAND)
@@ -206,7 +225,8 @@ class MainFrame(wx.Frame):
     def OnParse(self,e):
         @contextmanager
         def wait_for_parser():
-            yield self.processor.parse()
+            self.processor = mparser.Processor(self.dl, self.gr, converters=self.resourcepanel.convlist.selection)
+            yield self.processor.parse(self.io.txt)
 
         dlg = wx.MessageDialog(self, 'Please wait: parsing in progress', 'Please wait', wx.OK)
         dlg.ShowModal()
@@ -237,10 +257,11 @@ class MainFrame(wx.Frame):
         """ Open a file"""
         dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
         if dlg.ShowModal() == wx.ID_OK:
-            self.infile = os.path.join(dlg.GetDirectory(), dlg.GetFilename())
-            self.processor.read_file(self.infile)
+            self.infile = dlg.GetPath()
+            self.dirname = os.path.dirname(self.infile)
+            self.io.read(self.infile)
             self.parsed = False
-            self.filepanel.control.SetValue('\n\n'.join(self.processor.txt))
+            self.filepanel.control.SetValue('\n\n'.join(self.io.txt))
         dlg.Destroy()
 
     def OnSave(self,e):
@@ -250,7 +271,7 @@ class MainFrame(wx.Frame):
             self.OnSaveAs(e)
         else:
             self.OnParse(e)
-            self.processor.write(self.outfile)
+            self.io.write(self.processor.parsed, self.outfile)
 
     def OnSaveAs(self,e):
         if not self.infile:
@@ -260,11 +281,11 @@ class MainFrame(wx.Frame):
 
             dlg = wx.FileDialog(self, "Choose a file", get_outdir(self.infile), get_outfile(self.infile), "*.html", wx.SAVE)
             if dlg.ShowModal() == wx.ID_OK:
-                self.outfile = os.path.join(dlg.GetDirectory(), dlg.GetFilename())
+                self.outfile = dlg.GetPath()
                 if not os.path.splitext(self.outfile)[1] == '.html' :
                     self.outfile = ''.join([self.outfile, os.path.extsep, 'html'])
                     self.OnParse(e)
-                    self.processor.write(self.outfile)
+                    self.io.write(self.processor.parsed, self.outfile)
             dlg.Destroy()
 
 
