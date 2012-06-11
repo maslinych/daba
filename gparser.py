@@ -187,19 +187,13 @@ class MainFrame(wx.Frame):
     'Main frame'
     def __init__(self, parent, *args, **kwargs):
         wx.Frame.__init__(self, parent, *args, **kwargs)
-
-        self.dirname = os.curdir
-        self.infile = None
-        self.outfile = None
-        self.io = mparser.FileWrapper()
-        
-        self.filepanel = FilePanel(self)
-
+        self.InitValues()
         # setup Resources
+        self.dirname = os.curdir
         self.dl = mparser.DictLoader()
         self.gr = mparser.GrammarLoader()
         self.resourcepanel = ResourcePanel(self, self.dl, self.gr)
-        self.parsed = False
+        self.filepanel = FilePanel(self)
 
         filemenu= wx.Menu()
         menuOpen = filemenu.Append(wx.ID_OPEN,"O&pen"," Open text file")
@@ -208,6 +202,8 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnSave, menuSave)
         menuSaveAs = filemenu.Append(wx.ID_SAVEAS,"S&ave as"," Save an xhtml file")
         self.Bind(wx.EVT_MENU, self.OnSaveAs, menuSaveAs)
+        menuClose = filemenu.Append(wx.ID_CLOSE,"C&lose","Close current file")
+        self.Bind(wx.EVT_MENU,self.OnClose, menuClose)
         menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
         self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
         menuBar = wx.MenuBar()
@@ -221,6 +217,11 @@ class MainFrame(wx.Frame):
         self.SetAutoLayout(1)
         self.Fit()
 
+    def InitValues(self):
+        self.infile = None
+        self.outfile = None
+        self.io = mparser.FileWrapper()
+        self.parsed = False
 
     def OnParse(self,e):
         @contextmanager
@@ -263,6 +264,10 @@ class MainFrame(wx.Frame):
             self.parsed = False
             self.filepanel.control.SetValue('\n\n'.join(self.io.txt))
         dlg.Destroy()
+
+    def OnClose(self,e):
+        self.filepanel.control.Clear()
+        self.InitValues()
 
     def OnSave(self,e):
         if not self.infile:
