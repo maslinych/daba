@@ -165,9 +165,6 @@ class Processor(object):
         self.dictloader = dictloader
         self.converters = converters
         self.grammar = grammarloader.grammar
-        self.update()
-
-    def update(self):
         self.parser = newmorph.Parser(self.dictloader.dictionary, self.grammar)
 
     def parse(self, txt):

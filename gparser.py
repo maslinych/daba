@@ -89,7 +89,6 @@ class DictionaryLister(wx.Panel):
     def OnRemove(self, evt):
         dictid = self.buttons[evt.GetId()]
         self.dictloader.remove(dictid)
-        self.GetTopLevelParent().processor.update()
         c_id = self.children[dictid]
         self.dsizer.Detach(c_id)
         c_id.Show(False)
@@ -105,7 +104,6 @@ class DictionaryLister(wx.Panel):
             (lang, name) = self.dictloader.add(dictfile)
             if lang is None:
                 return
-            self.GetTopLevelParent().processor.update()
             if not (lang, name) in self.children:
                 ((ver,sha), dic) = self.dictloader.dictlist[(lang, name)]
                 try:
@@ -140,7 +138,6 @@ class GrammarLister(wx.Panel):
         if dlg.ShowModal() == wx.ID_OK:
             gramfile = dlg.GetPath()
             self.grammarloader.load(gramfile)
-            self.GetTopLevelParent().processor.update()
             oldname = self.gramlist
             oldname.Show(False)
             self.gramlist = wx.StaticText(self, -1, '\n'.join(self.grammarloader.gramlist))
