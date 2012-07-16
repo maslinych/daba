@@ -9,4 +9,4 @@ class ApostropheNormalizer(OrthographyConverter):
         self.desc = 'Convert unicode apostrophe (2019) to ASCII apostrophe (45)'
 
     def convert(self, word):
-        return [word.translate({ord(u'’'):ord(u"'")})]
+        return [unicode(word).translate({ord(u'\u2019'):ord(u"'")})]
