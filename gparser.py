@@ -148,13 +148,14 @@ class GrammarLister(wx.Panel):
 class ConverterLister(wx.Panel):
     def __init__(self, parent, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
-
-        self.selection = None
+        #FIXME: make default plugins configurable from config file
+        self.selection = ('apostrophe',)
         mparser.load_plugins()
         self.converters = OrthographyConverter.get_plugins().keys()
         converterbox = wx.StaticBox(self, -1, "Available Orthographic Converters")
         self.csizer = wx.StaticBoxSizer(converterbox, wx.VERTICAL)
         self.converterlist = wx.CheckListBox(self, -1, choices=self.converters)
+        self.converterlist.SetCheckedStrings(self.selection)
         self.Bind(wx.EVT_CHECKLISTBOX, self.OnSelection, self.converterlist)
         self.csizer.Add(self.converterlist, 0, wx.TOP|wx.LEFT, 10)
         self.SetSizer(self.csizer)
