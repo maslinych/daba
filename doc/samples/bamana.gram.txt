@@ -104,8 +104,14 @@ pattern :num: [ {@nonnasal-v@|lan}:: ] | :num: [ :num: :mrph:INSTR]
 
 ## reduplication
 section reduplication
-pattern :v/adj: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>}:: ] | :v/adj: [ :v/adj: :v/adj: ]
-pattern :v/adj: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>|<re>(?P=stem)</re>}:: ] | :v/adj: [ :v/adj: :v/adj: :v/adj: ]
+pattern :v: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>}:: ] | :v: [ :v: :v: ]
+pattern :adj: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>}:: ] | :adj: [ :adj: :adj: ]
+pattern :num: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>}:: ] | :num: [ :num: :num: ]
+pattern :v: [ {<re>(?P<stem>.+)</re>|-|<re>(?P=stem)</re>}:: ] | :v: [ :v: :: :v: ]
+pattern :adj: [ {<re>(?P<stem>.+)</re>|-|<re>(?P=stem)</re>}:: ] | :adj: [ :adj: :: :adj: ]
+pattern :num: [ {<re>(?P<stem>.+)</re>|-|<re>(?P=stem)</re>}:: ] | :num: [ :num: :: :num: ]
+pattern :v: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>|<re>(?P=stem)</re>}:: ] | :v: [ :v: :v: :v: ]
+pattern :adj: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>|<re>(?P=stem)</re>}:: ] | :adj: [ :adj: :adj: :adj: ]
 
 ## composition
 # general part-of-speech composition patterns
