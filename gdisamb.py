@@ -49,6 +49,7 @@ PSLIST = [
         'pp',
         'prn',
         'prep',
+        'n.top',
         'PUNCT',
         ]
 
