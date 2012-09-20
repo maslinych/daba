@@ -37,11 +37,12 @@ class Tokenizer(object):
                 ('Par', (r'(\r?\n){2,}',)),
                 ('NL', (r'[\r\n]',)),
                 ('Space', (r'\s+',re.UNICODE)),
+                #FIXME: hardcoded acute and grave accents plus round apostrophe (shoud not split words)
+                ('Word', (r'((\w\.){2,}|[A-Z]+)', re.UNICODE)),
+                ('Word', (ur"(\w[\u0300\u0301]?)+([-.](\w[\u0300\u0301]?)+)*['\u2019]?",re.UNICODE)),
                 ('Punct', (r'([:;,]+)',re.UNICODE)),
                 ('SentPunct', (r'([.!?]+|[)"])',re.UNICODE)),
                 ('Cardinal', (r'\d+',re.UNICODE)),
-                #FIXME: hardcoded acute and grave accents plus round apostrophe (shoud not split words)
-                ('Word', (ur"(\w[\u0300\u0301]?)+([-](\w[\u0300\u0301]?)+)*['\u2019]?",re.UNICODE)),
                 ('Nonword', (r'\W', re.UNICODE)),
                 ]
         useless = ['NL', 'Space']
