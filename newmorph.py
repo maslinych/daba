@@ -160,7 +160,11 @@ class Parser(object):
                 result = []
                 # annotate base form with gloss derived from morpheme glosses
                 for ngloss in new.glosslist:
-                    commongloss = u'-'.join([m.gloss for m in ngloss.morphemes])
+                    glosses = [m.gloss for m in ngloss.morphemes]
+                    if all(glosses):
+                        commongloss = u'-'.join(glosses)
+                    else:
+                        commongloss = ''
                     stemps = [m.ps for m in ngloss.morphemes if 'mrph' not in m.ps]
                     if len(stemps) == 1:
                         try:
