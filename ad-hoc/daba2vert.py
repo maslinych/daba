@@ -51,8 +51,11 @@ def main():
                         get_lemma = lambda x: ''.join(c for c in x if c not in '.')
                     elif options.nullify:
                         nullify_dict={u'ɔ': 'o', u'ɛ': 'e', u'ɲ': 'ny'}
-                        translit = lambda x: ''.join([])
-                        get_lemma = lambda x: detone(''.join(c for c in x if c not in '.')
+                        def get_lemma(x):
+                            x = detone(''.join(c for c in x if c not in '.'))
+                            for source, target in nullify_dict.items():
+                                x = x.translate(ord(source), ord(target))
+                            return x
                     else:
                         get_lemma = lambda x: detone(''.join(c for c in x if c not in '.')
     )
