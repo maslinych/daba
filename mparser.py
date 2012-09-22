@@ -216,7 +216,8 @@ class Processor(object):
 
 
 def load_plugins():
-    plugins = [x[:-3] for x in os.listdir('plugins') if x.endswith('.py') and not x.startswith('__')]
+    plugindir = os.path.join(os.path.abspath(os.path.dirname(sys.argv[0])), 'plugins')
+    plugins = [x[:-3] for x in os.listdir(plugindir) if x.endswith('.py') and not x.startswith('__')]
     for plugin in plugins:
         mod = __import__('.'.join(['plugins', plugin]))
                 
