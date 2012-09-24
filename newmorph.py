@@ -144,7 +144,7 @@ class Parser(object):
                             funclist.append(self.grammar.patterns[f])
                     self.processing.append((step[0], funclist[0](*funclist[1:]), step[1]))
 
-    def lookup(self, lemma):
+    def lookup(self, lemma, make_lemma=False):
         'Gloss -> Maybe([Gloss])'
         result = None
         if parsed(lemma):
@@ -161,7 +161,7 @@ class Parser(object):
                 # annotate base form with gloss derived from morpheme glosses
                 for ngloss in new.glosslist:
                     glosses = [m.gloss for m in ngloss.morphemes]
-                    if all(glosses):
+                    if make_lemma and all(glosses):
                         commongloss = u'-'.join(glosses)
                     else:
                         commongloss = ''
