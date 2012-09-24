@@ -7,6 +7,14 @@ import optparse
 import formats
 from orthography import detone
 
+INFLECTION = [
+    'PROG',
+    'PFV.INTR',
+    'PL',
+    'PTCP.PRIV',
+    'PTCP.POT',
+    'RES'
+    ]
 
 def main():
     usage = "%prog [options] <infile>"
@@ -64,16 +72,16 @@ def main():
                     tags = set([])
                     glosses = []
                     for g in gt.glosslist:
-                        if not (g.gloss and g.ps) and g.morphemes:
+                        tags = tags.union(g.ps)
+                        glosses.append(g.gloss)
+                        if g.morphemes:
+                            lemmas.append(get_lemma(''.join([m.form for m in g.morphemes if m.gloss not in INFLECTION])))
                             for m in g.morphemes:
+                                glosses.append(m.gloss)
                                 if 'mrph' not in m.ps:
                                     lemmas.append(get_lemma(m.form))
-                                    tags = tags.union(m.ps)
-                                glosses.append(m.gloss)
                         else:
                             lemmas.append(get_lemma(g.form))
-                            tags = tags.union(g.ps)
-                            glosses.append(g.gloss)
                     
                     if options.unique:
                         print u"\t".join([u'|'.join(filter(None, set(s))) for s in [lemmas, tags, glosses]]).encode('utf-8')
