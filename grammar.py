@@ -37,20 +37,37 @@ def unwrap_re(tupl):
         unfolded.append(ur'(?P<__group{0}>{1})'.format(i,part))
     return re.compile(ur'^{0}$'.format(''.join(unfolded)))
 
+tokval = lambda x: x.value
+name = some(lambda t: t.type == 'Name') >> tokval
+op = lambda s: a(Token('Op', s)) >> tokval
+op_ = lambda s: skip(op(s))
+foldl = lambda s: [s]
+unfoldl = lambda l: [k for j in [i for i in l if i] for k in j]
+unarg = lambda f: lambda args: f(*args)
+joinif = lambda x: ''.join(i for i in x if i)
+denone = lambda s: s or ()
+makeset = lambda s: set(s.split('/')) if s else set([])
+
+
+
+def fullgloss_parser():
+    regex = some(lambda t: t.type == 'Regex') >> tokval
+    re_or_string = regex | name
+    unregex = regex >> unwrap_re
+    splitter = oneplus(op_('|') + maybe(re_or_string) ) >> tuple
+    form_expr = op_('{') + (maybe(re_or_string) >> foldl) + splitter + op_('}') >> unfoldl >> tuple >> unwrap_re
+    lemma = maybe(form_expr | unregex | name ) + op_(':') + (maybe(name) >> makeset ) + op_(':') + maybe(name | unregex) 
+    fullgloss = forward_decl()
+    glosslist = skip(op('[')) + many(fullgloss) + skip(op(']')) >> tuple
+    fullgloss.define(lemma + ( maybe(glosslist) >> denone ) >> unarg(Gloss))
+
+    return fullgloss
+
+
 def parse(seq):
     'Sequence(Token) -> grammar dict'
-    unarg = lambda f: lambda args: f(*args)
-    tokval = lambda x: x.value
-    joinif = lambda x: ''.join(i for i in x if i)
-    unfoldl = lambda l: [k for j in [i for i in l if i] for k in j]
-    foldl = lambda s: [s]
-    denone = lambda s: s or ()
-    makeset = lambda s: set(s.split('/')) if s else set([])
     make_patterns = lambda x: ('patterns', x)
-    name = some(lambda t: t.type == 'Name') >> tokval
     n = lambda s: a(Token('Name', s)) >> tokval
-    op = lambda s: a(Token('Op', s)) >> tokval
-    op_ = lambda s: skip(op(s))
     # plan syntax
     f_add = n('add') 
     f_apply = n('apply') 
@@ -67,16 +84,7 @@ def parse(seq):
     plan_dict = oneplus(for_clause) >> dict
     plan = n('plan') + plan_dict  >> tuple
     # pattern syntax
-    regex = some(lambda t: t.type == 'Regex') >> tokval
-    re_or_string = regex | name
-    unregex = regex >> unwrap_re
-    splitter = oneplus(op_('|') + maybe(re_or_string) ) >> tuple
-    form_expr = op_('{') + (maybe(re_or_string) >> foldl) + splitter + op_('}') >> unfoldl >> tuple >> unwrap_re
-    lemma = maybe(form_expr | unregex | name ) + op_(':') + (maybe(name) >> makeset ) + op_(':') + maybe(name | unregex) 
-    fullgloss = forward_decl()
-    glosslist = skip(op('[')) + many(fullgloss) + skip(op(']')) >> tuple
-    fullgloss.define(lemma + ( maybe(glosslist) >> denone ) >> unarg(Gloss))
-    pattern = skip(n('pattern')) + fullgloss + skip(op('|')) + fullgloss >> unarg(Pattern)
+    pattern = skip(n('pattern')) + fullgloss_parser() + skip(op('|')) + fullgloss_parser() >> unarg(Pattern)
     sec_header = skip(n('section')) + name 
     section = sec_header + many(pattern) 
     sections = many(section) >> dict
