@@ -51,17 +51,13 @@ def main():
     # replace glosses
     dirty = False
     in_handler = formats.HtmlReader(args.infile)
-    for pp, par in enumerate(in_handler.glosses):
-        for sp, sent in enumerate(par):
-            for pos, token in enumerate(sent[1]):
-                if token[0] == 'w':
-                    for gpos, gloss in enumerate(formats.GlossToken(token).glosslist):
-                        for ingloss, outgloss in commands_list:
-                            matched, status = recursive_match(gloss, ingloss, outgloss)
-                            if status:
-                                dirty = True
-                                in_handler.glosses[pp][sp][1][pos][1][2][gpos] = matched
-                                print unicode(gloss), '->', unicode(matched)
+    for gloss, index in in_handler.itergloss():
+        for ingloss, outgloss in commands_list:
+            matched, status = recursive_match(gloss, ingloss, outgloss)
+            if status:
+                dirty = True
+                in_handler.setgloss(matched, index)
+                print unicode(gloss), '->', unicode(matched)
 
     if dirty:
         out_handler = formats.HtmlWriter((in_handler.metadata, in_handler.glosses), args.outfile or args.infile)

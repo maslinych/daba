@@ -117,6 +117,20 @@ class HtmlReader(BaseReader):
                     par.append(parse_sent(sent))
             self.glosses.append(par)
 
+    def itergloss(self):
+        for pp, par in enumerate(self.glosses):
+            for sp, sent in enumerate(par):
+                for tp, tok in enumerate(sent[1]):
+                    token = GlossToken(tok)
+                    if token.type == 'w':
+                        for gp, gloss in enumerate(token.glosslist):
+                            yield (gloss, (pp, sp, tp, gp))
+
+    def setgloss(self, gloss, index):
+        pp, sp, tp, gp = index
+        self.glosses[pp][sp][1][tp][1][2][gp] = gloss
+
+
 class HtmlWriter(object):
     def __init__(self, (metadata, para), filename, encoding="utf-8"):
         self.encoding = encoding
