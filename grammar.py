@@ -15,7 +15,9 @@ def tokenize(string):
             ('Op', (r'[\[\]|:{}]',)),
             #('Regex', (r'<(\w|[-={}\[\]|().,^$+*?:\\])*>', re.UNICODE)),
             ('Regex', (r'<re>.*?</re>', re.UNICODE)),
-            ('Name', (r'(\w\w*([./]\w+)*|[-0-9][-0-9]*)',re.UNICODE))
+            ('Name', (ur'[^:<> ]+', re.UNICODE)),
+            #('Name', (ur"(\w[\u0300\u0301\u0302]?)+([-./](\w[\u0300\u0301\u0302]?)+)*['\u2019]?",re.UNICODE)),
+            #('Name', (ur'(\w[\u0300\u0301]?([-./](\w[\u0300\u0301]?)+)*|[-0-9][-0-9]*)',re.UNICODE))
             ]
     useless = ['Comment', 'NL', 'Space']
     tok = make_tokenizer(specs)
