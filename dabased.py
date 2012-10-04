@@ -35,15 +35,21 @@ def main():
                 print 'Invalid command: {0}'.format(command)
 
     def recursive_match(gloss, pattern, target):
+        status = False
         if gloss.matches(pattern):
+            status = True
             out = target
         else:
             out = gloss
         if gloss.morphemes:
-            out._replace(morphemes=tuple([recursive_match(m, pattern, target)] for m in gloss.morphemes))
-        return out
+            morphlist, statuslist = zip(*[recursive_match(m, pattern, target) for m in gloss.morphemes])
+            out = out._replace(morphemes=morphlist)
+            if not status:
+                status = any(statuslist)
+        return (out, status)
 
     # replace glosses
+    dirty = False
     in_handler = formats.HtmlReader(args.infile)
     for pp, par in enumerate(in_handler.glosses):
         for sp, sent in enumerate(par):
@@ -51,12 +57,15 @@ def main():
                 if token[0] == 'w':
                     for gpos, gloss in enumerate(formats.GlossToken(token).glosslist):
                         for ingloss, outgloss in commands_list:
-                            matched = recursive_match(gloss, ingloss, outgloss)
-                            if not matched == gloss:
-                                in_handler.glosses[pp][sp][1][pos][1][2][gpos] = outgloss
+                            matched, status = recursive_match(gloss, ingloss, outgloss)
+                            if status:
+                                dirty = True
+                                in_handler.glosses[pp][sp][1][pos][1][2][gpos] = matched
+                                print unicode(gloss), '->', unicode(matched)
 
-    out_handler = formats.HtmlWriter((in_handler.metadata, in_handler.glosses), args.outfile or args.infile)
-    out_handler.write()
+    if dirty:
+        out_handler = formats.HtmlWriter((in_handler.metadata, in_handler.glosses), args.outfile or args.infile)
+        out_handler.write()
 
 if __name__ == '__main__':
     main()
