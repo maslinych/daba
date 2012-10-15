@@ -59,17 +59,14 @@ class TxtReader(BaseReader):
             self.para = re.split(os.linesep + '{2,}', normalizeText(f.read().decode(encoding).strip()))
 
 class HtmlReader(BaseReader):
-    def __init__(self, filename):
-        tree = e.ElementTree()
-        self.xml = tree.parse(filename)
+    def __init__(self, filename, onlymeta=False):
         self.metadata = []
         self.para = []
         self.glosses = []
-        for md in self.xml.findall('head/meta'):
-            name = md.get('name')
-            if name is not None:
-                self.metadata.append((name, md.get('content')))
-        #self.para = [i.text or ''.join([j.text for j in i.findall('span') if j.get('class') == 'sent']) for i in self.xml.findall('body/p')]
+        self.numwords = 0
+        self.numsent = 0
+        self.numpar = 0
+
         def elem_to_gloss(xgloss):
             morphemes = []
             if xgloss.attrib['class'] in ['lemma', 'm', 'lemma var']:
@@ -85,7 +82,7 @@ class HtmlReader(BaseReader):
                         morphemes.append(elem_to_gloss(i))
             return Gloss(form, ps, gloss, tuple(morphemes))
 
-        def parse_sent(sent):
+        def parse_sent(sent, onlymeta=False):
             text = normalizeText(sent.text)
             annot = []
             for span in sent.findall('span'):
@@ -93,6 +90,9 @@ class HtmlReader(BaseReader):
                     for w in span.findall('span'):
                         if w.attrib['class'] == 'w':
                             #, 'c']:
+                            self.numwords += 1
+                            if onlymeta:
+                                continue
                             for lem in w.findall('span'):
                                 if lem.attrib['class'] == 'lemma':
                                     glosslist = []
@@ -109,13 +109,28 @@ class HtmlReader(BaseReader):
                             annot.append(('Comment', normalizeText(w.text) or ''))
             return (text, annot)
 
-        for p in self.xml.findall('body/p'):
-            self.para.append(p.text or ''.join([normalizeText(j.text) for j in p.findall('span') if j.get('class') == 'sent']))
-            par = []
-            for sent in p.findall('span'):
-                if sent.attrib['class'] == 'sent':
-                    par.append(parse_sent(sent))
-            self.glosses.append(par)
+        for event, elem in e.iterparse(filename):
+            if elem.tag == 'meta':
+                name = elem.get('name')
+                if name is not None:
+                    self.metadata.append((name, elem.get('content')))
+            elif elem.tag == 'p':
+                self.numpar += 1
+                p = elem
+                par = []
+                self.para.append(p.text or ''.join([normalizeText(j.text) for j in p.findall('span') if j.get('class') == 'sent']))
+                for sent in p.findall('span'):
+                    if sent.attrib['class'] == 'sent':
+                        self.numsent += 1
+                        par.append(parse_sent(sent, onlymeta=onlymeta))
+                self.glosses.append(par)
+                p.clear()
+        for k,v in [ 
+                ('_auto:words', self.numwords),
+                ('_auto:sentences', self.numsent),
+                ('_auto:paragraphs', self.numpar)
+                ]:
+            self.metadata.append((k, unicode(v)))
 
     def itergloss(self):
         for pp, par in enumerate(self.glosses):
