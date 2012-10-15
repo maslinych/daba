@@ -109,6 +109,7 @@ class HtmlReader(BaseReader):
                             annot.append(('Comment', normalizeText(w.text) or ''))
             return (text, annot)
 
+        par = []
         for event, elem in e.iterparse(filename):
             if elem.tag == 'meta':
                 name = elem.get('name')
@@ -116,15 +117,15 @@ class HtmlReader(BaseReader):
                     self.metadata.append((name, elem.get('content')))
             elif elem.tag == 'p':
                 self.numpar += 1
-                p = elem
-                par = []
-                self.para.append(p.text or ''.join([normalizeText(j.text) for j in p.findall('span') if j.get('class') == 'sent']))
-                for sent in p.findall('span'):
-                    if sent.attrib['class'] == 'sent':
-                        self.numsent += 1
-                        par.append(parse_sent(sent, onlymeta=onlymeta))
+                self.para.append(elem.text or ''.join([normalizeText(j.text) for j in elem.findall('span') if j.get('class') == 'sent']))
                 self.glosses.append(par)
-                p.clear()
+                par = []
+                elem.clear()
+            elif elem.tag == 'span' and elem.get('class') == 'sent':
+                self.numsent += 1
+                par.append(parse_sent(elem, onlymeta=onlymeta))
+                elem.clear()
+
         for k,v in [ 
                 ('_auto:words', self.numwords),
                 ('_auto:sentences', self.numsent),
