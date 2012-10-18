@@ -55,8 +55,8 @@ section participles
 pattern :v/vq/ptcp: [ {|bali}:: ] | :ptcp: [ :v: :mrph:PTCP.PRIV]
 pattern :v/vq/ptcp: [ {|ta}:: ] | :ptcp: [ :v: :mrph:PTCP.POT]
 pattern :v/vq/ptcp: [ {|tɔ}:: ] | :ptcp: [ :v: :mrph:PTCP.PROG]
-pattern :v/vq/ptcp: [ {@nasal-v@|nen}:: ] | :ptcp: [ :v: :mrph:RES]
-pattern :v/vq/ptcp: [ {@nonnasal-v@|len}:: ] | :ptcp: [ :v: :mrph:RES]
+pattern :v/vq/ptcp: [ {@nasal-v@|nen}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
+pattern :v/vq/ptcp: [ {@nonnasal-v@|len}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 
 # derivative forms we need to consider even if we have them in dictionary
 section common_derivation
