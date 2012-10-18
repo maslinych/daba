@@ -38,14 +38,14 @@ def main():
         status = False
         if gloss.matches(pattern):
             status = True
-            out = target
+            out = gloss.union(target)
         else:
             out = gloss
-        if gloss.morphemes:
-            morphlist, statuslist = zip(*[recursive_match(m, pattern, target) for m in gloss.morphemes])
-            out = out._replace(morphemes=morphlist)
-            if not status:
-                status = any(statuslist)
+            if gloss.morphemes:
+                morphlist, statuslist = zip(*[recursive_match(m, pattern, target) for m in gloss.morphemes])
+                out = out._replace(morphemes=morphlist)
+                if not status:
+                    status = any(statuslist)
         return (out, status)
 
     # replace glosses
