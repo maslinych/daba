@@ -6,6 +6,7 @@ import os
 import optparse
 import argparse
 import formats
+import cPickle
 from orthography import detone
 
 INFLECTION = [
@@ -17,7 +18,22 @@ INFLECTION = [
     'RES'
     ]
 
-def print_token(token, args):
+class VariantsLoader(object):
+    def __init__(self, filename):
+        cachefile = ''.join([filename, '.variants.cache'])
+        if os.path.exists(cachefile) and os.path.getmtime(cachefile) > os.path.getmtime(filename):
+            with open(cachefile, 'rb') as cache:
+                self.vardict = cPickle.load(cache)
+        else:
+            self.vardict = formats.DictReader(filename, store=False, variants=True).getVariants()
+            with open(cachefile, 'wb') as cache:
+                cPickle.dump(self.vardict, cache)
+
+    def get(self):
+        return self.vardict
+
+
+def print_token(token, args, vardict):
     gt = formats.GlossToken(token)
     print u"{0}\t".format(gt.token).encode('utf-8'),
     if gt.type == 'w':
@@ -51,7 +67,12 @@ def print_token(token, args):
                         lemmas.append(get_lemma(m.form))
             else:
                 lemmas.append(get_lemma(g.form))
-        
+
+            if args.variants:
+                if g in vardict:
+                    for variant in vardict[g]:
+                        lemmas.append(get_lemma(variant))
+                
         if args.unique:
             print u"\t".join([u'|'.join(filter(None, set(s))) for s in [lemmas, tags, glosses]]).encode('utf-8')
         else:
@@ -65,10 +86,15 @@ def main():
     oparser.add_argument("-t", "--tonal", action="store_true", help="Make tonal lemmas")
     oparser.add_argument("-u", "--unique", action="store_true", help="Print only unique lemmas and glosses")
     oparser.add_argument("-n", "--nullify", action="store_true", help="Transliterate all non-ascii characters")
-    oparser.add_argument("-v", "--variants", action="store_true", help="Treat all variants in given dictionary as alternative lemmas")
+    oparser.add_argument("-v", "--variants", help="Treat all variants in given dictionary as alternative lemmas")
     args = oparser.parse_args()
 
     reader = formats.HtmlReader(args.infile)
+
+    if args.variants:
+        vardict = VariantsLoader(args.variants).get()
+    else:
+        vardict = None
 
     print "<doc ",
     print u'id="{0}"'.format(os.path.basename(args.infile)).encode('utf-8'),
@@ -92,7 +118,7 @@ def main():
         for sent,annot in par:
             print "<s>"
             for token in annot:
-                print_token(token, args)
+                print_token(token, args, vardict)
             print "</s>"
         print "</p>"
 

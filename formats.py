@@ -12,7 +12,7 @@ import xml.etree.cElementTree as e
 from ntgloss import Gloss
 from orthography import detone
 from pytrie import StringTrie as trie
-from collections import namedtuple
+from collections import namedtuple, MutableMapping, defaultdict
 
 # Data structure for internal bare text representation:
 # ({metadata}, [para+])
@@ -277,9 +277,88 @@ class DictWriter(object):
             for gloss in wordlist:
                 dictfile.write(makeGlossSfm(gloss))
 
+class DabaDict(MutableMapping):
+    def __init__(self):
+        self._data = trie({})
+        self.lang = None
+        self.name = None
+        self.ver = None
+
+    def __len__(self):
+        return len(self._data)
+
+    def __iter__(self):
+        return self._data.__iter__()
+
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def __setitem__(self, key, value):
+        return self._data.setdefault(key, []).append(value)
+
+    def __delitem__(self, key):
+        return self._data.__delitem__(key)
+
+    def attributed(self):
+        return all([self.lang, self.name, self.ver])
+
+
+class VariantsDict(MutableMapping):
+    def __init__(self):
+        self._data = {}
+
+    def freezeps(self, ps):
+        assert isinstance(ps, set)
+        l = list(ps)
+        l.sort()
+        return u'/'.join(l)
+
+    def __len__(self):
+        return len(self._data)
+
+    def __iter__(self):
+        for (ps, gs), formlist in self._data.iteritems():
+            psset = set(ps.split('/'))
+            for form in formlist:
+                yield Gloss(form, psset, gs, ())
+
+    def __getitem__(self, gloss):
+        form, ps, gs, ms = gloss
+        try:
+            if form in self._data[(self.freezeps(ps), gs)]:
+                return self._data[(self.freezeps(ps), gs)].difference(set([form]))
+        except KeyError:
+            pass
+        return set()
+
+    def __setitem__(self, gloss, value):
+        assert isinstance(value, set)
+        key = (gloss.ps, gloss.gloss)
+        self._data[key] = value.add(gloss.form)
+
+    def add(self, glosslist):
+        f, ps, gs, ms = glosslist[0]
+        self._data[(self.freezeps(ps), gs)] = set([gloss.form for gloss in glosslist])
+
+    def __delitem__(self, gloss):
+        form, ps, gs, ms = gloss
+        index = (self.freezeps(ps), gs)
+        self._data[index].remove(form)
+        if not self._data[index]:
+            self._data.__delitem__(index)
+        return
+
 
 class DictReader(object):
-    def __init__(self, filename,encoding='utf-8'):
+    def __init__(self, filename, encoding='utf-8', store=True, variants=False):
+
+        self._dict = DabaDict()
+        self._variants = VariantsDict()
+        sha = hashlib.sha1()
+        lemmalist = []
+        key = None
+        ps = set()
+        ge = ''
 
         def parsemm(v):
             f, p, g = v.split(':')
@@ -289,29 +368,32 @@ class DictReader(object):
                 ps = []
             return Gloss(f, set(ps), g, ())
 
-        def push_items(d, l, ps=frozenset([]), ge=''):
-            for k, i in l:
-                lx = i._replace(ps=ps,gloss=ge)
-                d.setdefault(k,[]).append(lx)
-                detoned = detone(k)
-                if not detoned == k:
-                    d.setdefault(detoned,[]).append(lx)
+        def normalize(value): 
+            return normalizeText(value.translate({ord(u'.'):None,ord(u'-'):None}).lower())
 
-        findict = trie({})
-        sha = hashlib.sha1()
-        ids = {}
-        tlist = []
-        key = None
-        ps = set()
-        ge = ''
+        def make_item(value):
+            return [normalize(value), Gloss(form=value,ps=set([]),gloss="",morphemes=())]
 
+        def push_items(primarykey, lemmalist):
+            for key, lx in lemmalist:
+                self._dict[key] = lx
+                detonedkey = detone(key)
+                if not detonedkey == key:
+                    self._dict[detonedkey] = lx
+        
         with codecs.open(filename, 'r', encoding=encoding) as dictfile:
             for line in dictfile:
                 sha.update(repr(line))
+                # end of the artice/dictionary
                 if not line or line.isspace():
-                    if tlist and not ps == set(['mrph']):
-                        push_items(findict, tlist, ps, ge)
-                    tlist = []
+                    lemmalist = [(key, item._replace(ps=ps,gloss=ge)) for key, item in lemmalist]
+                    if lemmalist and not ps == set(['mrph']):
+                        if store:
+                            push_items(key, lemmalist)
+                        if variants and len(lemmalist) > 1:
+                            self._variants.add(zip(*lemmalist)[1])
+
+                    lemmalist = []
                     ps = set()
                     ge = ''
                     key = None
@@ -320,36 +402,42 @@ class DictReader(object):
                     tag, space, value = line[1:].partition(' ')
                     value = value.strip()
                     if tag in ['lang', 'ver', 'name']:
-                            ids[tag] = value
-                    if tag in ['lx', 'le', 'va', 'vc']:
-                        key = normalizeText(value.translate({ord(u'.'):None,ord(u'-'):None}).lower())
-                        tlist.append([key, Gloss(form=value,ps=set([]),gloss="",morphemes=())])
-                    if tag in ['mm']:
-                        tlist[-1][1] = tlist[-1][1]._replace(morphemes=tlist[-1][1].morphemes+(parsemm(value),))
-                    if tag in ['ps'] and not ps:
+                        self._dict.__setattr__(tag, value)
+                    elif tag in ['lx', 'le', 'va', 'vc']:
+                        key = normalize(value)
+                        lemmalist.append(make_item(value))
+                    elif tag in ['mm']:
+                        lemmalist[-1][1] = lemmalist[-1][1]._replace(morphemes=lemmalist[-1][1].morphemes+(parsemm(value),))
+                    elif tag in ['ps'] and not ps:
                         if value:
                             ps = set(value.split('/'))
                         else:
                             ps = set([])
-                    if tag in ['ge'] and not ge:
+                    elif tag in ['ge'] and not ge:
                         ge = value
                 else:
-                    if tlist:
-                        push_items(findict, tlist, ps, ge)
+                    if lemmalist:
+                        if store:
+                            push_items(key, lemmalist)
+                        if variants:
+                            self._variants.add(lemmalist)
 
             self.hash = sha.hexdigest()
-            try:
-                self.lang = ids['lang']
-                self.name = ids['name']
-                self.ver = ids['ver']
-            except KeyError:
-                print r"Dictionary does not contain obligatory \lang, \name or \ver fields.\n\
+            if not self._dict.attributed():
+                print r"Dictionary does not contain obligatory \lang, \name or \ver fields.\
                         Please specify them and try to load again."
-            self.udict = findict
+                print self._dict.lang, self._dict.name, self._dict.ver
             
+
+    #FIXME: kept for backward compatibility, remove after refactoring
     def values(self):
         try:
-            return (self.hash, self.lang, self.name, self.ver, self.udict)
+            return (self.hash, self._dict.lang, self._dict.name, self._dict.ver, self._dict)
         except AttributeError:
             return (None, None, None, None, {})
 
+    def get(self):
+        return self._dict
+
+    def getVariants(self):
+        return self._variants

@@ -27,7 +27,6 @@ import codecs
 import unicodedata
 import xml.etree.cElementTree as e
 from ntgloss import Gloss
-from pytrie import StringTrie as trie
 
 PSLIST = [
         'n.prop',
@@ -312,7 +311,7 @@ class GlossInputDialog(wx.Dialog):
                 if gloss not in self.localdict[gloss.form]:
                     self.localdict[gloss.form].insert(0, gloss)
             else:
-                self.localdict[gloss.form] = [gloss]
+                self.localdict[gloss.form] = gloss
 
     def OnAddMorpheme(self, event):
         if PSLIST[0] is not 'mrph':
@@ -846,9 +845,9 @@ class MainFrame(wx.Frame):
 
         #FIXME: loading localdict right on start, should give user possibility to choose
         if os.path.exists(self.dictfile):
-            self.localdict = formats.DictReader(self.dictfile).udict
+            self.localdict = formats.DictReader(self.dictfile).get()
         else:
-            self.localdict = trie({})
+            self.localdict = formats.DabaDict()
 
         self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.Sizer.Add(self.sentpanel, 2, wx.EXPAND)
@@ -962,6 +961,7 @@ class MainFrame(wx.Frame):
     def SaveFiles(self,e):
         if self.localdict:
             formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict',ver='0').write()
+        print self.outfile
         self.processor.write(self.outfile)
 
 
@@ -982,7 +982,7 @@ class MainFrame(wx.Frame):
 
             dlg = wx.FileDialog(self, "Choose a file", os.path.dirname(self.infile), xfilename, "*.html", wx.SAVE)
             if dlg.ShowModal() == wx.ID_OK:
-                self.outfile = os.path.join(dlg.GetDirectory(), dlg.GetFilename())
+                self.outfile = dlg.GetPath()
                 if not os.path.splitext(self.outfile)[1] == '.html' :
                     self.outfile = ''.join([self.outfile, os.path.extsep, 'html'])
                 self.SaveFiles(e)
@@ -991,7 +991,7 @@ class MainFrame(wx.Frame):
 
 if __name__ == '__main__':
     app = wx.App()
-    frame = MainFrame(None, title="Bamana disambiguation interface (GUI)")
+    frame = MainFrame(None, title="Daba disambiguation interface (GUI)")
     frame.Show()
     app.MainLoop()
 
