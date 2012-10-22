@@ -283,6 +283,18 @@ class DabaDict(MutableMapping):
         self.lang = None
         self.name = None
         self.ver = None
+        self.sha = hashlib.sha1()
+        self._hashed = None
+
+    @property
+    def hash(self):
+        if not self.sha:
+            return self._hashed
+        else:
+            return self.sha.hexdigest()
+
+    def __repr__(self):
+        return ' '.join((self.lang, self.name, self.ver, self.hash))
 
     def __len__(self):
         return len(self._data)
@@ -294,13 +306,27 @@ class DabaDict(MutableMapping):
         return self._data[key]
 
     def __setitem__(self, key, value):
+        assert isinstance(value, Gloss)
+        self.sha.update(repr((key,value)))
         return self._data.setdefault(key, []).append(value)
 
     def __delitem__(self, key):
         return self._data.__delitem__(key)
 
+    def __eq__(self, other):
+        return all([getattr(self, a) == getattr(other, a) for a in ('lang', 'name', 'ver', 'hash')])
+
+    def __getstate__(self):
+        if self.sha:
+            self._hashed = self.sha.hexdigest()
+            self.sha = None
+        return self.__dict__
+
     def attributed(self):
         return all([self.lang, self.name, self.ver])
+
+    def iter_prefixes(self, string):
+        return self._data.iter_prefixes(string)
 
 
 class VariantsDict(MutableMapping):
@@ -354,7 +380,6 @@ class DictReader(object):
 
         self._dict = DabaDict()
         self._variants = VariantsDict()
-        sha = hashlib.sha1()
         lemmalist = []
         key = None
         ps = set()
@@ -383,7 +408,6 @@ class DictReader(object):
         
         with codecs.open(filename, 'r', encoding=encoding) as dictfile:
             for line in dictfile:
-                sha.update(repr(line))
                 # end of the artice/dictionary
                 if not line or line.isspace():
                     lemmalist = [(key, item._replace(ps=ps,gloss=ge)) for key, item in lemmalist]
@@ -422,7 +446,6 @@ class DictReader(object):
                         if variants:
                             self._variants.add(lemmalist)
 
-            self.hash = sha.hexdigest()
             if not self._dict.attributed():
                 print r"Dictionary does not contain obligatory \lang, \name or \ver fields.\
                         Please specify them and try to load again."
@@ -432,7 +455,7 @@ class DictReader(object):
     #FIXME: kept for backward compatibility, remove after refactoring
     def values(self):
         try:
-            return (self.hash, self._dict.lang, self._dict.name, self._dict.ver, self._dict)
+            return (self._dict.hash, self._dict.lang, self._dict.name, self._dict.ver, self._dict)
         except AttributeError:
             return (None, None, None, None, {})
 

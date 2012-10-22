@@ -12,9 +12,16 @@ def nullgloss(word):
 def lookup_gloss(gloss,gdict):
     'Gloss, Dictionary -> tuple(Gloss)'
     try:
-        pattern = emptyGloss._replace(ps=gloss.ps, gloss=gloss.gloss)
-        return tuple([dgloss for dgloss in gdict[gloss.form] if dgloss.matches(pattern)])
-    except KeyError:
+        if gloss.form in gdict:
+            pattern = emptyGloss._replace(ps=gloss.ps, gloss=gloss.gloss)
+            return tuple([dgloss for dgloss in gdict[gloss.form] if dgloss.matches(pattern)])
+        else:
+            return ()
+    except (KeyError,AttributeError):
+        if gloss.form in gdict:
+            print 'PP', gloss.form, gdict[gloss.form]
+        else:
+            print 'PN', gloss.form
         return ()
 
 def parse_composite(form, gdict, numparts):

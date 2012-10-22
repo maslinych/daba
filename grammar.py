@@ -15,7 +15,7 @@ def tokenize(string):
             ('Op', (r'[\[\]|:{}]',)),
             #('Regex', (r'<(\w|[-={}\[\]|().,^$+*?:\\])*>', re.UNICODE)),
             ('Regex', (r'<re>.*?</re>', re.UNICODE)),
-            ('Name', (ur'[^:<> \n]+', re.UNICODE)),
+            ('Name', (ur'[^:<>\[\]{}| \n]+', re.UNICODE)),
             #('Name', (ur"(\w[\u0300\u0301\u0302]?)+([-./](\w[\u0300\u0301\u0302]?)+)*['\u2019]?",re.UNICODE)),
             #('Name', (ur'(\w[\u0300\u0301]?([-./](\w[\u0300\u0301]?)+)*|[-0-9][-0-9]*)',re.UNICODE))
             ]
@@ -95,20 +95,21 @@ def parse(seq):
 
     return grammar.parse(seq)
 
+def preprocess(gstring):
+    mdict = {}
+    lines = gstring.split('\n')
+    for line in lines:
+        if line.startswith('macro'):
+            fields = line.split()
+            mdict[fields[1]] = fields[2]
+    filtered = '\n'.join(filter(lambda i: not i.startswith('macro'), lines))
+    for macro,replacement in mdict.iteritems():
+        filtered = filtered.replace(macro, replacement)
+    return filtered
+
+
 class Grammar(object):
     def __init__(self,filename,encoding='utf-8'):
-        def preprocess(gstring):
-            mdict = {}
-            lines = gstring.split('\n')
-            for line in lines:
-                if line.startswith('macro'):
-                    fields = line.split()
-                    mdict[fields[1]] = fields[2]
-            filtered = '\n'.join(filter(lambda i: not i.startswith('macro'), lines))
-            for macro,replacement in mdict.iteritems():
-                filtered = filtered.replace(macro, replacement)
-            return filtered
-
         with open(filename, 'r') as gf:
             text = preprocess(gf.read().decode(encoding))
             gdict = parse(tokenize(text))

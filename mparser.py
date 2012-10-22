@@ -24,6 +24,8 @@ import sys
 import cPickle
 import funcparserlib.lexer 
 import xml.etree.cElementTree as e
+import collections
+import itertools
 import formats
 from plugins import OrthographyConverter
 
@@ -37,12 +39,12 @@ class Tokenizer(object):
                 ('Par', (r'(\r?\n){2,}',)),
                 ('NL', (r'[\r\n]',)),
                 ('Space', (r'\s+',re.UNICODE)),
+                ('Cardinal', (r'(\d([-.,:]\d)?)+',re.UNICODE)),
                 #FIXME: hardcoded acute and grave accents plus round apostrophe (shoud not split words)
-                ('Word', (r'((\w\.){2,}|[A-Z]+)', re.UNICODE)),
+                ('Word', (r'(\w\.){2,}', re.UNICODE)),
                 ('Word', (ur"(\w[\u0300\u0301]?)+([-.](\w[\u0300\u0301]?)+)*['\u2019]?",re.UNICODE)),
                 ('Punct', (r'([:;,]+)',re.UNICODE)),
                 ('SentPunct', (r'([.!?]+|[)"])',re.UNICODE)),
-                ('Cardinal', (r'\d+',re.UNICODE)),
                 ('Nonword', (r'\W', re.UNICODE)),
                 ]
         useless = ['NL', 'Space']
@@ -54,65 +56,103 @@ class Tokenizer(object):
         for s in re.finditer(sent, para):
             yield s.group(0) or para
 
+class ChainDict(object):
+    def __init__(self, *maps):
+        self._maps = dict((dic.hash, dic) for dic in maps)
+
+    @property
+    def ids(self):
+        return self._maps.viewkeys()
+
+    @property
+    def dictlist(self):
+        return self._maps.viewvalues()
+
+    def __len__(self):
+        return sum([len(dic) for dic in self.dictlist])
+
+    def __iter__(self):
+        return itertools.chain([iter(dic) for dic in self.dictlist])
+
+    def __contains__(self, key):
+        for dic in self.dictlist:
+            if key in dic:
+                return True
+        return False
+
+    def __getitem__(self, key):
+        result = []
+        for mapping in self.dictlist:
+            try:
+                result.extend(mapping[key])
+            except KeyError:
+                pass
+        if result:
+            return result
+        else:
+            raise KeyError(key)
+
+    def iter_prefixes(self, key):
+        result = set()
+        for dic in self.dictlist:
+            for prefix in dic.iter_prefixes(key):
+                result.add(prefix)
+        return result
+
+    def add(self, dic):
+        self._maps[dic.hash] = dic
+
+    def remove(self, sha):
+        del self._maps[sha]
+
 
 class DictLoader(object):
     """ Object holding info about dictionaries state.
     """
     def __init__(self, runtimedir='./run'):
         self.runtimedir = runtimedir
-        self.dictlist = {}
-        self.dictionary = {}
+        self.dictionary = ChainDict()
         for f in os.listdir(self.runtimedir):
             name, ext = os.path.splitext(f)
             if ext in ['.bdi']:
                 with open(os.path.join(self.runtimedir, f)) as bdi:
-                    sha, lang, name, ver, dic = cPickle.load(bdi)
-                self.dictlist[(lang, name)] = ( (ver, sha), dic)
-                self.refresh()
+                    dic = cPickle.load(bdi)
+                    assert isinstance(dic, formats.DabaDict)
+                    self.load(dic)
+    
+    def filepath(self, dic):
+        return os.path.join(self.runtimedir, os.path.extsep.join(['-'.join([dic.lang, dic.name, dic.hash]), 'bdi']))
 
-    def update(self, dic):
-        if not self.dictionary:
-            self.dictionary = dic
-        else:
-            for key,value in dic.iteritems():
-                if key not in self.dictionary:
-                    self.dictionary[key] = value
+    def load(self, dic):
+        print 'LOADED DICT', dic
+        self.dictionary.add(dic)
+
+    def addfile(self, dictfile):
+        dic = formats.DictReader(dictfile).get()
+        if not dic in self.dictionary.dictlist:
+            self.add(dic)
+
+    def add(self, dic):
+        for d in self.dictionary.dictlist:
+            if (dic.lang, dic.name) == (d.lang, d.name):
+                if not (dic.ver, dic.hash) == (d.ver, d.hash):
+                    self.remove(d)
                 else:
-                    for gloss in value:
-                        if gloss not in self.dictionary[key]:
-                            self.dictionary[key].append(gloss)
+                    # don't save dic if we already have identical one
+                    return (dic.lang, dic.name)
+        self.save(dic)
+        return (dic.lang, dic.name)
 
-    def refresh(self):
-        self.dictionary = {}
-        for (ids, dic) in self.dictlist.itervalues():
-            self.update(dic)
-        
-    def add(self, dictfile):
-        dp = formats.DictReader(dictfile)
-        if not any(dp.values()):
-            return (None, None)
-        sha, lang, name, ver, dic = dp.values()
-        if (lang, name) not in self.dictlist:
-            self.update(dic)
-        elif not self.dictlist[(lang, name)][0] == (ver, sha):
-            self.remove((lang, name))
-            self.refresh()
-        self.dictlist[(lang, name)] = ((ver, sha), dic)
-        self.save((lang, name))
-        return (lang, name)
+    def remove(self, dic):
+        print 'REPLACED DICT', dic
+        self.dictionary.remove(dic)
+        os.unlink(self.filepath(dic))
 
-    def remove(self, dictid):
-        lang, name = dictid
-        ((ver, sha), dic) = self.dictlist[dictid] 
-        os.unlink(os.path.join(self.runtimedir, os.path.extsep.join(['-'.join([lang, name, sha]), 'bdi'])))
-        del self.dictlist[dictid]
-        self.refresh()
-
-    def save(self, dictid):
-        lang, name = dictid
-        ((ver, sha), dic) = self.dictlist[dictid]
-        with open(os.path.join(self.runtimedir, os.path.extsep.join(['-'.join([lang, name, sha]), 'bdi'])), 'wb') as o:
-            cPickle.dump((sha, lang, name, ver, dic), o)
+    def save(self, dic):
+        print 'DICT saved', dic
+        self.load(dic)
+        with open(self.filepath(dic), 'wb') as o:
+            cPickle.dump(dic, o)
 
 
 class GrammarLoader(object):
@@ -231,18 +271,20 @@ def main():
     aparser.add_argument('-s', '--script', action='append', choices=OrthographyConverter.get_plugins().keys(), default=None, help='Perform orthographic conversion operations (defined in plugins). Conversions will be applied in the order they appear on command line.')
     aparser.add_argument("-d", "--dictionary", action="append", help="Toolbox dictionary file (may be added multiple times)")
     aparser.add_argument("-g", "--grammar", help="Grammar specification file")
+    aparser.add_argument("-n", "--noparse", action='store_true', help="Do not parse, only process resources")
     args = aparser.parse_args()
     dl = DictLoader()
     gr = GrammarLoader()
     if args.dictionary:
         for dicfile in args.dictionary:
-            dl.add(dicfile)
+            dl.addfile(dicfile)
     if args.grammar:
         gr.load(args.grammar)
-    pp = Processor(dl, gr, converters=args.script)
-    io = FileWrapper()
-    io.read(args.infile)
-    io.write(pp.parse(io.txt), args.outfile)
+    if not args.noparse:
+        pp = Processor(dl, gr, converters=args.script)
+        io = FileWrapper()
+        io.read(args.infile)
+        io.write(pp.parse(io.txt), args.outfile)
     exit(0)
 
 if __name__ == '__main__':
