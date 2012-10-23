@@ -20,6 +20,7 @@ def main():
     args = aparser.parse_args()
 
     # parse script file
+    print 'Processing', args.infile, '...'
     commands_list = []
     with open(args.script) as commands:
         for command in commands:
@@ -62,6 +63,7 @@ def main():
     if dirty:
         out_handler = formats.HtmlWriter((in_handler.metadata, in_handler.glosses), args.outfile or args.infile)
         out_handler.write()
+        print 'Finished', args.outfile
 
 if __name__ == '__main__':
     main()

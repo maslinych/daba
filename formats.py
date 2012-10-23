@@ -287,6 +287,10 @@ class DabaDict(MutableMapping):
         self._hashed = None
 
     @property
+    def description(self):
+        return ' '.join([self.lang, self.name, self.ver])
+
+    @property
     def hash(self):
         if not self.sha:
             return self._hashed

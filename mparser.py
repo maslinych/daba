@@ -99,11 +99,17 @@ class ChainDict(object):
                 result.add(prefix)
         return result
 
+    def get_dict(self, sha):
+        return self._maps[sha]
+
     def add(self, dic):
         self._maps[dic.hash] = dic
 
     def remove(self, sha):
         del self._maps[sha]
+
+    def replace(self, sha, dic):
+        self._maps[sha] = dic
 
 
 class DictLoader(object):
@@ -129,23 +135,32 @@ class DictLoader(object):
 
     def addfile(self, dictfile):
         dic = formats.DictReader(dictfile).get()
-        if not dic in self.dictionary.dictlist:
+        if not dic.hash in self.dictionary.ids:
             self.add(dic)
+            return dic.hash
 
     def add(self, dic):
         for d in self.dictionary.dictlist:
             if (dic.lang, dic.name) == (d.lang, d.name):
                 if not (dic.ver, dic.hash) == (d.ver, d.hash):
-                    self.remove(d)
+                    break
                 else:
                     # don't save dic if we already have identical one
                     return (dic.lang, dic.name)
+        else:
+            self.save(dic)
+            return dic.hash
+        self.remove(d)
         self.save(dic)
-        return (dic.lang, dic.name)
+        return dic.hash
 
-    def remove(self, dic):
-        print 'REPLACED DICT', dic
-        self.dictionary.remove(dic)
+    def remove(self, dicid):
+        for d in self.dictionary.dictlist:
+            if d.hash == dicid:
+                dic = d
+                break
+        print 'REMOVED DICT', dic
+        self.dictionary.remove(dic.hash)
         os.unlink(self.filepath(dic))
 
     def save(self, dic):
@@ -260,19 +275,29 @@ def load_plugins():
     plugins = [x[:-3] for x in os.listdir(plugindir) if x.endswith('.py') and not x.startswith('__')]
     for plugin in plugins:
         mod = __import__('.'.join(['plugins', plugin]))
-                
+
+def parse_file(infile, outfile, pp, args):
+    print 'Processing', infile
+    io = FileWrapper()
+    io.read(infile)
+    io.write(pp.parse(io.txt), outfile)
+    print 'Finished', outfile
+
+
 def main():
     
     load_plugins() 
 
     aparser = argparse.ArgumentParser(description='Daba suite. Command line morphological parser.')
-    aparser.add_argument('infile', help='Input file (.txt or .html)')
-    aparser.add_argument('outfile', help='Output file')
+    aparser.add_argument('-i', '--infile', help='Input file (.txt or .html)', default="sys.stdin")
+    aparser.add_argument('-o', '--outfile', help='Output file', default="sys.stdout")
     aparser.add_argument('-s', '--script', action='append', choices=OrthographyConverter.get_plugins().keys(), default=None, help='Perform orthographic conversion operations (defined in plugins). Conversions will be applied in the order they appear on command line.')
     aparser.add_argument("-d", "--dictionary", action="append", help="Toolbox dictionary file (may be added multiple times)")
     aparser.add_argument("-g", "--grammar", help="Grammar specification file")
     aparser.add_argument("-n", "--noparse", action='store_true', help="Do not parse, only process resources")
+    aparser.add_argument("-l", "--list", help="Read input filenames list from file")
     args = aparser.parse_args()
+
     dl = DictLoader()
     gr = GrammarLoader()
     if args.dictionary:
@@ -282,9 +307,15 @@ def main():
         gr.load(args.grammar)
     if not args.noparse:
         pp = Processor(dl, gr, converters=args.script)
-        io = FileWrapper()
-        io.read(args.infile)
-        io.write(pp.parse(io.txt), args.outfile)
+        if args.list:
+            with open(args.list) as filelist:
+                for line in filelist:
+                    infile = os.path.normpath(line.decode('utf-8').strip())
+                    if os.path.exists(infile):
+                        outfile = os.path.splitext(infile)[0] + '.pars.html'
+                        parse_file(infile, outfile, pp, args)
+        else:
+            parse_file(args.infile, args.outfile, pp, args)
     exit(0)
 
 if __name__ == '__main__':

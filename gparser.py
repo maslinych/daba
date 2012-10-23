@@ -51,12 +51,10 @@ class FilePanel(wx.Panel):
         self.SetAutoLayout(1)
 
 class DictionaryItem(wx.Panel):
-    def __init__(self, parent, dictloader, dictid, b_id, *args, **kwargs):
+    def __init__(self, parent, dic, b_id, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         hbox = wx.BoxSizer(wx.HORIZONTAL)
-        (lang, name) = dictid
-        ((ver,sha), dic) = dictloader.dictlist[(lang, name)]
-        hbox.Add(wx.StaticText(self, -1, '\t'.join([lang, name, ver])),0)
+        hbox.Add(wx.StaticText(self, -1, dic.description),0)
         rbutton = wx.Button(self, b_id, "Remove")
         self.Bind(wx.EVT_BUTTON, parent.OnRemove, rbutton)
         hbox.Add(rbutton,0)
@@ -74,11 +72,11 @@ class DictionaryLister(wx.Panel):
         dictbox = wx.StaticBox(self, -1, "Available Dictionaries")
         self.dsizer = wx.StaticBoxSizer(dictbox, wx.VERTICAL)
         b_id = 0
-        for (lang, name), ((ver, sha), dic) in self.dictloader.dictlist.iteritems():
+        for dic in self.dictloader.dictionary.dictlist:
             b_id = b_id + 10
-            self.buttons[b_id] = (lang, name)
-            d_item = DictionaryItem(self, self.dictloader, (lang, name), b_id)
-            self.children[(lang, name)] = d_item
+            self.buttons[b_id] = dic.hash
+            d_item = DictionaryItem(self, dic, b_id)
+            self.children[dic.hash] = d_item
             self.dsizer.Add(d_item,0, wx.TOP|wx.LEFT,10)
         abutton = wx.Button(self, -1, "Add dictionary")
         self.Bind(wx.EVT_BUTTON, self.OnAdd, abutton)
@@ -101,18 +99,15 @@ class DictionaryLister(wx.Panel):
         dlg = wx.FileDialog(self, message="Select dictionary file", wildcard="Toolbox dict (*.txt)|*.txt", style=wx.OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             dictfile = dlg.GetPath()
-            (lang, name) = self.dictloader.add(dictfile)
-            if lang is None:
-                return
-            if not (lang, name) in self.children:
-                ((ver,sha), dic) = self.dictloader.dictlist[(lang, name)]
+            dictid = self.dictloader.addfile(dictfile)
+            if not dictid in self.children:
                 try:
                     b_id = max(self.buttons.keys())+10
                 except (ValueError):
                     b_id = 10
-                self.buttons[b_id] = (lang, name)
-                d_item = DictionaryItem(self, self.dictloader, (lang, name), b_id)
-                self.children[(lang,name)] = d_item
+                self.buttons[b_id] = dictid
+                d_item = DictionaryItem(self, self.dictloader.dictionary.get_dict(dictid), b_id)
+                self.children[dictid] = d_item
                 self.dsizer.Insert(0, d_item, 0, wx.TOP|wx.LEFT,10)
                 self.dsizer.Layout()
                 self.Refresh()
