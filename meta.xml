@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<metaconfig>
+  <section id="source" name="Source">
+    <field id="type" type="closed_list" name="Type de source">
+      <list>
+	<item name="Ouvrages populaires" />
+	<item name="Périodiques" />
+	<item name="Publications académiques" />
+	<item name="Manuscrits" />
+	<item name="Affiches" />
+	<item name="Communication audiovisuelle" />
+      </list>
+    </field>
+    <field id="title" type="text" name="Titre" default="" />
+    <field id="year" type="int" name="Année" default="1900" />
+    <field id="address" type="text" name="Localisation" default="" /> 
+    <field id="publisher" type="text" name="Maison d’édition/Chaîne" default="" />
+    <field id="pagetotal" type="int" name="Nombre de pages" default="" />
+    <field id="number" type="int" name="Numéro" default="" />
+    <field id="editor" type="text" name="Nom de l’éditeur" default="" />
+    <field id="url" type="text" name="URL" default="" />
+    <field id="date" type="datetext" name="Date d’accès/de l’émission (dd.mm.yyyy)" default="" />
+    <field id="misc" type="long_text" name="Autres" />
+  </section>
+  <section id="author" name="Auteur">
+    <field id="name" type="text" name="Nom de l’auteur/locuteur" />
+    <field id="sex" type="closed_list" name="Sexe">
+      <list>
+	<item name="inconnu" />
+	<item name="m" />
+	<item name="f" />
+      </list>
+    </field>
+    <field id="birth_year" type="int" name="Année de naissance" default="" />
+    <field id="dialect" type="closed_list" name="Place de socialisation langagière">
+      <list>
+	<item name="inconnu" />
+	<item name="Bakokan" />
+	<item name="Bamako" />
+	<item name="Bamanandugu" />
+	<item name="Bananba" />
+	<item name="Banimonice" />
+	<item name="Beledugu" />
+	<item name="Bendugu" />
+	<item name="Beninko (Jedugu)" />
+	<item name="Cakadugu" />
+	<item name="Cemala" />
+	<item name="Cendugu" />
+	<item name="Ganadugu" />
+	<item name="Gwandugu" />
+	<item name="Jalakadugu" />
+	<item name="Jamadugu" />
+	<item name="Jitumu" />
+	<item name="Jonka" />
+	<item name="Kaarta" />
+	<item name="Kala" />
+	<item name="Keleyadugu" />
+	<item name="Kita" />
+	<item name="Kurulamini" />
+	<item name="Kuruma" />
+	<item name="Manden-Maninka" />
+	<item name="Marka-Jalan" />
+	<item name="Marseille" />
+	<item name="Mesekele" />
+	<item name="Paris" />
+	<item name="Saro" />
+	<item name="Segu" />
+	<item name="Shendugu" />
+	<item name="Sikaso" />
+	<item name="Wasolon" />
+	<item name="Xasonka" />
+	<item name="Zegedugu" />
+      </list>
+    </field>
+    <field id="native_lang" type="closed_list" name="Language">
+      <list>
+	<item name="inconnu" />
+	<item name="Bambara" />
+	<item name="Bobo (Boré)" />
+	<item name="Bobo-fing" />
+	<item name="Bozo" />
+	<item name="Français" />
+	<item name="Maninka" />
+	<item name="Pular-Fulfulde" />
+	<item name="Senufo" />
+	<item name="Songay" />
+	<item name="Soninké" />
+	<item name="Xasonka" />
+      </list>
+    </field>
+    <field id="addon" type="long_text" name="Informations biographiques utiles" />    
+  </section>
+  <section id="text" name="Texte">
+    <field id="title" type="text" name="Titre" />
+    <field id="date" type="datetext" name="Date de création" />
+    <field id="translation" type="closed_list" name="Original / traduction">
+      <list>
+	<item name="original" />
+	<item name="traduction" />
+      </list>
+    </field>
+    <field id="original_lang" type="open_list" name="(Pour les traductions) La langue de l’original">
+      <list>
+	<item name="français" />
+	<item name="arabe" />
+	<item name="anglais" />
+	<item name="russe" />
+      </list>
+    </field>
+    <field id="pages" type="text" name="Localisation du texte dans le source (pages)" />
+    <field id="medium" type="closed_list" name="Moyen de transmission">
+      <list>
+	<item name="écrit" />
+	<item name="oral" />
+	<item name="internet" />
+      </list>
+    </field>
+    <field id="transcription" type="long_text" name="(Pour les textes oraux:) date et place de la transcription: nom du transcripteur" />
+    <field id="script" type="closed_list" name="Type de l’écriture">
+      <list>
+	<item name="Ancien orthographe malien" />
+	<item name="Nouveau orthographe malien" />
+	<item name="N’Ko" />
+	<item name="Orthographe coloniale" />
+	<item name="Autres orthographes latines" />
+	<item name="Adjami" />
+      </list>
+    </field>
+    <field id="genre" type="checklist" name="Genre">
+      <list>
+	<item name="Littérature orale : Contes populaires" />
+	<item name="Littérature orale : Anecdotes" />
+	<item name="Littérature orale : Épopées" />
+	<item name="Littérature orale : Proverbes" />
+	<item name="Littérature orale : Chants traditionnels" />
+	<item name="Littérature orale : Théatre Koteba" />
+	<item name="Littérature orale : Devinettes" />
+	<item name="Belles-Lettres : Prose" />
+	<item name="Belles-Lettres : Scénarios" />
+	<item name="Belles-Lettres : Dramaturgie" />
+	<item name="Belles-Lettres : Poésie moderne" />
+	<item name="Belles-Lettres : Chançons populaires" />
+	<item name="Réligion : Christianisme" />
+	<item name="Réligion : Islem" />
+	<item name="Réligion : Autres" />
+	<item name="Educatif : Education formelle" />
+	<item name="Educatif : Vulgarisation" />
+	<item name="Educatif : Vulgarisation scientifique" />
+	<item name="Oeuvres académiques : Linguistique" />
+	<item name="Oeuvres académiques : Histoire" />
+	<item name="Communication personnelle : Notes personnelles" />
+	<item name="Communication personnelle : Correspondance" />
+	<item name="Communication personnelle : Dialogues" />
+	<item name="Information : Publicité" />
+	<item name="Information : Nouvelles" />
+	<item name="Information : Editorial" />
+	<item name="Information : Narratif" />
+	<item name="Information : Interview" />
+	<item name="Information : Intervention publique" />
+      </list>
+    </field>
+  </section>
+  <section id="corpus" name="Technique">
+    <field id="operator" type="open_list" name="Nom d’opérateur du texte">
+      <list>
+	<item name="Artem Davydov" />
+	<item name="Anna Erman" />
+	<item name="Valentin Vydrine" />
+      </list>
+    </field>
+    <field id="adddate" type="date" name="Дата обработки текста" />
+  </section>
+</metaconfig>
+	 
+
+
+
+
+
