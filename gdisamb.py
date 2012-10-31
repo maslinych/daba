@@ -850,8 +850,7 @@ class MainFrame(wx.Frame):
             self.localdict = formats.DabaDict()
 
         self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.Sizer.Add(self.sentpanel, 2, wx.EXPAND)
-        self.Sizer.Add(self.filepanel, 1, wx.EXPAND)
+        self.Sizer.Add(self.splitter, 1, wx.EXPAND)
         self.SetSizer(self.Sizer)
         self.Show()
 
@@ -859,8 +858,12 @@ class MainFrame(wx.Frame):
         self.infile = None
         self.outfile = None
         self.processor = FileParser()
-        self.filepanel = FilePanel(self)
-        self.sentpanel = SentPanel(self)
+        self.splitter = wx.SplitterWindow(self)
+        self.filepanel = FilePanel(self.splitter)
+        self.sentpanel = SentPanel(self.splitter)
+        self.splitter.SplitVertically(self.sentpanel, self.filepanel)
+        self.splitter.SetSashGravity(0.95)
+        self.splitter.SetMinimumPaneSize(20)
         self.logger = None
         self.searchstr = ""
 
