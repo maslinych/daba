@@ -87,10 +87,11 @@ class MetaConfig(object):
         return widget(parent, **kwargs)
  
 
-class MetaPanel(wx.Panel):
+class MetaPanel(wx.ScrolledWindow):
     'Panel holding metadata'
     def __init__(self, parent, config=None, section=None, *args, **kwargs):
-        wx.Panel.__init__(self, parent, *args, **kwargs)
+        wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
+        self.SetScrollRate(20, 20)
         self.parent = parent
         self.config = config
         self.section = section
@@ -109,7 +110,8 @@ class MetaPanel(wx.Panel):
             # position widget on the plane
             gridSizer.Add(self.config.makeLabel(self,wdata), **noOptions)
             gridSizer.Add(widget, **expandOption)
-        self.SetSizerAndFit(gridSizer)
+        self.SetSizer(gridSizer)
+        self.Layout()
         
     def collectValues(self):
         result = {}
@@ -155,19 +157,23 @@ class MainFrame(wx.Frame):
         menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 
-        self.filepanel = FilePanel(self)
-        notebook = wx.Notebook(self)
+        splitter = wx.SplitterWindow(self)
+        self.filepanel = FilePanel(splitter)
+        notebook = wx.Notebook(splitter)
         for sec in self.config.data:
             metapanel = MetaPanel(notebook, config=self.config, section=sec)
             self.metapanels[sec] = metapanel
             notebook.AddPage(metapanel, self.config.data[sec][0])
 
+        splitter.SplitVertically(self.filepanel, notebook)
+        splitter.SetMinimumPaneSize(20)
+
         Sizer = wx.BoxSizer(wx.HORIZONTAL)
-        Sizer.Add(self.filepanel, 1, wx.EXPAND)
-        Sizer.Add(notebook, 0, wx.EXPAND)
+        Sizer.Add(splitter, 1, wx.EXPAND)
+        #Sizer.Add(self.filepanel, 1, wx.EXPAND)
+        #Sizer.Add(notebook, 1, wx.EXPAND)
         self.SetSizer(Sizer)
-        self.SetAutoLayout(1)
-        self.Fit()
+        self.Layout()
 
     def parse_file(self,ifile):
         tree = e.ElementTree()
@@ -269,8 +275,9 @@ class MainFrame(wx.Frame):
         """ Open a file"""
         dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
         if dlg.ShowModal() == wx.ID_OK:
-            self.filename = dlg.GetFilename()
-            self.dirname = dlg.GetDirectory()
+            self.infile = dlg.GetPath()
+            self.filename = os.path.basename(self.infile)
+            self.dirname = os.path.dirname(self.infile)
             with open(os.path.join(self.dirname, self.filename), 'r') as f:
                 self.parse_file(f)
                 self.filepanel.control.SetValue(self.txt)
@@ -292,8 +299,9 @@ class MainFrame(wx.Frame):
 
             dlg = wx.FileDialog(self, "Choose a file", self.dirname, xfilename, "*.html", wx.SAVE)
             if dlg.ShowModal() == wx.ID_OK:
-                self.filename = dlg.GetFilename()
-                self.dirname = dlg.GetDirectory()
+                self.outfile = dlg.GetPath()
+                self.filename = os.path.basename(self.outfile)
+                self.dirname = os.path.dirname(self.outfile)
                 if not os.path.splitext(self.filename)[1] == '.html':
                     self.filename = ''.join([self.filename, os.path.extsep, 'html'])
                 with open(os.path.join(self.dirname, self.filename), 'w') as xhtml:
