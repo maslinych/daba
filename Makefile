@@ -1,10 +1,10 @@
 PROJECT=daba
 VERSION := $(shell git describe --abbrev=4)
-WINFILES = newmorph.py orthography.py grammar.py formats.py ntgloss.py gparser.pyw mparser.py gdisamb.pyw plugins/*.py metaprint.py wordparser.py dabased.py ad-hoc/daba2vert.py
+WINFILES = newmorph.py orthography.py grammar.py formats.py ntgloss.py gparser.pyw mparser.py gdisamb.pyw plugins/*.py metaprint.py wordparser.py dabased.py ad-hoc/daba2vert.py meta.py meta.xml
 RESOURCES = run/
 FUNCPARSERLIB = /usr/lib/python2.7/site-packages/funcparserlib
 PYTRIE = pytrie.py
-DOC = doc/LICENSE doc/PyTrie-LICENSE doc/README.ru.txt doc/html/ doc/samples/*
+DOC = doc/LICENSE doc/PyTrie-LICENSE doc/README.ru.txt doc/html/ doc/samples/* doc/meta.readme.txt
 
 
 .PHONY: %.pyw
