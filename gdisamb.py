@@ -118,7 +118,6 @@ class FileParser(object):
                     if token.type == 'w':
                         token.glosslist = selectlist
                     outgloss.append(token.as_tuple())
-            out[-1].append((sent[0], outgloss))
         fwriter = formats.HtmlWriter((self.metadata, out), filename)
         fwriter.write()
 
@@ -142,8 +141,25 @@ class EditLogger(object):
     def OnExit(self):
         self.fileobj.close()
 
-## WIDGETS
+## CONFIG
 
+class DabaConfig(object):
+    def __init__(self):
+        self._cfgdata = wx.Config('gdisamb')
+        self.font = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+        if self._cfgdata.Exists('font'):
+            self.font.SetNativeFontInfoUserDesc(self._cfgdata.Read('font'))
+        if self._cfgdata.Exists('vertical'):
+            self.vertical = self._cfgdata.ReadBool('vertical')
+        else:
+            self.vertical = True
+
+    def save(self, key=None):
+        self._cfgdata.Write('font', self.font.GetNativeFontInfoUserDesc())
+        self._cfgdata.WriteBool('vertical', self.vertical)
+
+
+## WIDGETS
 
 class SentText(wx.StaticText):
     def __init__(self, parent, id, num=None, *args, **kwargs):
@@ -750,7 +766,8 @@ class SentPanel(wx.Panel):
                         s.Detach(ww)
                         ww.Show(False)
         #self.Sizer = wx.BoxSizer(wx.VERTICAL)
-        sentfont = wx.Font(14, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        sentfont = self.GetFont()
+        sentfont.SetPointSize(sentfont.GetPointSize() + 2)
 
         self.sentsource = wx.StaticText(self, -1, self.senttext)
         self.sentsource.SetFont(sentfont)
@@ -835,13 +852,18 @@ class MainFrame(wx.Frame):
         menuUndoTokens = settingsmenu.Append(wx.ID_ANY, "U&ndo join/split tokens", "Undo join/split tokens")
         self.Bind(wx.EVT_MENU, self.OnVerticalMode, menuVertical)
         self.Bind(wx.EVT_MENU, self.OnUndoTokens, menuUndoTokens)
+        menuFont = settingsmenu.Append(wx.ID_ANY, "Select F&ont", "Select font")
+        self.Bind(wx.EVT_MENU, self.OnSelectFont, menuFont)
         menuBar.Append(settingsmenu,"&Settings") 
         self.SetMenuBar(menuBar)  
 
         # constants, no need to reinit on opening next file
         self.dirname = os.curdir
         self.dictfile = 'localdict.txt'
+        self.config = DabaConfig()
+        self.SetFont(self.config.font)
         self.InitValues()
+
 
         #FIXME: loading localdict right on start, should give user possibility to choose
         if os.path.exists(self.dictfile):
@@ -849,37 +871,60 @@ class MainFrame(wx.Frame):
         else:
             self.localdict = formats.DabaDict()
 
-        self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.Sizer.Add(self.splitter, 1, wx.EXPAND)
-        self.SetSizer(self.Sizer)
+        self.InitUI()
         self.Show()
 
     def InitValues(self):
         self.infile = None
         self.outfile = None
         self.processor = FileParser()
-        self.splitter = wx.SplitterWindow(self)
-        self.filepanel = FilePanel(self.splitter)
-        self.sentpanel = SentPanel(self.splitter)
-        self.splitter.SplitVertically(self.sentpanel, self.filepanel)
-        self.splitter.SetSashGravity(0.95)
-        self.splitter.SetMinimumPaneSize(20)
         self.logger = None
         self.searchstr = ""
 
+    def InitUI(self):
+        self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.splitter = wx.SplitterWindow(self)
+        self.filepanel = FilePanel(self.splitter)
+        self.sentpanel = SentPanel(self.splitter, vertical=self.config.vertical)
+        self.splitter.SplitVertically(self.sentpanel, self.filepanel)
+        self.splitter.SetSashGravity(0.95)
+        self.splitter.SetMinimumPaneSize(20)
+        self.Sizer.Add(self.splitter, 1, wx.EXPAND)
+        self.SetSizer(self.Sizer)
+        self.Layout()
+
+    def UpdateUI(self):
+        try:
+            snum = self.sentpanel.snum
+        except (AttributeError):
+            snum = None
+        self.Sizer.Detach(self.filepanel)
+        self.filepanel.Show(False)
+        self.Sizer.Detach(self.sentpanel)
+        self.sentpanel.Show(False)
+        self.InitUI()
+        if snum:
+            self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
+            self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
+        self.Layout()
+
     def OnVerticalMode(self,e):
-        vertical = not self.sentpanel.vertical
-        snum = self.sentpanel.snum
-        self.sentpanel.OnSaveResults(e)
-        oldsentpanel = self.sentpanel
-        self.sentpanel = SentPanel(self,vertical=vertical)
-        self.Sizer.Detach(oldsentpanel)
-        oldsentpanel.Show(False)
-        self.Refresh()
-        self.Sizer.Insert(0, self.sentpanel,2,wx.EXPAND)
-        self.Layout()
-        self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
-        self.Layout()
+        self.config.vertical = not self.config.vertical
+        self.UpdateUI()
+        self.config.save()
+
+    def OnSelectFont(self,e):
+        fontdata = wx.FontData()
+        fontdata.SetInitialFont(self.config.font)
+
+        dlg = wx.FontDialog(self, fontdata)
+        if dlg.ShowModal() == wx.ID_OK:
+            fontdata = dlg.GetFontData()
+            self.config.font = fontdata.GetChosenFont()
+            self.config.save()
+            self.SetFont(self.config.font)
+            self.UpdateUI()
+            dlg.Destroy()
 
     def OnUndoTokens(self,e):
         savedstate = self.sentpanel.savedstate
@@ -929,13 +974,8 @@ class MainFrame(wx.Frame):
             self.OnSave(e)
         if self.logger:
             self.logger.OnExit()
-        self.Sizer.Detach(self.filepanel)
-        self.filepanel.Show(False)
-        self.Sizer.Detach(self.sentpanel)
-        self.sentpanel.Show(False)
         self.InitValues()
-        self.Sizer.Insert(0, self.sentpanel,2,wx.EXPAND)
-        self.Sizer.Insert(1, self.filepanel,1,wx.EXPAND)
+        self.InitUI()
         self.Layout()
 
     def OnExit(self,e):
