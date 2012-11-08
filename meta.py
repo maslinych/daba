@@ -3,7 +3,7 @@
 #
 # Corpus metadata metaeditor
 #
-# Copyright (C) 2010  Kirill Maslinsky <kirill@altlinux.org>
+# Copyright (C) 2010—2012  Kirill Maslinsky <kirill@altlinux.org>
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -119,6 +119,7 @@ class MetaPanel(wx.ScrolledWindow):
             result[':'.join([self.section,name])] = self.config.wvalues[wtype].get(widget)
         return result
 
+
 class FilePanel(wx.Panel):
     'Text fileview panel'
     def __init__(self, parent, *args, **kwargs):
@@ -136,11 +137,8 @@ class MainFrame(wx.Frame):
     def __init__(self, parent, config, encoding='utf-8', *args, **kwargs):
         wx.Frame.__init__(self, parent, *args, **kwargs)
 
-        self.filename = None
-        self.dirname = os.curdir
+        self.init_values()
         self.config = config
-        self.metadata = {}
-        self.txt = ''
         self.metapanels = {}
         self.encoding = encoding
 
@@ -151,6 +149,8 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnSave, menuSave)
         menuSaveAs = filemenu.Append(wx.ID_SAVEAS,"S&ave as"," Save an xhtml file")
         self.Bind(wx.EVT_MENU, self.OnSaveAs, menuSaveAs)
+        menuClose = filemenu.Append(wx.ID_CLOSE, "C&lose","Close current file")
+        self.Bind(wx.EVT_MENU, self.OnClose, menuClose)
         menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
         self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
         menuBar = wx.MenuBar()
@@ -159,21 +159,30 @@ class MainFrame(wx.Frame):
 
         splitter = wx.SplitterWindow(self)
         self.filepanel = FilePanel(splitter)
-        notebook = wx.Notebook(splitter)
-        for sec in self.config.data:
-            metapanel = MetaPanel(notebook, config=self.config, section=sec)
-            self.metapanels[sec] = metapanel
-            notebook.AddPage(metapanel, self.config.data[sec][0])
+        self.notebook = wx.Notebook(splitter)
+        self.draw_metapanels()
 
-        splitter.SplitVertically(self.filepanel, notebook)
+        splitter.SplitVertically(self.filepanel, self.notebook)
         splitter.SetMinimumPaneSize(20)
 
-        Sizer = wx.BoxSizer(wx.HORIZONTAL)
-        Sizer.Add(splitter, 1, wx.EXPAND)
+        self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.Sizer.Add(splitter, 1, wx.EXPAND)
         #Sizer.Add(self.filepanel, 1, wx.EXPAND)
         #Sizer.Add(notebook, 1, wx.EXPAND)
-        self.SetSizer(Sizer)
+        self.SetSizer(self.Sizer)
         self.Layout()
+
+    def init_values(self):
+        self.filename = None
+        self.dirname = os.curdir
+        self.metadata = {}
+        self.txt = ''
+
+    def draw_metapanels(self):
+        for sec in self.config.data:
+            metapanel = MetaPanel(self.notebook, config=self.config, section=sec)
+            self.metapanels[sec] = metapanel
+            self.notebook.AddPage(metapanel, self.config.data[sec][0])
 
     def parse_file(self,ifile):
         tree = e.ElementTree()
@@ -307,6 +316,12 @@ class MainFrame(wx.Frame):
                 with open(os.path.join(self.dirname, self.filename), 'w') as xhtml:
                     self.write_xmldata()
             dlg.Destroy()
+
+    def OnClose(self,e):
+        self.OnSave(e)
+        self.init_values()
+        self.notebook.DeleteAllPages()
+        self.draw_metapanels()
 
 
 if __name__ == '__main__':
