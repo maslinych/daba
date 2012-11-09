@@ -903,7 +903,7 @@ class MainFrame(wx.Frame):
         self.Sizer.Detach(self.sentpanel)
         self.sentpanel.Show(False)
         self.InitUI()
-        if snum:
+        if not snum is None:
             self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
             self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
         self.Layout()
