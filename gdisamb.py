@@ -3,7 +3,7 @@
 #
 # Manual disambiguation editor
 #
-# Copyright (C) 2010  Kirill Maslinsky <kirill@altlinux.org>
+# Copyright (C) 2010—2012  Kirill Maslinsky <kirill@altlinux.org>
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -118,6 +118,7 @@ class FileParser(object):
                     if token.type == 'w':
                         token.glosslist = selectlist
                     outgloss.append(token.as_tuple())
+            out[-1].append((sent[0], outgloss))
         fwriter = formats.HtmlWriter((self.metadata, out), filename)
         fwriter.write()
 
@@ -1004,7 +1005,6 @@ class MainFrame(wx.Frame):
     def SaveFiles(self,e):
         if self.localdict:
             formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict',ver='0').write()
-        print self.outfile
         self.processor.write(self.outfile)
 
 
