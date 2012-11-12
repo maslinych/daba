@@ -855,6 +855,8 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnUndoTokens, menuUndoTokens)
         menuFont = settingsmenu.Append(wx.ID_ANY, "Select F&ont", "Select font")
         self.Bind(wx.EVT_MENU, self.OnSelectFont, menuFont)
+        menuInspector = settingsmenu.Append(wx.ID_ANY, "Widget I&nspector", "Widget Inspector")
+        self.Bind(wx.EVT_MENU, self.OnWidgetInspector, menuInspector)
         menuBar.Append(settingsmenu,"&Settings") 
         self.SetMenuBar(menuBar)  
 
@@ -872,7 +874,8 @@ class MainFrame(wx.Frame):
         else:
             self.localdict = formats.DabaDict()
 
-        self.InitUI()
+        self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.SetSizer(self.Sizer)
         self.Show()
 
     def InitValues(self):
@@ -881,38 +884,41 @@ class MainFrame(wx.Frame):
         self.processor = FileParser()
         self.logger = None
         self.searchstr = ""
+        self.fileopened = False
 
     def InitUI(self):
-        self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.splitter = wx.SplitterWindow(self)
         self.filepanel = FilePanel(self.splitter)
         self.sentpanel = SentPanel(self.splitter, vertical=self.config.vertical)
         self.splitter.SplitVertically(self.sentpanel, self.filepanel)
         self.splitter.SetSashGravity(0.95)
         self.splitter.SetMinimumPaneSize(20)
+        self.splitter.SetSashSize(5)
         self.Sizer.Add(self.splitter, 1, wx.EXPAND)
-        self.SetSizer(self.Sizer)
         self.Layout()
 
+    def CleanUI(self):
+        self.splitter.Destroy()
+
     def UpdateUI(self):
+        self.Freeze()
         try:
             snum = self.sentpanel.snum
         except (AttributeError):
             snum = None
-        self.Sizer.Detach(self.filepanel)
-        self.filepanel.Show(False)
-        self.Sizer.Detach(self.sentpanel)
-        self.sentpanel.Show(False)
+        self.CleanUI()
         self.InitUI()
         if not snum is None:
             self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
             self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
         self.Layout()
+        self.Thaw()
 
     def OnVerticalMode(self,e):
         self.config.vertical = not self.config.vertical
-        self.UpdateUI()
         self.config.save()
+        if self.fileopened:
+            self.UpdateUI()
 
     def OnSelectFont(self,e):
         fontdata = wx.FontData()
@@ -924,8 +930,13 @@ class MainFrame(wx.Frame):
             self.config.font = fontdata.GetChosenFont()
             self.config.save()
             self.SetFont(self.config.font)
-            self.UpdateUI()
-            dlg.Destroy()
+            if self.fileopened:
+                self.UpdateUI()
+        dlg.Destroy()
+
+    def OnWidgetInspector(self, e):
+        import wx.lib.inspection
+        wx.lib.inspection.InspectionTool().Show()
 
     def OnUndoTokens(self,e):
         savedstate = self.sentpanel.savedstate
@@ -971,16 +982,17 @@ class MainFrame(wx.Frame):
             notf.ShowModal()
 
     def OnClose(self,e):
-        if self.processor.dirty:
-            self.OnSave(e)
-        if self.logger:
-            self.logger.OnExit()
-        self.InitValues()
-        self.InitUI()
-        self.Layout()
+        if self.fileopened:
+            if self.processor.dirty:
+                self.OnSave(e)
+            if self.logger:
+                self.logger.OnExit()
+            self.InitValues()
+            self.CleanUI()
 
     def OnExit(self,e):
-        self.OnClose(e)
+        if self.fileopened:
+            self.OnClose(e)
         self.Close(True)
 
     def NoFileError(self,e):
@@ -997,8 +1009,10 @@ class MainFrame(wx.Frame):
             logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
             self.logger = EditLogger(logfile)
             self.processor.read_file(self.infile)
+            self.InitUI()
             self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
             self.sentpanel.ShowSent(self.processor.glosses[0], 0)
+            self.fileopened = True
             self.Layout()
         dlg.Destroy()
 
@@ -1009,7 +1023,7 @@ class MainFrame(wx.Frame):
 
 
     def OnSave(self,e):
-        if not self.infile:
+        if not self.fileopened:
             self.NoFileError(e)
         else:
             if not self.outfile:
@@ -1018,7 +1032,7 @@ class MainFrame(wx.Frame):
                 self.SaveFiles(e)
 
     def OnSaveAs(self,e):
-        if not self.infile:
+        if not self.fileopened:
             self.NoFileError(e)
         else:
             xfilename = ''.join(['.'.join([get_basename(self.infile), 'dis']), os.path.extsep, 'html'])
