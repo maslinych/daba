@@ -697,10 +697,9 @@ class TokenEditButton(wx.Panel):
         return self.token.as_tuple()
 
 
-class SentenceAnnotation(wx.ScrolledWindow):
+class SentenceAnnotation(wx.Window):
     def __init__(self, parent, sentglosses, sentselect, vertical=True, *args, **kwargs):
-        wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
-        self.SetScrollRate(20, 20)
+        wx.Window.__init__(self, parent, *args, **kwargs)
         self.vertical = vertical
         self.children = []
 
@@ -741,58 +740,53 @@ class FilePanel(wx.ScrolledWindow):
         self.Layout()
 
 
-class SentPanel(wx.Panel):
+class SentPanel(wx.ScrolledWindow):
     'Manual disambiguation panel'
     def __init__(self, parent, vertical=True, *args, **kwargs):
-        wx.Panel.__init__(self, parent, *args, **kwargs)
+        wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
+        self.SetScrollRate(20, 20)
         self.vertical = vertical
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
-        self.SetSizer(self.Sizer)
         self.savedstate = None
+        self.isshown = False
+        self.sentfont = self.GetFont()
+        self.sentfont.SetPointSize(self.sentfont.GetPointSize() + 2)
 
-    def ShowSent(self, senttuple, snum):
-        self.senttext, self.selectlist, self.tokenlist, self.sentindex = senttuple
-        self.snum = snum
-        #FIXME: segfaults here
-        for c in self.Sizer.GetChildren():
-            if c.IsWindow():
-                w = c.GetWindow()
-                self.Sizer.Detach(w)
-                w.Show(False)
-            elif c.IsSizer():
-                s = c.GetSizer()
-                for cc in s.GetChildren():
-                    if cc.IsWindow():
-                        ww = cc.GetWindow()
-                        s.Detach(ww)
-                        ww.Show(False)
-        #self.Sizer = wx.BoxSizer(wx.VERTICAL)
-        sentfont = self.GetFont()
-        sentfont.SetPointSize(sentfont.GetPointSize() + 2)
-
-        self.sentsource = wx.StaticText(self, -1, self.senttext)
-        self.sentsource.SetFont(sentfont)
-        self.sentsource.SetForegroundColour('Navy')
+        # create navigation buttons
         prevbutton = wx.Button(self, -1, '<')
         prevbutton.Bind(wx.EVT_BUTTON, self.PrevSentence)
         nextbutton = wx.Button(self, -1, '>')
         nextbutton.Bind(wx.EVT_BUTTON, self.NextSentence)
-        prevbutton.SetFont(sentfont)
-        nextbutton.SetFont(sentfont)
         savebutton = wx.Button(self, -1, 'Save results')
         savebutton.Bind(wx.EVT_BUTTON, self.OnSaveResults)
-        sentwidth = self.GetClientSize().GetWidth()-savebutton.GetClientSize().GetWidth()-(nextbutton.GetClientSize().GetWidth()*2)-5
+        navsizer = wx.BoxSizer(wx.HORIZONTAL)
+        navsizer.Add(prevbutton, 0)
+        navsizer.Add(nextbutton, 0)
+        navsizer.Add(savebutton, 0, wx.ALIGN_RIGHT)
+        self.Sizer.Add(navsizer, 0, wx.EXPAND)
+        self.sentsizer = wx.BoxSizer(wx.VERTICAL)
+        self.Sizer.Add(self.sentsizer, 0, wx.EXPAND)
+        self.SetSizer(self.Sizer)
+        self.Layout()
+
+    def ShowSent(self, senttuple, snum):
+        self.senttext, self.selectlist, self.tokenlist, self.sentindex = senttuple
+        if self.isshown:
+            self.sentsizer.Remove(self.sentsource)
+            self.sentsource.Destroy()
+            self.sentsizer.Remove(self.annotlist)
+            self.annotlist.Destroy()
+        self.snum = snum
+        self.sentsource = wx.StaticText(self, -1, self.senttext)
+        self.sentsource.SetFont(self.sentfont)
+        self.sentsource.SetForegroundColour('Navy')
+        sentwidth = self.GetClientSize().GetWidth()-5
         self.sentsource.Wrap(sentwidth)
-        sentsizer = wx.BoxSizer(wx.HORIZONTAL)
-        sentsizer.Add(prevbutton, 0)
-        sentsizer.Add(self.sentsource, 1,wx.EXPAND)
-        sentsizer.Add(nextbutton, 0)
-        sentsizer.Add(savebutton, 0, wx.ALIGN_RIGHT)
-        self.Sizer.Add(sentsizer, 0, wx.EXPAND)
+        self.sentsizer.Add(self.sentsource, 1, wx.EXPAND)
         self.annotlist = SentenceAnnotation(self, self.tokenlist, self.selectlist, vertical=self.vertical)
         self.Sizer.Add(self.annotlist, 1, wx.EXPAND)
-        #self.SetSizer(self.Sizer)
         self.Layout()
+        self.isshown = True
 
     def PrevSentence(self, event):
         self.OnSaveResults(event)
@@ -822,9 +816,6 @@ class SentPanel(wx.Panel):
             tokenlist.append(selector.GetToken())
         self.GetTopLevelParent().processor.glosses[self.snum] = tuple([self.senttext, self.selectlist, tokenlist, self.sentindex])
 
-    def SaveClicked(self, event):
-        self.OnSaveResults(event)
-        self.GetTopLevelParent().OnSave(event)
 
 class MainFrame(wx.Frame):
     'Main frame'
