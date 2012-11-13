@@ -777,7 +777,7 @@ class SentPanel(wx.ScrolledWindow):
             self.sentsizer.Remove(self.annotlist)
             self.annotlist.Destroy()
         self.snum = snum
-        self.sentsource = wx.StaticText(self, -1, self.senttext)
+        self.sentsource = wx.StaticText(self, -1, self.senttext.replace('\n', ' '))
         self.sentsource.SetFont(self.sentfont)
         self.sentsource.SetForegroundColour('Navy')
         sentwidth = self.GetClientSize().GetWidth()-5
