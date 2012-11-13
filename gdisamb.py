@@ -846,10 +846,14 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnUndoTokens, menuUndoTokens)
         menuFont = settingsmenu.Append(wx.ID_ANY, "Select F&ont", "Select font")
         self.Bind(wx.EVT_MENU, self.OnSelectFont, menuFont)
-        menuInspector = settingsmenu.Append(wx.ID_ANY, "Widget I&nspector", "Widget Inspector")
-        self.Bind(wx.EVT_MENU, self.OnWidgetInspector, menuInspector)
         menuBar.Append(settingsmenu,"&Settings") 
         self.SetMenuBar(menuBar)  
+
+        debugmenu = wx.Menu()
+        menuInspector = debugmenu.Append(wx.ID_ANY, "Widget I&nspector", "Widget Inspector")
+        self.Bind(wx.EVT_MENU, self.OnWidgetInspector, menuInspector)
+        menuBar.Append(debugmenu,"&Debug") 
+
 
         # constants, no need to reinit on opening next file
         self.dirname = os.curdir
