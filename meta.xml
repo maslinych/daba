@@ -1,29 +1,30 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.5" encoding="utf-8"?>
+<!-- Bamana corpus metadata structure, version 0.9 -->
 <metaconfig>
   <section id="source" name="Source">
     <field id="type" type="closed_list" name="Type de source">
       <list>
 	<item name="Ouvrages populaires" />
-	<item name="Périodiques" />
-	<item name="Publications académiques" />
+	<item name="P&#233;riodiques" />
+	<item name="Publications acad&#233;miques" />
 	<item name="Manuscrits" />
 	<item name="Affiches" />
 	<item name="Communication audiovisuelle" />
       </list>
     </field>
     <field id="title" type="text" name="Titre" default="" />
-    <field id="year" type="int" name="Année" default="1900" />
+    <field id="year" type="int" name="Ann&#233;e" default="1900" />
     <field id="address" type="text" name="Localisation" default="" /> 
-    <field id="publisher" type="text" name="Maison d’édition/Chaîne" default="" />
-    <field id="pagetotal" type="int" name="Nombre de pages" default="" />
-    <field id="number" type="int" name="Numéro" default="" />
-    <field id="editor" type="text" name="Nom de l’éditeur" default="" />
+    <field id="publisher" type="text" name="Maison d&#8217;&#233;dition/Cha&#238;ne" default="" />
+    <field id="pagetotal" type="text" name="Pages" default="" />
+    <field id="number" type="int" name="Num&#233;ro" default="" />
+    <field id="editor" type="text" name="Nom de l&#8217;&#233;diteur" default="" />
     <field id="url" type="text" name="URL" default="" />
-    <field id="date" type="datetext" name="Date d’accès/de l’émission (dd.mm.yyyy)" default="" />
+    <field id="date" type="datetext" name="Date d&#8217;acc&#232;s/de l&#8217;&#233;mission (dd.mm.yyyy)" default="" />
     <field id="misc" type="long_text" name="Autres" />
   </section>
   <section id="author" name="Auteur">
-    <field id="name" type="text" name="Nom de l’auteur/locuteur" />
+    <field id="name" type="text" name="Nom de l&#8217;auteur/locuteur" />
     <field id="sex" type="closed_list" name="Sexe">
       <list>
 	<item name="inconnu" />
@@ -31,8 +32,8 @@
 	<item name="f" />
       </list>
     </field>
-    <field id="birth_year" type="int" name="Année de naissance" default="" />
-    <field id="dialect" type="closed_list" name="Place de socialisation langagière">
+    <field id="birth_year" type="int" name="Ann&#233;e de naissance" default="" />
+    <field id="dialect" type="open_list" name="Place de socialisation langagi&#232;re">
       <list>
 	<item name="inconnu" />
 	<item name="Bakokan" />
@@ -54,7 +55,8 @@
 	<item name="Jonka" />
 	<item name="Kaarta" />
 	<item name="Kala" />
-	<item name="Keleyadugu" />
+	<item name="Kala" />
+	<item name="Kayes" />
 	<item name="Kita" />
 	<item name="Kurulamini" />
 	<item name="Kuruma" />
@@ -72,19 +74,19 @@
 	<item name="Zegedugu" />
       </list>
     </field>
-    <field id="native_lang" type="closed_list" name="Language">
+    <field id="native_lang" type="open_list" name="Language">
       <list>
 	<item name="inconnu" />
 	<item name="Bambara" />
-	<item name="Bobo (Boré)" />
+	<item name="Bobo (Bor&#233;)" />
 	<item name="Bobo-fing" />
 	<item name="Bozo" />
-	<item name="Français" />
+	<item name="Fran&#231;ais" />
 	<item name="Maninka" />
 	<item name="Pular-Fulfulde" />
 	<item name="Senufo" />
 	<item name="Songay" />
-	<item name="Soninké" />
+	<item name="Sonink&#233;" />
 	<item name="Xasonka" />
       </list>
     </field>
@@ -92,35 +94,37 @@
   </section>
   <section id="text" name="Texte">
     <field id="title" type="text" name="Titre" />
-    <field id="date" type="datetext" name="Date de création" />
+    <field id="date" type="datetext" name="Date de cr&#233;ation" />
     <field id="translation" type="closed_list" name="Original / traduction">
       <list>
 	<item name="original" />
 	<item name="traduction" />
       </list>
     </field>
-    <field id="original_lang" type="open_list" name="(Pour les traductions) La langue de l’original">
+    <field id="original_lang" type="open_list" name="(Pour les traductions) La langue de l&#8217;original">
       <list>
-	<item name="français" />
+	<item name="fran&#231;ais" />
 	<item name="arabe" />
 	<item name="anglais" />
 	<item name="russe" />
       </list>
     </field>
+    <field id="transldata" type="long_text" name="(Pour les traductions) Information sur l'original" /> 
     <field id="pages" type="text" name="Localisation du texte dans le source (pages)" />
     <field id="medium" type="closed_list" name="Moyen de transmission">
       <list>
-	<item name="écrit" />
+	<item name="&#233;crit" />
 	<item name="oral" />
 	<item name="internet" />
       </list>
     </field>
     <field id="transcription" type="long_text" name="(Pour les textes oraux:) date et place de la transcription: nom du transcripteur" />
-    <field id="script" type="closed_list" name="Type de l’écriture">
+    <field id="rubric" type="text" name="(Pour les p&#233;riodiques:) rubrique" />
+    <field id="script" type="closed_list" name="Type de l&#8217;&#233;criture">
       <list>
+    <item name="Nouveau orthographe malien" />
 	<item name="Ancien orthographe malien" />
-	<item name="Nouveau orthographe malien" />
-	<item name="N’Ko" />
+	<item name="N&#8217;Ko" />
 	<item name="Orthographe coloniale" />
 	<item name="Autres orthographes latines" />
 	<item name="Adjami" />
@@ -128,48 +132,87 @@
     </field>
     <field id="genre" type="checklist" name="Genre">
       <list>
-	<item name="Littérature orale : Contes populaires" />
-	<item name="Littérature orale : Anecdotes" />
-	<item name="Littérature orale : Épopées" />
-	<item name="Littérature orale : Proverbes" />
-	<item name="Littérature orale : Chants traditionnels" />
-	<item name="Littérature orale : Théatre Koteba" />
-	<item name="Littérature orale : Devinettes" />
+	<item name="Litt&#233;rature orale : Contes populaires" />
+	<item name="Litt&#233;rature orale : Anecdotes" />
+	<item name="Litt&#233;rature orale : &#201;pop&#233;es" /> 	
+	<item name="Litt&#233;rature orale : L&#233;gendes" />
+	<item name="Litt&#233;rature orale : Proverbes" />
+	<item name="Litt&#233;rature orale : Chants traditionnels" />
+	<item name="Litt&#233;rature orale : Th&#233;atre Koteba" />
+	<item name="Litt&#233;rature orale : Devinettes" />
 	<item name="Belles-Lettres : Prose" />
-	<item name="Belles-Lettres : Scénarios" />
+	<item name="Belles-Lettres : Sc&#233;narios" />
 	<item name="Belles-Lettres : Dramaturgie" />
-	<item name="Belles-Lettres : Poésie moderne" />
-	<item name="Belles-Lettres : Chançons populaires" />
-	<item name="Réligion : Christianisme" />
-	<item name="Réligion : Islem" />
-	<item name="Réligion : Autres" />
+	<item name="Belles-Lettres : Po&#233;sie moderne" />
+	<item name="Belles-Lettres : Chan&#231;ons populaires" />
+	<item name="Belles-Lettres : Documentaires" />
+	<item name="Belles-Lettres : Bande dessin&#233;e" />
+	<item name="Belles-Lettres : Texte sacral" />
 	<item name="Educatif : Education formelle" />
 	<item name="Educatif : Vulgarisation" />
 	<item name="Educatif : Vulgarisation scientifique" />
-	<item name="Oeuvres académiques : Linguistique" />
-	<item name="Oeuvres académiques : Histoire" />
+	<item name="Oeuvres acad&#233;miques : Recherche" />
+	<item name="Oeuvres acad&#233;miques : R&#233;f&#233;rence" />
 	<item name="Communication personnelle : Notes personnelles" />
 	<item name="Communication personnelle : Correspondance" />
 	<item name="Communication personnelle : Dialogues" />
-	<item name="Information : Publicité" />
+	<item name="Information : Publicit&#233;" />
 	<item name="Information : Nouvelles" />
 	<item name="Information : Editorial" />
 	<item name="Information : Narratif" />
 	<item name="Information : Interview" />
 	<item name="Information : Intervention publique" />
+	<item name="Documents : Record keeping" />
+	<item name="Documents : Instruction" />
+	<item name="Documents : Document normatif" />
+	   </list>
+	 </field>
+    	<field id="theme" type="checklist" name="Th&#233;matique">
+    	<list>
+	<item name="Linguistique"/>
+	<item name="Histoire"/>
+	<item name="Sciences naturelles"/>
+	<item name="Science"/>
+	<item name="Technologie"/> 
+	<item name="Christianisme"/>
+	<item name="Islam"/>
+	<item name="Cultes traditionnels"/>
+	<item name="Loi"/> 
+	<item name="Philosophie"/>
+	<item name="Arm&#233;e et Guerre"/>
+	<item name="Politique"/>
+	<item name="Soci&#233;t&#233;"/>
+	<item name="Economie et Finances"/>
+	<item name="Agriculture"/>
+	<item name="Sport"/> 
+	<item name="Transport"/>
+	<item name="Loisir"/>
+	<item name="Voyages"/>
+	<item name="Vie priv&#233;e"/>
+	<item name="M&#233;dicine et sant&#233;"/>
+	<item name="G&#233;ographie"/>
+	<item name="&#201;ducation"/>
       </list>
-    </field>
-  </section>
+      </field>
+    </section>
   <section id="corpus" name="Technique">
-    <field id="operator" type="open_list" name="Nom d’opérateur du texte">
+    <field id="operator" type="open_list" name="Nom d&#8217;op&#233;rateur du texte">
       <list>
 	<item name="Artem Davydov" />
 	<item name="Anna Erman" />
+	<item name="Daria Ogorodnikova" />
+	<item name="Elisaveta Volkova" />
 	<item name="Valentin Vydrine" />
       </list>
     </field>
-    <field id="adddate" type="date" name="Дата обработки текста" />
-  </section>
+    <field id="adddate" type="date" name="Date de modification du texte" />
+    <field id="sponsor" type="open_list" name="Contributeur">
+      <list>
+	<item name="Charles Bailleul" />
+	<item name="G&#233;rard Dumestre" />
+	 </list>
+    </field>
+   	 </section>
 </metaconfig>
 	 
 
