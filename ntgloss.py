@@ -116,14 +116,17 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
             ps = self.ps.union(otherps)
         return ps
 
-    def union(self, other, pattern=None):
+    def union(self, other, pattern=None, psoverride=False):
         if self.form or self.ps or self.gloss:
         #if other.form and match_any(self.form, other.form) or not other.form:
             #if self.psmatch(other):
-                try:
-                    self = self._replace(ps = self.psunion(other.ps))
-                except (ValueError):
-                    return None
+                if psoverride:
+                    self = self._replace(ps = other.ps)
+                else:
+                    try:
+                        self = self._replace(ps = self.psunion(other.ps))
+                    except (ValueError):
+                        return None
                 if other.gloss and not match_any(self.gloss, other.gloss):
                     self = self._replace(gloss = other.gloss)
                 if other.form and not match_any(self.form, other.form):
@@ -133,7 +136,7 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
                         self = self._replace(morphemes = other.morphemes)
                     else:
                         if not pattern:
-                            self = self._replace(morphemes = tuple(s.union(o) for s,o in zip(self.morphemes,other.morphemes)))
+                            self = self._replace(morphemes = tuple(s.union(o, psoverride=psoverride) for s,o in zip(self.morphemes,other.morphemes)))
                         else:
                             # doing union by pattern
                             patterndict = dict(zip(pattern, other.morphemes))
