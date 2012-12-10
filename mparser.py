@@ -150,7 +150,7 @@ class DictLoader(object):
         else:
             self.save(dic)
             return dic.hash
-        self.remove(d)
+        self.remove(d.hash)
         self.save(dic)
         return dic.hash
 
