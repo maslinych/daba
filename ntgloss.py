@@ -61,7 +61,7 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
         gloss = untuple(self.gloss)
         gstring = u':'.join([i if i else '' for i in [form,'/'.join(self.ps),gloss]])
         if self.morphemes:
-            return u'{0}, [{1}]'.format(gstring, u', '.join(unicode(g) if g else '' for g in self.morphemes))
+            return u'{0} [{1}]'.format(gstring, u' '.join(unicode(g) if g else '' for g in self.morphemes))
         else:
             return gstring
    
