@@ -98,7 +98,14 @@ def main():
 
     print "<doc ",
     print u'id="{0}"'.format(os.path.basename(args.infile)).encode('utf-8'),
+    
     metad = dict(reader.metadata)
+    print u'source_type="{0}"'.format(metad.setdefault('source:type', 'UNDEF')).encode('utf-8'),
+    print u'source_year="{0}"'.format(metad.setdefault('source:year', 'UNDEF')).encode('utf-8'),
+    print u'text_translation="{0}"'.format(metad.setdefault('text:translation', 'UNDEF')).encode('utf-8'),
+    print u'text_medium="{0}"'.format(metad.setdefault('text:medium', 'UNDEF')).encode('utf-8'),
+    print u'author_name="{0}"'.format(metad.setdefault('author:name', 'UNDEF')).encode('utf-8'),
+
     try:
         genres = metad['text:genre'].split(';')
         hgenres = [g.split(' : ')[0] for g in genres] + genres
