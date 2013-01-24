@@ -448,7 +448,7 @@ class DictReader(object):
                         if store:
                             push_items(key, lemmalist)
                         if variants:
-                            self._variants.add(lemmalist)
+                            self._variants.add(zip(*lemmalist)[1])
 
             if not self._dict.attributed():
                 print r"Dictionary does not contain obligatory \lang, \name or \ver fields.\
