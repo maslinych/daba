@@ -16,11 +16,10 @@ macro   @bam-cons@      [bcdfghjklmɲŋprstyz]
 plan
 for token:
 stage 0 add parallel parse inflection 
-stage 0 add parallel parse participles 
 stage 0 add parallel parse common_derivation
+stage 0 add parallel parse participles 
 stage 0 apply lookup
 return if parsed
-stage 1 add sequential parse general_derivation
 stage 1 add sequential parse n_v_derivation
 stage 1 add parallel parse n_derivation
 stage 1 add parallel parse v_vq_derivation
@@ -61,10 +60,7 @@ pattern :v/vq/ptcp: [ {@nonnasal-v@|len}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 # derivative forms we need to consider even if we have them in dictionary
 section common_derivation
 pattern :v/n/adj: [ {|nin}:: ] | :v/n/adj: [:v/n/adj: :mrph:DIM]
-
-# common verbal/nominal/adjectival derivation
-section general_derivation
-pattern :v/n/adj: [ {|ya}:: ] | :v/n/adj: [:v/n/adj: :mrph:ABSTR]
+pattern :v/n/adj/ptcp: [ {|ya}:: ] | :v/n/adj/ptcp: [:v/n/adj/ptcp: :mrph:ABSTR]
 pattern :v/n/adj: [ {|ba}:: ] | :v/n/adj: [:v/n/adj: :mrph:AUG]
 
 # common nominal/verbal derivation (locatives)
