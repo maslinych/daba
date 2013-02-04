@@ -34,7 +34,7 @@ class Tokenizer(object):
     def tokenize(self, string):
         'unicode -> Sequence(Token)'
         specs = [
-                ('Comment', (r'<c>.*?</c>',)),
+                ('Comment', (r'<c>.*?</c>',re.DOTALL)),
                 ('Tag', (r'<.*?>',)),
                 ('Par', (r'(\r?\n){2,}',)),
                 ('NL', (r'[\r\n]',)),
@@ -47,14 +47,19 @@ class Tokenizer(object):
                 ('SentPunct', (r'([.!?]+|[)"])',re.UNICODE)),
                 ('Nonword', (r'\W', re.UNICODE)),
                 ]
-        useless = ['NL', 'Space']
         tok = funcparserlib.lexer.make_tokenizer(specs)
-        return [x for x in tok(string) if x.type not in useless]
+        return tok(string)
 
-    def split_sentences(self, para):
-        sent = re.compile(r'(([^?!.]|\.\.+)+?([?!.]+(\s*[)"])?|(\r?\n){2,}|$))', re.U)
-        for s in re.finditer(sent, para):
-            yield s.group(0) or para
+    def split_sentences(self, toklist):
+        senttoks = []
+        for tok in toklist:
+            senttoks.append(tok)
+            if tok.type == 'SentPunct':
+                yield senttoks
+                senttoks = []
+        else:
+            yield senttoks
+
 
 class ChainDict(object):
     def __init__(self, *maps):
@@ -227,12 +232,13 @@ class Processor(object):
         self.parsed = []
         for para in txt:
             par = []
-            for sent in Tokenizer().split_sentences(para):
-                st = (sent, [])
+            tkz = Tokenizer()
+            for sent in tkz.split_sentences(tkz.tokenize(para)):
+                st = (''.join(t.value for t in sent), [])
                 par.append(st)
                 annot = st[1]
-                prevtoken = None
-                for token in Tokenizer().tokenize(sent):
+                prevtoken = False
+                for token in sent:
                     if token.type in ['Comment', 'Tag']:
                         annot.append((token.type, token.value))
                     elif token.type in ['Punct', 'SentPunct', 'Nonword']:
@@ -259,13 +265,13 @@ class Processor(object):
                             stage, glosslist = self.parser.lemmatize(token.value.lower())
 
                         # suggest proper name variant for capitalized words (not in sentence-initial position)
-                        if token.value.istitle() and prevtoken not in [None, 'SentPunct'] and 'n.prop' not in set([]).union(*[g.ps for g in glosslist]):
+                        if token.value.istitle() and prevtoken and 'n.prop' not in set([]).union(*[g.ps for g in glosslist]):
                             propn = Gloss(token.value, set(['n.prop']), token.value, ())
                             glosslist.insert(0, propn)
 
                         annot.append(('w', (token.value, unicode(stage), glosslist)))
+                        prevtoken = True
 
-                    prevtoken = token.type
             self.parsed.append(par)
         return self.parsed
 
