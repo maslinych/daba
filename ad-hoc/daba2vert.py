@@ -35,6 +35,8 @@ class VariantsLoader(object):
 
 def print_token(token, args, vardict):
     gt = formats.GlossToken(token)
+    if gt.type == 'Comment':
+        return
     print u"{0}\t".format(gt.token).encode('utf-8'),
     if gt.type == 'w':
         if args.tonal:
