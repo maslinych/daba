@@ -35,6 +35,7 @@ class Tokenizer(object):
         'unicode -> Sequence(Token)'
         specs = [
                 ('Comment', (r'<c>.*?</c>',re.DOTALL)),
+                ('Comment', (r'<sp>.*?</sp>',)),
                 ('Tag', (r'<.*?>',)),
                 ('Par', (r'(\r?\n){2,}',)),
                 ('NL', (r'[\r\n]',)),
