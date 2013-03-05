@@ -60,8 +60,8 @@ pattern :v/vq/ptcp: [ {@nonnasal-v@|len}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 # derivative forms we need to consider even if we have them in dictionary
 section common_derivation
 pattern :v/n/adj: [ {|nin}:: ] | :v/n/adj: [:v/n/adj: :mrph:DIM]
-pattern :v/n/adj/ptcp: [ {|ya}:: ] | :v/n/adj/ptcp: [:v/n/adj/ptcp: :mrph:ABSTR]
-pattern :v/n/adj: [ {|ba}:: ] | :v/n/adj: [:v/n/adj: :mrph:AUG]
+pattern :n/adj/ptcp/v: [ {|ya}:: ] | :n: [:n/adj/ptcp/v: :mrph:ABSTR]
+pattern :v/n/adj: [ {|ba}:: ] | :n: [:v/n/adj: :mrph:AUG]
 
 # common nominal/verbal derivation (locatives)
 section n_v_derivation
