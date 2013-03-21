@@ -2,6 +2,7 @@
 # -*- coding: utf8 -*-
 
 import sys
+import re
 import argparse
 import formats
 import grammar
@@ -41,7 +42,7 @@ def window(iterable, size):
     return izip(*iters)
 
 def parse_expr(expr):
-    glosslist = [i.strip() for i in expr.partition('++') if not i in ['++', '']]
+    glosslist = [i.strip() for i in re.split(r'\+\+', expr) if not i in ['++', '']]
     result = []
     for gexpr in glosslist:
         try:
