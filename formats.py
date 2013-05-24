@@ -384,18 +384,22 @@ class DictReader(object):
 
         self._dict = DabaDict()
         self._variants = VariantsDict()
+        self.line = 0
         lemmalist = []
         key = None
         ps = set()
         ge = ''
 
         def parsemm(v):
-            f, p, g = v.split(':')
-            if p:
-                ps = p.split('/')
-            else:
-                ps = []
-            return Gloss(f, set(ps), g, ())
+            try:
+                f, p, g = v.split(':')
+                if p:
+                    ps = p.split('/')
+                else:
+                    ps = []
+                return Gloss(f, set(ps), g, ())
+            except (ValueError):
+                print "Error line:", str(self.line), unicode(v)
 
         def normalize(value): 
             return normalizeText(value.translate({ord(u'.'):None,ord(u'-'):None}).lower())
@@ -412,6 +416,7 @@ class DictReader(object):
         
         with codecs.open(filename, 'r', encoding=encoding) as dictfile:
             for line in dictfile:
+                self.line = self.line + 1
                 # end of the artice/dictionary
                 if not line or line.isspace():
                     lemmalist = [(key, item._replace(ps=ps,gloss=ge)) for key, item in lemmalist]
