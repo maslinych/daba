@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from bamana import test
-from orthograph import *
+from orthography import *
 from morphology import *
 
 for w in test.words():

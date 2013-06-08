@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from bamana import test,wordlist,propernames
-from orthograph import *
+from orthography import *
 
 wl = set(wordlist.words())
 pn = set(propernames.words())

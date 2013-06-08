@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 from __future__ import division
 from bamana import test,wordlist,propernames
-from orthograph import *
+from orthography import *
 
 wl = set(wordlist.words())
 pn = set(propernames.words())
