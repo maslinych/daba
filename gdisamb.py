@@ -29,6 +29,7 @@ import xml.etree.cElementTree as e
 from ntgloss import Gloss
 
 PSLIST = [
+        'mrph',
         'n.prop',
         'n',
         'adj',
@@ -331,8 +332,6 @@ class GlossInputDialog(wx.Dialog):
                 self.localdict[gloss.form] = gloss
 
     def OnAddMorpheme(self, event):
-        if PSLIST[0] is not 'mrph':
-            PSLIST.insert(0, 'mrph')
         dlg = GlossInputDialog(self.GetParent(), -1, "Add morpheme", pos=map(lambda x: x+20, self.GetPositionTuple()) )
         if (dlg.ShowModal() == wx.ID_OK):
             self.morphemes.append(dlg.GetGloss())
