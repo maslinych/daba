@@ -3,7 +3,6 @@
 
 import re
 import unicodedata
-import funcparserlib.lexer
 from collections import namedtuple, MutableSequence
 
 # Orthographic constants
@@ -12,13 +11,30 @@ ACUTE = u'\u0301'
 GRAVIS = u'\u0300'
 
 # Main classes for syllabification
-Syllable = namedtuple('Syllable', 'raw consonant vowel tone vowel2 tone2')
+Syllable = namedtuple('Syllable', 'raw consonant vowel tone vowel2 tone2 nasal')
 
-class TonalWord(MutableSequence):
+class Syllabify(MutableSequence):
     def __init__(self, word):
         nword = unicodedata.normalize('NFKD', word)        
-        syllable = re.compile(r'((.*?)(?P<v>[auieoɛɔ])([\u030c\u0300\u0301\u0302])?((?P=v)?)([\u030c\u0300\u0301\u0302])?)')
-        self._syllables = [Syllable(*s) for s in syllable.findall(word)]
+        self._syllables = []
+        index = 0
+        syllable = re.compile(ur"""
+                (                                           # raw: whole syllable group
+                    ([^auieoɛɔ\u030c\u0300\u0301\u0302]*)   # consonant: optional initiale
+                    (?P<v>[auieoɛɔwn])                      # vowel: syllable core, obligatory
+                    ([\u030c\u0300\u0301\u0302]?)           # tone: for the vowel
+                    (?P=v)?)                                # vowel2: long vowels (same vowel letter)
+                    ([\u030c\u0300\u0301\u0302]?)           # tone2: possible tone marker on vowel2
+                    (n?(?![auieoɛɔ\u0301])                  # nasal: finale, not followed by vowel or tone
+                )""", re.I|re.X)
+        for syl in syllable.finditer(nword):
+            if syl.start()-index > 0:
+                raise ValueError(u"Nonconforming syllabic structure: {0}, at pos: {1}-".format(nword, nword[:index+1]))
+            else:
+                index = syl.end()
+                self._syllables.append(Syllable(*syl.groups()))
+        if index < len(nword):
+            raise ValueError(u"Nonconforming syllabic structure: {0}, at pos: {1}-".format(nword, nword[:index]))
 
     def __len__(self):
         return len(self._syllables)
@@ -44,7 +60,7 @@ class TonalWord(MutableSequence):
 
     def base(self, index):
         syl = self[index]
-        return syl.consonant + syl.vowel + syl.vowel2
+        return syl.consonant + syl.vowel + syl.vowel2 + syl.nasal
 
     def detone(self):
         return u''.join([self.base(s) for s in self])

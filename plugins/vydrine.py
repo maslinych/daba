@@ -5,7 +5,7 @@ from . import OrthographyConverter
 import unicodedata
 import os,sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
-from daba.orthography import TonalWord, ACUTE, GRAVIS, HACEK
+from daba.orthography import Syllabify, ACUTE, GRAVIS, HACEK
 
 
 class VydrineTonesConverter(OrthographyConverter):
@@ -14,7 +14,7 @@ class VydrineTonesConverter(OrthographyConverter):
         self.desc = "Convert Vydrine's tonal orthography into corbama standard"
 
     def convert(self, word):
-        syllabic = orthography.TonalWord(word)
+        syllabic = orthography.Syllabify(word)
         replaced = []
         for i, tone in enumerate(syllabic.tones):
             if tone == HACEK:
