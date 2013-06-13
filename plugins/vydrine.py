@@ -13,7 +13,11 @@ class VydrineTonesConverter(OrthographyConverter):
         self.desc = "Convert Vydrine's tonal orthography into corbama standard"
 
     def convert(self, word):
-        syllabic = orthography.Syllabify(word)
+        try:
+            syllabic = orthography.Syllabify(word)
+        except (ValueError) as e:
+            print unicode(e)
+            return [word]
         replaced = []
         for i, tone in enumerate(syllabic.tones):
             if tone == HACEK:
