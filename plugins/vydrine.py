@@ -14,7 +14,7 @@ class VydrineTonesConverter(OrthographyConverter):
 
     def convert(self, word):
         try:
-            syllabic = orthography.Syllabify(word)
+            syllabic = Syllabify(word)
         except (ValueError) as e:
             print unicode(e)
             return [word]
