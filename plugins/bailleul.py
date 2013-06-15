@@ -7,10 +7,10 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 from daba.orthography import Syllabify, ACUTE, GRAVIS, HACEK
 
 
-class VydrineTonesConverter(OrthographyConverter):
+class BailleulTonesConverter(OrthographyConverter):
     def __init__(self):
-        self.title = 'vydrine'
-        self.desc = "Convert Vydrine's tonal orthography into corbama standard"
+        self.title = 'bailleul'
+        self.desc = "Convert Bailleul's tonal orthography into corbama standard"
 
     def convert(self, word, debug=False):
         try:
@@ -20,15 +20,20 @@ class VydrineTonesConverter(OrthographyConverter):
                 print unicode(e).encode('utf-8')
             return [word]
         replaced = []
+        toreplace = []
         for i, tone in enumerate(syllabic.tones()):
             if tone == HACEK:
-                if i == len(syllabic)-1 or (i < len(syllabic)-1 and not syllabic.tone(i+1) == ACUTE):
-                    syllabic.set_tone(i, GRAVIS)
-                    replaced.append(i)
-            elif tone == ACUTE:
-                if i > 0 and i-1 not in replaced:
-                    syllabic.set_tone(i, '')
-                    replaced.append(i)
+                syllabic.set_tone(i, GRAVIS)
+                replaced.append(i)
+            if i == 0 and not tone:
+                syllabic.set_tone(i, ACUTE)
+                replaced.append(i)
+            if tone == ACUTE and syllabic.tone(i-1) == ACUTE:
+                toreplace.append(i)
+                
+        for j in toreplace:
+            syllabic.set_tone(j, '')
+            replaced.append(j)
 
         if debug:
             print u' '.join([word, '->', syllabic.form()]).encode('utf-8')
