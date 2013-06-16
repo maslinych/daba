@@ -13,7 +13,7 @@ class BailleulTonesConverter(OrthographyConverter):
         self.desc = "Convert Bailleul's tonal orthography into corbama standard"
 
     def convert(self, word):
-       converter = TonesConverter(word, debug=True)
+       converter = TonesConverter(word, debug=False)
        if converter.syllabify():
 
             for i, syl in enumerate(converter.syllabic):

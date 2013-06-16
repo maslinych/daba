@@ -14,7 +14,7 @@ class VydrineTonesConverter(OrthographyConverter):
         self.desc = "Convert Vydrine's tonal orthography into corbama standard"
 
     def convert(self, word):
-        converter = TonesConverter(word, debug=True)
+        converter = TonesConverter(word, debug=False)
         if converter.syllabify():
 
             for i, tone in enumerate(converter.syllabic.tones()):
