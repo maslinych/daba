@@ -43,7 +43,7 @@ class Tokenizer(object):
                 ('Cardinal', (r'(\d([-.,:]\d)?)+',re.UNICODE)),
                 #FIXME: hardcoded acute and grave accents plus round apostrophe (shoud not split words)
                 ('Word', (r'(\w\.){2,}', re.UNICODE)),
-                ('Word', (ur"(\w[\u0300\u0301]?)+([-.](\w[\u0300\u0301]?)+)*['\u2019]?",re.UNICODE)),
+                ('Word', (ur"(\w[\u0300\u0301\u030c]?)+([-.](\w[\u0300\u0301\u030c]?)+)*['\u2019]?",re.UNICODE)),
                 ('Punct', (r'([:;,]+)',re.UNICODE)),
                 ('SentPunct', (r'([.!?]+|[)"])',re.UNICODE)),
                 ('Nonword', (r'\W', re.UNICODE)),
