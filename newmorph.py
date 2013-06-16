@@ -4,6 +4,7 @@
 import re
 import operator
 from ntgloss import Gloss, CompactGloss, emptyGloss, Pattern, Dictionary
+from orthography import detone
 
 def nullgloss(word):
     'str -> Gloss'
@@ -11,10 +12,17 @@ def nullgloss(word):
 
 def lookup_gloss(gloss,gdict):
     'Gloss, Dictionary -> tuple(Gloss)'
+    lookup_form = None
     try:
         if gloss.form in gdict:
+            lookup_form = gloss.form
+        else:
+            bare = detone(gloss.form)
+            if not gloss.form == bare and bare in gdict:
+                lookup_form = bare
+        if lookup_form:
             pattern = emptyGloss._replace(ps=gloss.ps, gloss=gloss.gloss)
-            return tuple([dgloss for dgloss in gdict[gloss.form] if dgloss.matches(pattern)])
+            return tuple([dgloss for dgloss in gdict[lookup_form] if dgloss.matches(pattern)])
         else:
             return ()
     except (KeyError,AttributeError):
