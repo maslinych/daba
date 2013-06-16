@@ -1,5 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
+import os,sys
+sys.path.insert(1, os.path.join(sys.path[0], '..'))
+from collections import defaultdict
+from daba.orthography import Syllabify
 
 class PluginMount(type):
     def __init__(cls, name, bases, attrs):
@@ -38,4 +42,38 @@ class OrthographyConverter(object):
     __metaclass__ = PluginMount
 
 
+class TonesConverter(object):
+    def __init__(self, word, debug=False):
+        self.debug = debug
+        self.toreplace = defaultdict(list)
+        self.invalid = False
+        self.word = word
+
+    def syllabify(self):
+        try:
+            self.syllabic = Syllabify(self.word)
+            return True
+        except (ValueError) as e:
+            if self.debug:
+                print unicode(e).encode('utf-8')
+            self.invalid = True
+            return False
+
+    def convert(self):
+        if self.invalid:
+            return [self.word]
+        else:
+            for j, tones in self.toreplace.items():
+                if all(tones[0] == tone for tone in tones):
+                    self.syllabic.set_tone(j, tones[0])
+                else:
+                    if self.debug:
+                        print 'Conflicting conversion rules:', u' '.join([self.word, self.syllabic.base(j), u' '.join(tones)]).encode('utf-8')
+
+            if self.toreplace:
+                if self.debug:
+                    print u' '.join([self.word, '->', self.syllabic.form()]).encode('utf-8')
+                return [self.syllabic.form()]
+            else:
+                return [self.word]
 

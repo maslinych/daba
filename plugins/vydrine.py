@@ -1,10 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
 
-from . import OrthographyConverter
+from . import OrthographyConverter, TonesConverter
 import os,sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 from daba.orthography import Syllabify, ACUTE, GRAVIS, HACEK
+from collections import defaultdict
 
 
 class VydrineTonesConverter(OrthographyConverter):
@@ -12,28 +13,18 @@ class VydrineTonesConverter(OrthographyConverter):
         self.title = 'vydrine'
         self.desc = "Convert Vydrine's tonal orthography into corbama standard"
 
-    def convert(self, word, debug=False):
-        try:
-            syllabic = Syllabify(word)
-        except (ValueError) as e:
-            if debug:
-                print unicode(e).encode('utf-8')
-            return [word]
-        replaced = []
-        for i, tone in enumerate(syllabic.tones()):
-            if tone == HACEK:
-                if i == len(syllabic)-1 or (i < len(syllabic)-1 and not syllabic.tone(i+1) == ACUTE):
-                    syllabic.set_tone(i, GRAVIS)
-                    replaced.append(i)
-            elif tone == ACUTE:
-                if i > 0 and i-1 not in replaced:
-                    syllabic.set_tone(i, '')
-                    replaced.append(i)
+    def convert(self, word):
+        converter = TonesConverter(word, debug=True)
+        if converter.syllabify():
 
-        if debug:
-            print u' '.join([word, '->', syllabic.form()]).encode('utf-8')
-        if replaced:
-            return [syllabic.form()]
-        else:
-            return [word]
+            for i, tone in enumerate(converter.syllabic.tones()):
+            
+                if tone == HACEK:
+                    if i == len(converter.syllabic)-1 or (i < len(converter.syllabic)-1 and not converter.syllabic.tone(i+1) == ACUTE):
+                        converter.toreplace[i].append(GRAVIS)
 
+                elif tone == ACUTE:
+                    if i > 0 and i-1 not in converter.toreplace:
+                        converter.toreplace[i].append('')
+
+        return converter.convert()

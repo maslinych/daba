@@ -11,7 +11,16 @@ ACUTE = u'\u0301'
 GRAVIS = u'\u0300'
 
 # Main classes for syllabification
-Syllable = namedtuple('Syllable', 'raw consonant vowel tone vowel2 tone2 nasal')
+class Syllable(namedtuple('Syllable', 'raw consonant vowel1 tone1 vowel2 tone2 nasal')):
+    __slots__ = ()
+    @property
+    def tone(self):
+        return self.tone1 + self.tone2
+
+    @property
+    def vowel(self):
+        return self.vowel1 + self.vowel2
+
 
 class Syllabify(MutableSequence):
     def __init__(self, word):
@@ -21,7 +30,7 @@ class Syllabify(MutableSequence):
         syllable = re.compile(ur"""
                 (                                           # raw: whole syllable group
                     ([^auieoɛɔ\u030c\u0300\u0301\u0302]*)   # consonant: optional initiale
-                    (?P<v>[auieoɛɔwn])                      # vowel: syllable core, obligatory
+                    (?P<v>[auieoɛɔwnŋ'])                      # vowel: syllable core, obligatory
                     ([\u030c\u0300\u0301\u0302]?)           # tone: for the vowel
                     ((?P=v)?)                                # vowel2: long vowels (same vowel letter)
                     ([\u030c\u0300\u0301\u0302]?)           # tone2: possible tone marker on vowel2
@@ -75,7 +84,10 @@ class Syllabify(MutableSequence):
         return u''.join([self.syllable(s) for s in range(len(self))])
 
     def set_tone(self, index, tone):
-        self[index] = self[index]._replace(tone=tone)
+        if len(tone) == 2:
+            self[index] = self[index]._replace(tone1=tone[0], tone2=tone[1])
+        else:
+            self[index] = self[index]._replace(tone1=tone)
 
 
 ## various utility functions (may be moved elsewhere later)
