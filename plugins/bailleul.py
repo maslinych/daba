@@ -18,17 +18,14 @@ class BailleulTonesConverter(OrthographyConverter):
 
             for i, syl in enumerate(converter.syllabic):
 
-                if syl.tone == HACEK and not converter.syllabic[i+1].tone == ACUTE:
-                    converter.toreplace[i].append(GRAVIS)
+                if syl.tone == HACEK and ( len(converter.syllabic) == i+1 or not converter.syllabic[i+1].tone == ACUTE ):
+                        converter.toreplace[i].append(GRAVIS)
 
-                if not syl.tone and i == 0 and not syl.vowel == "'":
+                if i == 0 and not syl.tone and not syl.vowel == "'":
                     converter.toreplace[i].append(ACUTE)
 
-                if syl.tone and not syl.tone == HACEK and syl.tone == converter.syllabic[i-1].tone:
+                if i > 0 and syl.tone in [ACUTE, GRAVIS] and syl.tone == converter.syllabic[i-1].tone:
                     converter.toreplace[i].append('')
-
-                if syl.tone == GRAVIS and syl.vowel2 and not syl.tone2:
-                    converter.toreplace[i].append(GRAVIS + GRAVIS)
 
                 if syl.vowel == 'w' and syl.tone == GRAVIS:
                     converter.toreplace[i].append('')

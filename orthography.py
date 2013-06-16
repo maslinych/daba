@@ -30,7 +30,7 @@ class Syllabify(MutableSequence):
         syllable = re.compile(ur"""
                 (                                           # raw: whole syllable group
                     ([^auieoɛɔ\u030c\u0300\u0301\u0302]*)   # consonant: optional initiale
-                    (?P<v>[auieoɛɔwnŋ'])                      # vowel: syllable core, obligatory
+                    (?P<v>[auieoɛɔwnŋɲ'])                      # vowel: syllable core, obligatory
                     ([\u030c\u0300\u0301\u0302]?)           # tone: for the vowel
                     ((?P=v)?)                                # vowel2: long vowels (same vowel letter)
                     ([\u030c\u0300\u0301\u0302]?)           # tone2: possible tone marker on vowel2
