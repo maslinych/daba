@@ -78,7 +78,7 @@ pattern :n: [ {|ntan}:: ] | :n: [ :n: :mrph:PRIV]
 section v_vq_derivation
 pattern :v: [ {@nasal-v@|na}:: ] | :v: [ :v: :mrph:AG.PRM]
 pattern :v: [ {@nonnasal-v@|la}:: ] | :v: [ :v: :mrph:AG.PRM]
-pattern :v: [ {@nasal-v@|nan}:: ] | :v: [ :v: :mrph:INSTR]
+pattern :v: [ {@nasal-v@|nan}:: ] | :n: [ :v: :mrph:INSTR]
 pattern :v: [ {@nonnasal-v@|lan}:: ] | :n: [ :v: :mrph:INSTR]
 pattern :n: [ {@nasal-syl@|ni}:: ] | :n: [ :v: :mrph:NMLZ]
 pattern :n: [ {@nonnasal-syl@|li}:: ] | :n: [ :v: :mrph:NMLZ]
