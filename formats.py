@@ -12,7 +12,7 @@ import xml.etree.cElementTree as e
 from ntgloss import Gloss
 from orthography import detone
 from pytrie import StringTrie as trie
-from collections import namedtuple, MutableMapping, defaultdict
+from collections import namedtuple, MutableMapping, defaultdict, OrderedDict
 
 # Data structure for internal bare text representation:
 # ({metadata}, [para+])
@@ -50,17 +50,17 @@ class GlossToken(object):
 
 class BaseReader(object):
     def data(self):
-        return (self.metadata, self.para)
+        return (self.metadata.items(), self.para)
 
 class TxtReader(BaseReader):
     def __init__(self, filename, encoding="utf-8"):
-        self.metadata = []
+        self.metadata = {}
         with open(filename) as f:
             self.para = re.split(os.linesep + '{2,}', normalizeText(f.read().decode(encoding).strip()))
 
 class HtmlReader(BaseReader):
     def __init__(self, filename, onlymeta=False):
-        self.metadata = []
+        self.metadata = OrderedDict()
         self.para = []
         self.glosses = []
         self.numwords = 0
@@ -114,7 +114,7 @@ class HtmlReader(BaseReader):
             if elem.tag == 'meta':
                 name = elem.get('name')
                 if name is not None:
-                    self.metadata.append((name, elem.get('content')))
+                    self.metadata[name] = elem.get('content')
             elif elem.tag == 'p':
                 self.numpar += 1
                 self.para.append(elem.text or ''.join([normalizeText(j.text) for j in elem.findall('span') if j.get('class') == 'sent']))
@@ -131,7 +131,7 @@ class HtmlReader(BaseReader):
                 ('_auto:sentences', self.numsent),
                 ('_auto:paragraphs', self.numpar)
                 ]:
-            self.metadata.append((k, unicode(v)))
+            self.metadata[k] = unicode(v)
 
     def itergloss(self):
         for pp, par in enumerate(self.glosses):
