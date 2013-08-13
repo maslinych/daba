@@ -26,7 +26,7 @@ import datetime
 import codecs
 import unicodedata
 import xml.etree.cElementTree as e
-from ntgloss import Gloss
+from ntgloss import Gloss, emptyGloss
 import grammar
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
@@ -251,7 +251,7 @@ class PslistComboPopup(wx.CheckListBox, wx.combo.ComboPopup):
 class GlossInputDialog(wx.Dialog):
     def __init__(self, parent, id, title, *args, **kwargs):
         wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
-        self.as_gloss = None
+        self.as_gloss = emptyGloss
         self.morphemes = []
         self.parent = parent
         self.freeze = False
