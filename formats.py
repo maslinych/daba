@@ -50,7 +50,7 @@ class GlossToken(object):
 
 class BaseReader(object):
     def data(self):
-        return (self.metadata.items(), self.para)
+        return (self.metadata, self.para)
 
 class TxtReader(BaseReader):
     def __init__(self, filename, encoding="utf-8"):
@@ -171,7 +171,7 @@ class HtmlWriter(object):
         root = e.Element('html')
         head = e.SubElement(root, 'head')
         meta = e.SubElement(head, 'meta', {'http-equiv': 'Content-Type', 'content': 'text/html; charset={0}'.format(self.encoding)})
-        for (name, content) in metadata:
+        for (name, content) in metadata.items():
             md = e.SubElement(head, 'meta', {'name': name, 'content': content})
         body = e.SubElement(root, 'body')
         style = e.SubElement(head, 'style', {'type': 'text/css'})
