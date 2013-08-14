@@ -3,7 +3,7 @@
 #
 # Manual disambiguation editor
 #
-# Copyright (C) 2010—2012  Kirill Maslinsky <kirill@altlinux.org>
+# Copyright (C) 2010—2013  Kirill Maslinsky <kirill@altlinux.org>
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,31 +30,6 @@ from ntgloss import Gloss, emptyGloss
 import grammar
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
-
-PSLIST = [
-        'mrph',
-        'n.prop',
-        'n',
-        'adj',
-        'num',
-        'v',
-        'ptcp',
-        'vq',
-        'adv',
-        'onomat',
-        'intj',
-        'conj',
-        'prt',
-        'cop',
-        'dtm',
-        'pers',
-        'pm',
-        'pp',
-        'prn',
-        'prep',
-        'n.top',
-        'PUNCT',
-        ]
 
 normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
 
@@ -185,24 +160,29 @@ class SentText(wx.StaticText):
 
 
 class GlossButton(wx.Panel):
-    def __init__(self, parent, gloss, *args, **kwargs):
+    def __init__(self, parent, gloss, disabled=False, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.selected = False
         self.children = []
         self.parent = parent
         self.gloss = gloss
+        self.disabled = disabled
 
         box = wx.BoxSizer(wx.VERTICAL)
         # prepare main gloss button
-        self.main = wx.ToggleButton(self, -1, makeGlossString(gloss))
+        if self.disabled:
+            self.main = wx.Button(self, -1, makeGlossString(gloss))
+            self.main.Disable()
+        else:
+            self.main = wx.ToggleButton(self, -1, makeGlossString(gloss))
+            self.main.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggled)
         self.main.SetBackgroundColour('White')
-        self.main.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggled)
         box.Add(self.main, 0,wx.EXPAND)
         # prepare morphemes buttons recursively
         if gloss.morphemes:
             morphemes = wx.BoxSizer(wx.HORIZONTAL)
             for morph in gloss.morphemes:
-                m = GlossButton(self, morph)
+                m = GlossButton(self, morph, disabled=self.disabled)
                 self.children.append(m)
                 morphemes.Add(m, 0)
             box.Add(morphemes, 0)
@@ -226,27 +206,6 @@ class GlossButton(wx.Panel):
         # do proper referencing to parent GlossSelector widget
         pass
 
-class PslistComboPopup(wx.CheckListBox, wx.combo.ComboPopup):
-    def __init__(self):
-        self.PostCreate(wx.PreCheckListBox())
-        wx.combo.ComboPopup.__init__(self)
-
-    def Create(self, parent):
-        wx.CheckListBox.Create(self, parent, -1, choices=PSLIST)
-        return True
-
-    def GetControl(self):
-        return self
-
-    def SetCheckedStrings(self, strings):
-        wx.CheckListBox.SetCheckedStrings(self, strings)
-        self.OnChangedPS()
-
-    def OnChangedPS(self):
-        ps = self.GetCheckedStrings()
-        self.GetCombo().SetText('/'.join(ps))
-        return ps
-
 
 class GlossInputDialog(wx.Dialog):
     def __init__(self, parent, id, title, *args, **kwargs):
@@ -257,31 +216,16 @@ class GlossInputDialog(wx.Dialog):
         self.freeze = False
 
         vbox_top = wx.BoxSizer(wx.VERTICAL)
-        grid = wx.GridBagSizer(3,2)
+        vbox_top.Add(wx.StaticText(self, -1, "Gloss string (edit inplace):"))
         self.glosstext = NormalizedTextCtrl(self, -1)
-        grid.Add(self.glosstext, (0,0), (1,3), flag=wx.EXPAND)
-        grid.Add(wx.StaticText(self, -1, 'Form:'), (1,0), flag=wx.ALIGN_CENTER_VERTICAL)
-        self.form = NormalizedTextCtrl(self, -1)
-        grid.Add(self.form, (1,1), flag=wx.EXPAND)
-        pscombo = wx.combo.ComboCtrl(self, style=wx.CB_READONLY)
-        self.ps = PslistComboPopup()
-        pscombo.SetPopupControl(self.ps)
-        grid.Add(pscombo, (1,2), (3,1),  flag=wx.EXPAND)
-        grid.Add(wx.StaticText(self, -1, 'Gloss:'), (2,0), flag=wx.ALIGN_TOP)
-        self.gloss = NormalizedTextCtrl(self, -1)
-        grid.Add(self.gloss, (2,1))
-        addb = wx.Button(self, -1, 'Add morpheme')
-        grid.Add(addb, (3,1), flag=wx.EXPAND)
-        vbox_top.Add(grid, 0, wx.TOP | wx.BOTTOM, 10)
+        vbox_top.Add(self.glosstext, 1, wx.EXPAND | wx.TOP | wx.BOTTOM, 10)
+        self.gbutton = GlossButton(self, self.as_gloss, disabled=True)
+        vbox_top.Add(self.gbutton)
         cb = wx.CheckBox(self, -1, "Save to localdict")
         vbox_top.Add(cb, 0, wx.TOP | wx.BOTTOM, 10)
 
         cb.Bind(wx.EVT_CHECKBOX, self.OnCheckLocaldict)
-        addb.Bind(wx.EVT_BUTTON, self.OnAddMorpheme)
-        self.form.Bind(wx.EVT_TEXT, self.OnEditForm)
         self.glosstext.Bind(wx.EVT_TEXT, self.OnEditGlosstext)
-        self.Bind(wx.EVT_CHECKLISTBOX, self.OnCheckPS, self.ps)
-        self.gloss.Bind(wx.EVT_TEXT, self.OnEditGloss)
 
         vbox_top.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.TOP | wx.BOTTOM, 10)
         self.SetSizer(vbox_top)
@@ -298,81 +242,51 @@ class GlossInputDialog(wx.Dialog):
         self.as_gloss = gloss
         self.UpdateInterface(gloss)
 
+    def FitGlosstextWidth(self):
+        gwidth, gheight = self.glosstext.GetTextExtent(self.glosstext.GetValue())
+        self.GetSizer().SetItemMinSize(self.glosstext, (gwidth + 15, gheight + 10))
+        self.Layout()
+        self.Fit()
+
     def UpdateInterface(self, gloss):
         self.freeze = True
-        if not gloss.form == self.form.GetValue():
-            self.form.SetValue(gloss.form)
-        self.ps.SetCheckedStrings(gloss.ps)
-        self.gloss.SetValue(gloss.gloss)
-        self.glosstext.SetValue(unicode(gloss))
+        glossstring = unicode(gloss)
+        cursor = self.glosstext.GetInsertionPoint()
+        self.glosstext.SetValue(glossstring)
+        self.glosstext.SetInsertionPoint(cursor)
+        sizer = self.GetSizer()
+        sizer.Detach(self.gbutton)
+        self.gbutton.Show(False)
+        self.gbutton = GlossButton(self, gloss, disabled=True)
+        sizer.Insert(2, self.gbutton)
+        self.FitGlosstextWidth()
         self.freeze = False
-
+     
     def SetGlossAttr(self, **kwargs):
         self.as_gloss._replace(**kwargs) 
 
     def GetGloss(self):
         return self.as_gloss
-        #form = self.form.GetValue()
-        #ps = set(self.ps.GetCheckedStrings())
-        #gloss = self.gloss.GetValue()
-        #morphemes = tuple(self.morphemes)
-        #return Gloss(form, ps, gloss, morphemes)
 
     def OnEditGlosstext(self, evt):
         if not self.freeze:
+            self.FitGlosstextWidth()
             glosstext = self.glosstext.GetValue()
             oldgloss = self.as_gloss
             try:
-                toks = grammar.tokenize(glosstext)
-                print glosstext
-                self.as_gloss = grammar.fullgloss_parser().parse(toks)
-                self.glosstext.SetBackgroundColour(wx.NullColour)
-                #FIXME: should more thoroughly update interface here
-                if not oldgloss.ps == self.as_gloss.ps:
-                    if len(self.as_gloss.ps) > 0:
-                        if '' not in self.as_gloss.ps:
-                            try:
-                                self.ps.SetCheckedStrings(self.as_gloss.ps)
-                            except (AssertionError) as e:
-                                print 'Illegal PS tag', e
-                                return False
-                else:
+                toks = grammar.str_tokenize(glosstext)
+                self.as_gloss = grammar.stringgloss_parser().parse(toks)
+                print toks
+                print repr(self.as_gloss)
+                if not self.as_gloss == oldgloss:
+                    self.glosstext.SetBackgroundColour(wx.NullColour)
                     self.UpdateInterface(self.as_gloss)
+                else:
+                    self.glosstext.SetBackgroundColour('yellow')
+
             except (LexerError, NoParseError) as e:
-                self.glosstext.SetBackgroundColour('red')
+                self.glosstext.SetBackgroundColour('yellow')
                 print e
-
-
-    def OnEditForm(self, evt):
-        if not self.freeze:
-            newform = evt.GetString()
-            if newform in self.localdict and not self.fromlocaldict:
-                self.SetGloss(self.localdict[newform][0])
-                self.key = newform
-                self.fromlocaldict = True
-            else:
-                self.SetGlossAttr(form=newform)
-            self.UpdateInterface(self.GetGloss())
-        
-    def OnEditGloss(self, evt):
-        if not self.freeze:
-            self.SetGlossAttr(gloss=self.gloss.GetValue())
-            self.UpdateInterface(self.GetGloss())
-
-    def OnCheckPS(self, evt):
-        if not self.freeze:
-            index = evt.GetSelection()
-            label = self.ps.GetString(index)
-            #FIXME: hardcoded proper name PoS label and capitalization logic
-            if label == 'n.prop':
-                form = self.form.GetValue()
-                if self.ps.IsChecked(index):
-                    self.form.SetValue(form.capitalize())
-                elif form.istitle():
-                    self.form.SetValue(form.lower())
-            newps = self.ps.OnChangedPS()
-            self.SetGlossAttr(ps=newps)
-            self.UpdateInterface(self.GetGloss())
 
     def OnCheckLocaldict(self, evt):
         self.save = not self.save
@@ -386,12 +300,6 @@ class GlossInputDialog(wx.Dialog):
                     self.localdict[gloss.form].insert(0, gloss)
             else:
                 self.localdict[gloss.form] = gloss
-
-    def OnAddMorpheme(self, event):
-        dlg = GlossInputDialog(self.GetParent(), -1, "Add morpheme", pos=map(lambda x: x+20, self.GetPositionTuple()) )
-        if (dlg.ShowModal() == wx.ID_OK):
-            self.morphemes.append(dlg.GetGloss())
-            self.SetGlossAttr(morphemes=self.morphemes)
 
 
 class TokenSplitDialog(wx.Dialog):

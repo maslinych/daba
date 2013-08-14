@@ -6,6 +6,32 @@ from ntgloss import Pattern, Gloss
 from funcparserlib.parser import *
 from funcparserlib.lexer import make_tokenizer, Token, LexerError
 
+PSLIST = [
+        'mrph',
+        'n.prop',
+        'n',
+        'adj',
+        'num',
+        'v',
+        'ptcp',
+        'vq',
+        'adv',
+        'onomat',
+        'intj',
+        'conj',
+        'prt',
+        'cop',
+        'dtm',
+        'pers',
+        'pm',
+        'pp',
+        'prn',
+        'prep',
+        'n.top',
+        'PUNCT',
+        ]
+
+
 def tokenize(string):
     'unicode -> Sequence(Token)'
     specs = [
@@ -41,6 +67,8 @@ def unwrap_re(tupl):
 
 tokval = lambda x: x.value
 name = some(lambda t: t.type == 'Name') >> tokval
+pslabel = some(lambda t: t.value in PSLIST) >> tokval
+space = some(lambda t: t.type == 'Space') >> tokval
 op = lambda s: a(Token('Op', s)) >> tokval
 op_ = lambda s: skip(op(s))
 foldl = lambda s: [s]
@@ -49,7 +77,38 @@ unarg = lambda f: lambda args: f(*args)
 joinif = lambda x: ''.join(i for i in x if i)
 denone = lambda s: s or ()
 makeset = lambda s: set(s.split('/')) if s else set([])
+denoneset = lambda s: s or set()
+filternone = lambda s: [i for i in s if i]
 
+def flatten_list(l):
+    for el in l:
+        if isinstance(el, list) and not isinstance(el, basestring):
+            for sub in flatten_list(el):
+                yield sub
+        else:
+            yield el
+
+def str_tokenize(string):
+    'unicode -> Sequence(Token)'
+    specs = [
+            ('JunkSpace', (r'[\r\n\t]+',)),
+            ('Space', (r'[ ]+',)),
+            ('Op', (r'[:/\[\]]',)),
+            ('Name', (ur'[^:/ \[\]\r\t\n]+', re.UNICODE)),
+            ]
+    useless = ['JunkSpace']
+    tok = make_tokenizer(specs)
+    return [x for x in tok(string) if x.type not in useless]
+
+def stringgloss_parser():
+    ps = pslabel + maybe(many(op_('/') + pslabel)) >> flatten_list >> set
+    lemma = name + op_(':') + ( maybe(ps) >> denoneset ) + op_(':') + maybe(name) 
+    fullgloss = forward_decl()
+    glosslist = skip(space) + op_('[') + fullgloss + maybe( many( skip(space) + fullgloss ) ) + op_(']') >> flatten_list >> filternone >> tuple
+    fullgloss.define(lemma + ( maybe(glosslist) >> denone ) >> unarg(Gloss))
+    grammar = fullgloss + skip(finished)
+
+    return grammar
 
 
 def fullgloss_parser():
