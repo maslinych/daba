@@ -16,6 +16,7 @@ PSLIST = [
         'ptcp',
         'vq',
         'adv',
+        'adv.p',
         'onomat',
         'intj',
         'conj',
