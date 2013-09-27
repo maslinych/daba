@@ -276,8 +276,6 @@ class GlossInputDialog(wx.Dialog):
             try:
                 toks = grammar.str_tokenize(glosstext)
                 self.as_gloss = grammar.stringgloss_parser().parse(toks)
-                print toks
-                print repr(self.as_gloss)
                 if not self.as_gloss == oldgloss:
                     self.glosstext.SetBackgroundColour(wx.NullColour)
                     self.UpdateInterface(self.as_gloss)
@@ -286,7 +284,6 @@ class GlossInputDialog(wx.Dialog):
 
             except (LexerError, NoParseError) as e:
                 self.glosstext.SetBackgroundColour('yellow')
-                print e
 
     def OnCheckLocaldict(self, evt):
         self.save = not self.save
