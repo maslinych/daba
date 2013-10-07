@@ -65,7 +65,10 @@ def print_token(token, args, vardict):
             if g.morphemes:
                 #HACK: if we have no gloss on the top, make up lemma from morphemes
                 # targeted at inflected forms analyzed by the parser
-                lemmas.append(get_lemma(''.join([dedot(m.form) for m in g.morphemes if m.gloss not in INFLECTION])))
+                if [m for m in g.morphemes if 'mrph' not in m.ps]:
+                    lemmas.append(get_lemma(''.join([dedot(m.form) for m in g.morphemes if m.gloss not in INFLECTION])))
+                else:
+                    lemmas.append(get_lemma(g.form))
                 if not g.gloss:
                     forms.append('-'.join([dedot(m.form) for m in g.morphemes]))
                     gls = []
