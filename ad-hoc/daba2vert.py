@@ -32,6 +32,8 @@ class VariantsLoader(object):
     def get(self):
         return self.vardict
 
+def dedot(s, repl=''):
+    return s.replace('.', repl)
 
 def print_token(token, args, vardict):
     gt = formats.GlossToken(token)
@@ -51,23 +53,39 @@ def print_token(token, args, vardict):
         else:
             get_lemma = lambda x: detone(''.join(c for c in x if c not in '.'))
 
+        #tonals = []
         lemmas = []
+        forms = []
         tags = set([])
         glosses = []
+        deep = []
         for g in gt.glosslist:
             tags = tags.union(g.ps)
-            glosses.append(g.gloss)
+            glosses.append(dedot(g.gloss, '_'))
             if g.morphemes:
                 #HACK: if we have no gloss on the top, make up lemma from morphemes
                 # targeted at inflected forms analyzed by the parser
+                lemmas.append(get_lemma(''.join([dedot(m.form) for m in g.morphemes if m.gloss not in INFLECTION])))
                 if not g.gloss:
-                    stem = ''.join([m.form for m in g.morphemes if m.gloss not in INFLECTION])
-                    lemmas.append(get_lemma(stem))
+                    forms.append('-'.join([dedot(m.form) for m in g.morphemes]))
+                    gls = []
+                    for m in g.morphemes:
+                        if m.gloss.isupper():
+                            gls.append(m.gloss)
+                        else:
+                            gls.append(dedot(m.gloss, '_'))
+                    glosses.append('-'.join(gls))
+                else:
+                    forms.append(dedot(g.form))
                 for m in g.morphemes:
-                    glosses.append(m.gloss)
+                    # add grammatical glosses to tags
+                    if m.gloss.isupper():
+                        tags.add(m.gloss)
                     if 'mrph' not in m.ps:
-                        lemmas.append(get_lemma(m.form))
+                        deep.append(get_lemma(m.form))
+                        #deep.append(m.gloss)
             else:
+                forms.append(dedot(g.form))
                 lemmas.append(get_lemma(g.form))
 
             if args.variants:
@@ -76,11 +94,11 @@ def print_token(token, args, vardict):
                         lemmas.append(get_lemma(variant))
                 
         if args.unique:
-            print u"\t".join([u'|'.join(filter(None, set(s))) for s in [lemmas, tags, glosses]]).encode('utf-8')
+            print u"\t".join([u'|'.join(filter(None, set(s))) for s in [lemmas, tags, forms, glosses, deep]]).encode('utf-8')
         else:
-            print u"\t".join([u'|'.join(filter(None, s)) for s in [lemmas, tags, glosses]]).encode('utf-8')
+            print u"\t".join([u'|'.join(filter(None, s)) for s in [lemmas, tags, forms, glosses, deep]]).encode('utf-8')
     else:
-        print u"\t".join([gt.token, gt.type, gt.token]).encode('utf-8')
+        print u"\t".join([gt.token, gt.type, gt.token, gt.token, gt.token]).encode('utf-8')
 
 def main():
     oparser = argparse.ArgumentParser(description='Native Daba format to vertical format converter')
