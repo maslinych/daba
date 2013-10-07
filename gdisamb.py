@@ -279,6 +279,7 @@ class GlossInputDialog(wx.Dialog):
                 if not self.as_gloss == oldgloss:
                     self.glosstext.SetBackgroundColour(wx.NullColour)
                     self.UpdateInterface(self.as_gloss)
+                    self.parent.GetTopLevelParent().processor.dirty = True
                 else:
                     self.glosstext.SetBackgroundColour('yellow')
 
