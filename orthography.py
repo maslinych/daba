@@ -100,5 +100,5 @@ def orth_compliant(word):
 
 def detone(string):
     # remove all tonemarking from string
-    return "".join([c for c in unicodedata.normalize('NFD', string) if not unicodedata.category(c) == 'Mn'])
+    return "".join([c for c in unicodedata.normalize('NFD', unicode(string)) if not unicodedata.category(c) == 'Mn'])
 
