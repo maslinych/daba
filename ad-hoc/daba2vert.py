@@ -61,7 +61,11 @@ def print_token(token, args, vardict):
         deep = []
         for g in gt.glosslist:
             tags = tags.union(g.ps)
-            glosses.append(dedot(g.gloss, '_'))
+            if g.gloss.isupper():
+                gls = g.gloss
+            else:
+                gls = dedot(g.gloss, '_')
+            glosses.append(gls)
             if g.morphemes:
                 #HACK: if we have no gloss on the top, make up lemma from morphemes
                 # targeted at inflected forms analyzed by the parser
