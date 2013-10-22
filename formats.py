@@ -260,7 +260,7 @@ class DictWriter(object):
                 for m in gloss.morphemes:
                     sfm = sfm + makeGlossSfm(m, morpheme=True)
             else:
-                sfm = r'\mm ' + ':'.join([gloss.form, '/'.join(gloss.ps), gloss.gloss]) + os.linesep
+                sfm = r'\mm ' + ':'.join([gloss.form or '', '/'.join(gloss.ps or set()), gloss.gloss or '']) + os.linesep
             return sfm
 
         with codecs.open(self.filename, 'w', encoding=self.encoding) as dictfile:
