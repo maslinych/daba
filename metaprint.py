@@ -19,7 +19,7 @@ def main():
 
     reader = formats.HtmlReader(args.infile, onlymeta=True)
     meta = defaultdict(unicode)
-    for k,v in reader.metadata:
+    for k,v in reader.metadata.items():
         meta[k] = v
 
     sys.stdout.write(unicode(args.infile).encode('utf-8'))
