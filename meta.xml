@@ -99,6 +99,7 @@
       <list>
 	<item name="original" />
 	<item name="traduction" />
+	<item name="inconnu" />
       </list>
     </field>
     <field id="original_lang" type="open_list" name="(Pour les traductions) La langue de l&#8217;original">
@@ -191,6 +192,7 @@
 	<item name="Vie priv&#233;e"/>
 	<item name="M&#233;dicine et sant&#233;"/>
 	<item name="G&#233;ographie"/>
+	<item name="Environnement"/>
 	<item name="&#201;ducation"/>
       </list>
       </field>
@@ -200,6 +202,7 @@
       <list>
 	<item name="Artem Davydov" />
 	<item name="Anna Erman" />
+	<item name="Jean Jacques Meric" />
 	<item name="Daria Ogorodnikova" />
 	<item name="Elisaveta Volkova" />
 	<item name="Valentin Vydrine" />
