@@ -23,19 +23,21 @@ class VariantsLoader(object):
         cachefile = ''.join([filename, '.variants.cache'])
         if os.path.exists(cachefile) and os.path.getmtime(cachefile) > os.path.getmtime(filename):
             with open(cachefile, 'rb') as cache:
-                self.vardict = cPickle.load(cache)
+                self.vardict, self.polisemy = cPickle.load(cache)
         else:
-            self.vardict = formats.DictReader(filename, store=False, variants=True).getVariants()
+            reader = formats.DictReader(filename, store=False, variants=True, polisemy=True)
+            self.vardict = reader.getVariants()
+            self.polisemy = reader.getPolisemy()
             with open(cachefile, 'wb') as cache:
-                cPickle.dump(self.vardict, cache)
+                cPickle.dump((self.vardict, self.polisemy), cache)
 
     def get(self):
-        return self.vardict
+        return self.vardict, self.polisemy
 
 def dedot(s, repl=''):
     return s.replace('.', repl)
 
-def print_token(token, args, vardict):
+def print_token(token, args, vardict, polidict):
     gt = formats.GlossToken(token)
     if gt.type == 'Comment':
         return
@@ -56,9 +58,10 @@ def print_token(token, args, vardict):
         #tonals = []
         lemmas = []
         forms = []
-        tags = set([])
+        tags = set()
         glosses = []
         deep = []
+        polisemy = []
         for g in gt.glosslist:
             tags = tags.union(g.ps)
             if g.gloss.isupper():
@@ -100,10 +103,15 @@ def print_token(token, args, vardict):
                     for variant in vardict[g]:
                         lemmas.append(get_lemma(variant))
                 
+            if args.polisemy:
+                for ge, gvs in polidict[dedot(g.form)].items():
+                    if dedot(ge, '_') in glosses:
+                        polisemy.extend(gvs)
+
         if args.unique:
-            print u"\t".join([u'|'.join(filter(None, set(s))) for s in [lemmas, tags, forms, glosses, deep]]).encode('utf-8')
+            print u"\t".join([u'|'.join(filter(None, set(s))) for s in [lemmas, tags, forms, glosses, deep, polisemy]]).encode('utf-8')
         else:
-            print u"\t".join([u'|'.join(filter(None, s)) for s in [lemmas, tags, forms, glosses, deep]]).encode('utf-8')
+            print u"\t".join([u'|'.join(filter(None, s)) for s in [lemmas, tags, forms, glosses, deep, polisemy]]).encode('utf-8')
     else:
         print u"\t".join([gt.token, gt.type, gt.token, gt.token, gt.token]).encode('utf-8')
 
@@ -114,14 +122,16 @@ def main():
     oparser.add_argument("-u", "--unique", action="store_true", help="Print only unique lemmas and glosses")
     oparser.add_argument("-n", "--nullify", action="store_true", help="Transliterate all non-ascii characters")
     oparser.add_argument("-v", "--variants", help="Treat all variants in given dictionary as alternative lemmas")
+    oparser.add_argument("-p", "--polisemy", action="store_true", help="Show polisemy in a separate field (suggests -v)")
     args = oparser.parse_args()
 
     reader = formats.HtmlReader(args.infile)
 
     if args.variants:
-        vardict = VariantsLoader(args.variants).get()
+        vardict, polidict = VariantsLoader(args.variants).get()
     else:
         vardict = None
+        polidict = None
 
     print "<doc ",
     print u'id="{0}"'.format(os.path.basename(args.infile)).encode('utf-8'),
@@ -152,7 +162,7 @@ def main():
         for sent,annot in par:
             print "<s>"
             for token in annot:
-                print_token(token, args, vardict)
+                print_token(token, args, vardict, polidict)
             print "</s>"
         print "</p>"
 

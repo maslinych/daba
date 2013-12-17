@@ -27,6 +27,10 @@ from collections import namedtuple, MutableMapping, defaultdict, OrderedDict
 #FIXME: duplicate, move to common util
 normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
 
+# to allow pickling polisemy dictionary
+def ddlist():
+    return defaultdict(list)
+
 class GlossToken(object):
     def __init__(self, toktuple=None):
         if toktuple:
@@ -380,10 +384,11 @@ class VariantsDict(MutableMapping):
 
 
 class DictReader(object):
-    def __init__(self, filename, encoding='utf-8', store=True, variants=False):
+    def __init__(self, filename, encoding='utf-8', store=True, variants=False, polisemy=False):
 
         self._dict = DabaDict()
         self._variants = VariantsDict()
+        self._polisemy = defaultdict(ddlist)
         self.line = 0
         lemmalist = []
         key = None
@@ -448,6 +453,12 @@ class DictReader(object):
                             ps = set([])
                     elif tag in ['ge'] and not ge:
                         ge = value
+                    elif tag in ['gv']:
+                        if polisemy:
+                            self._polisemy[key][ge].append(value)
+                            dk = detone(key)
+                            if not dk == key:
+                                self._polisemy[dk][ge].append(value)
                 else:
                     if lemmalist:
                         if store:
@@ -473,3 +484,6 @@ class DictReader(object):
 
     def getVariants(self):
         return self._variants
+
+    def getPolisemy(self):
+        return self._polisemy
