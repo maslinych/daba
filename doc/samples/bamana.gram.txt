@@ -24,6 +24,7 @@ stage 1 add sequential parse n_v_derivation
 stage 1 add parallel parse n_derivation
 stage 1 add parallel parse v_vq_derivation
 stage 1 add parallel parse vq_derivation
+stage 1 add parallel parse num_derivation
 stage 1 apply lookup
 return if parsed
 stage 2 add parallel parse reduplication
@@ -51,35 +52,35 @@ pattern :n/adj/dtm/prn/ptcp/n.prop: [ {|w}:: ] | :n/adj/dtm/prn/ptcp/n.prop: [:n
 
 # participles
 section participles
-pattern :v/vq/ptcp: [ {|bali}:: ] | :ptcp: [ :v: :mrph:PTCP.PRIV]
-pattern :v/vq/ptcp: [ {|ta}:: ] | :ptcp: [ :v: :mrph:PTCP.POT]
-pattern :v/vq/ptcp: [ {|tɔ}:: ] | :ptcp: [ :v: :mrph:PTCP.PROG]
-pattern :v/vq/ptcp: [ {@nasal-v@|nen}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
-pattern :v/vq/ptcp: [ {@nonnasal-v@|len}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
+pattern :v/ptcp: [ {|bali}:: ] | :ptcp: [ :v: :mrph:PTCP.PRIV]
+pattern :v/ptcp: [ {|ta}:: ] | :ptcp: [ :v: :mrph:PTCP.POT]
+pattern :v/ptcp: [ {|tɔ}:: ] | :ptcp: [ :v: :mrph:PTCP.PROG]
+pattern :v/ptcp: [ {@nasal-v@|nen}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
+pattern :v/ptcp: [ {@nonnasal-v@|len}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 
 # derivative forms we need to consider even if we have them in dictionary
 section common_derivation
-pattern :v/n/adj: [ {|nin}:: ] | :v/n/adj: [:v/n/adj: :mrph:DIM]
+pattern :ptcp/n/adj: [ {|nin}:: ] | :ptcp/n/adj: [:ptcp/n/adj: :mrph:DIM]
 pattern :n/adj/ptcp/v: [ {|ya}:: ] | :n: [:n/adj/ptcp/v: :mrph:ABSTR]
-pattern :v/n/adj: [ {|ba}:: ] | :n: [:v/n/adj: :mrph:AUG]
+pattern :ptcp/n/adj: [ {|ba}:: ] | :ptcp/n/adj: [:ptcp/n/adj: :mrph:AUG]
 
 # common nominal/verbal derivation (locatives)
 section n_v_derivation
-pattern :n/n.prop/v: [ {|ka}:: ] | :n/n.prop/v: [:n/n.prop/v: :mrph:GENT]
-pattern :n/n.prop/v: [ {@nasal-v@|na}:: ] | :n/n.prop/v: [:n/n.prop/v: :mrph:LOC]
-pattern :n/n.prop/v: [ {@nonnasal-v@|la}:: ] | :n/n.prop/v: [:n/n.prop/v: :mrph:LOC]
+pattern :n/n.prop: [ {|ka}:: ] | :n/n.prop: [:n/n.prop: :mrph:GENT]
+pattern :n/n.prop: [ {@nasal-v@|na}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
+pattern :n/n.prop: [ {@nonnasal-v@|la}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
 
 # nominal derivation
 section n_derivation
 pattern :n: [ {|ma}:: ] | :n: [ :n: :mrph:COM]
-pattern :n: [ {|ntan}:: ] | :n: [ :n: :mrph:PRIV]
+pattern :adj/n: [ {|ntan}:: ] | :adj/n: [ :n: :mrph:PRIV]
 
 # verbal/vq derivation
 section v_vq_derivation
-pattern :v: [ {@nasal-v@|na}:: ] | :v: [ :v: :mrph:AG.PRM]
-pattern :v: [ {@nonnasal-v@|la}:: ] | :v: [ :v: :mrph:AG.PRM]
-pattern :v: [ {@nasal-v@|nan}:: ] | :n: [ :v: :mrph:INSTR]
-pattern :v: [ {@nonnasal-v@|lan}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@nasal-v@|na}:: ] | :n: [ :v: :mrph:AG.PRM]
+pattern :n: [ {@nonnasal-v@|la}:: ] | :n: [ :v: :mrph:AG.PRM]
+pattern :n: [ {@nasal-v@|nan}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@nonnasal-v@|lan}:: ] | :n: [ :v: :mrph:INSTR]
 pattern :n: [ {@nasal-syl@|ni}:: ] | :n: [ :v: :mrph:NMLZ]
 pattern :n: [ {@nonnasal-syl@|li}:: ] | :n: [ :v: :mrph:NMLZ]
 pattern :n: [ {|baga}:: ] | :n: [ :v: :mrph:AG.OCC ]
@@ -88,15 +89,15 @@ pattern :v: [ {|<re>ɲwaa?n</re>}:: ] | :v: [ :v: :mrph:RECP]
 
 # vq derivation
 section vq_derivation
-pattern :vq: [ {|ya}:: ] | :vq: [ :vq: :mrph:DEQU]
-pattern :vq: [ {|man}:: ] | :vq: [ :vq: :mrph:ADJ]
+pattern :vq: [ {|ya}:: ] | :n/v: [ :vq: :mrph:DEQU]
+pattern :adj: [ {|man}:: ] | :adj: [ :vq: :mrph:ADJ]
 
 # numeral derivation
 section num_derivation
 pattern :num: [ {@nasal-v@|na}:: ] | :num: [ :num: :mrph:PRICE]
 pattern :num: [ {@nonnasal-v@|la}:: ] | :num: [ :num: :mrph:PRICE]
-pattern :num: [ {@nasal-v@|nan}:: ] | :num: [ :num: :mrph:INSTR]
-pattern :num: [ {@nonnasal-v@|lan}:: ] | :num: [ :num: :mrph:INSTR]
+pattern :num: [ {@nasal-v@|nan}:: ] | :num: [ :num: :mrph:ORD]
+pattern :num: [ {@nonnasal-v@|lan}:: ] | :num: [ :num: :mrph:ORD]
 
 ## reduplication
 section reduplication
