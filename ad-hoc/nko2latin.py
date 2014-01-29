@@ -17,7 +17,6 @@ converter = OrthographyConverter.get_plugins()["nko"]
 
 for line in open(sys.argv[1]):
     ws = line.decode("utf-8").strip().split()
-    print "SRC", ' '.join(ws).encode("utf-8") + '\n'
-    print ' '.join([converter.convert(w)[0] for w in ws]).encode('utf-8') + '\n'
+    print ' '.join([converter.convert(w)[0] for w in ws]).encode('utf-8')
         
 
