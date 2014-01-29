@@ -451,7 +451,7 @@ class DictReader(object):
                             ps = set(value.split('/'))
                         else:
                             ps = set([])
-                    elif tag in ['ge'] and not ge:
+                    elif tag in ['gf', 'ge'] and not ge:
                         ge = value
                     elif tag in ['gv']:
                         if polisemy:
