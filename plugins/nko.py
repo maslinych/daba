@@ -43,8 +43,8 @@ class NkoToLatin(OrthographyConverter):
 
         w = w.replace(u'\u07f3', ur"\u0308")
         w = w.replace(u'\u07f6', ur"o-DENNEN")
-        w = w.replace(u'\u07cb\u0623', ur" { ")
-        w = w.replace(u'\u07cb\u0625', ur" } ")	
+        w = w.replace(u'\u07cb\u0623', ur"{")
+        w = w.replace(u'\u07cb\u0625', ur"}")	
 
     ### VOWELS:
         w = w.replace(u'\u07ca', ur"a")
@@ -89,7 +89,7 @@ class NkoToLatin(OrthographyConverter):
     ### PUNCTUATION:
         w = w.replace(u'\u060c', ur",")  # Arabic comma
         w = w.replace(u'\u061f', ur"?")  # Arabic question mark
-        w = w.replace(u'؛', ur" ;")
+        w = w.replace(u'؛', ur";")
         w = w.replace(u'\u07fa', ur"-")
         w = w.replace(u'\u066a', ur"%")	
     #    w = re.sub(u'\u07f8', ur" NKO_COMMA ", w)
@@ -155,7 +155,7 @@ class NkoToLatin(OrthographyConverter):
         w = w.replace(u'bd[‘’]', ur"ba\u0301d'")
         w = w.replace(u'br[‘]', ur"ba\u0301r'")
         w = w.replace(u'dO\u0301tl[’]', ur"dO\u0301ta\u0301l'")
-        w = w.replace(u'fd[’]', ur"f#d'") # any vowel possible: a e u
+        w = w.replace(u'fd[’]', ur"fd'") # any vowel possible: a e u
         w = w.replace(u'fn[’]', ur"fa\u0301n'")
         w = w.replace(u'fr[‘’]', ur"fa\u0301r'")
         w = w.replace(u'Gr[‘’]', ur"Ga\u0300r'")
