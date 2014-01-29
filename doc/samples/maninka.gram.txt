@@ -64,7 +64,7 @@ section common_derivation
 pattern :n/v: [ {|ya}:: ] | :n: [:n/adj/ptcp: :mrph:ABSTR]
 pattern :n/v: [ {|ɲa}:: ] | :n: [:n/adj/ptcp: :mrph:ABSTR]
 # -nin DIM
-pattern :n/adj/ptcp: [ {|nin}:: ] :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ] 
+pattern :n/adj/ptcp: [ {|nin}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ] 
 # -ba AUGM
 pattern :n/adj/ptcp: [ {|ba}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:AUG ]
 # -nte AG.EX
@@ -119,7 +119,7 @@ pattern :n/adj: [ {|tɔ}:: ] | :n/adj: [ :n: :mrph:ST ]
 
 
 # vq derivation
-secton vq_derivation
+section vq_derivation
 # -man ADJ
 pattern :vq: [ {|man}:: ] | :adj: [ :vq: :mrph:ADJ ]
 # -ya/-ɲa DEQU
