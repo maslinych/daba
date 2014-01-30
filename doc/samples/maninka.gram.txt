@@ -38,8 +38,8 @@ pattern :n/adj/num/dtm/prn/ptcp/n.prop: [ {@nasal-v@|nu}:: ] | :n/adj/num/dtm/pr
 section v_inflection
 # verbal inflection
 # -la/-na INF
-pattern :v: [ {@nonnasal-v@|la}:: ] | :v: [:v: :mrph:INF]
-pattern :v: [ {@nasal-v@|na}:: ] | :v: [:v: :mrph:INF]
+pattern :v: [ {@nonnasal-v@|la}:: ] | :v: [:v: :mrph:INF.LA]
+pattern :v: [ {@nasal-v@|na}:: ] | :v: [:v: :mrph:INF.LA]
 # -da/-ra/-na AOR.INTR
 pattern :v: [ {|da}:: ] | :v: [:v: :mrph:AOR.INTR]
 pattern :v: [ {@nonnasal-v@|ra}:: ] | :v: [:v: :mrph:AOR.INTR]
@@ -49,7 +49,6 @@ pattern :v: [ {|san}:: ] | :v: [:v: :mrph:IMMED]
 # participles
 # -nin/-nɛn PTCP.RES
 pattern :v/ptcp: [ {|nin}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
-pattern :v/ptcp: [ {|nɛn}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
 # -ta PTCP.POT
 pattern :v/ptcp: [ {|ta}:: ] | :ptcp: [:v: :mrph:PTCP.POT]
 # -tɔ PTCP.PROG
