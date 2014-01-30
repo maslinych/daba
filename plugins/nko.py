@@ -42,7 +42,7 @@ class NkoToLatin(OrthographyConverter):
         w = w.replace(u'\u07de\u07eb', ur"q")   ### K=
 
         w = w.replace(u'\u07f3', ur"\u0308")
-        w = w.replace(u'\u07f6', ur"o-DENNEN")
+        w = w.replace(u'\u07f6', ur"o")
         w = w.replace(u'\u07cb\u0623', ur"{")
         w = w.replace(u'\u07cb\u0625', ur"}")	
 
@@ -92,22 +92,6 @@ class NkoToLatin(OrthographyConverter):
         w = w.replace(u'؛', ur";")
         w = w.replace(u'\u07fa', ur"-")
         w = w.replace(u'\u066a', ur"%")	
-    #    w = re.sub(u'\u07f8', ur" NKO_COMMA ", w)
-    #    w = re.sub(u'\u07f9\u07f9\u07f9', ur" NKO_EXCLM3 ", w)
-    #	w = re.sub(u'\u07f9\u07f9', ur" NKO_EXCLM2 ", w)
-    #	w = re.sub(u'\u07f9', ur" NKO_EXCLM ", w)
-#        w = re.sub(u'\x96', ur"-", w)
-#        w = re.sub(u'\x97', ur"--", w)
-    #    w = re.sub(u'\.\.\.', ur" \x85", w)
-    #    w = re.sub(u'\.\.', ur" \.", w)
-#        w = re.sub(u'\.', ur" . ", w)
-#        w = re.sub(u':', ur" :", w)
-#        w = re.sub(u'\(', ur" (", w)
-#        w = re.sub(u'\)', ur" )", w)
-
-#        w = re.sub(u'\t', ur" ", w)
-#        w = re.sub(u'\s+', ur" ", w)
-
 
     ### MARKING HIGH TONE:
         w = re.sub(u'(a|e|H|i|o|O|u|N)(b|p|t|j|c|d|r|R|s|G|f|k|l|n|m|Y|h|w|y|z|g|S|v|F|D|Q|J|A|T|Z|C|x|q|-)', ur"\1\u0301\2", w)
@@ -116,36 +100,25 @@ class NkoToLatin(OrthographyConverter):
         w = re.sub(u'N$', ur"N\u0301", w)
 
 
-
         w = re.sub(u'(a|e|H|i|o|O|u)\u07f2(b|p|t|j|c|d|r|R|s|G|f|k|l|n|m|Y|h|w|y|z|g|S|v|F|D|Q|J|A|T|Z|C|x|q|-)', ur"\1\u0301X\2", w)
-        
-
     ##w = re.sub(u'(a|e|H|i|o|O|u)(b|p|t|j|c|d|r|R|s|G|f|k|l|n|m|Y|h|w|y|z|g|S|v|F|D|Q|J|A|T|Z|C|x|q)\u07f2', ur"\1\u0301n\3", w)
         w = re.sub(u'(a|e|H|i|o|O|u)\u07f2$', ur"\1\u0301n`", w)
 
 
     ### MOVING THE NASALIZATION MARK AFTER THE TONE MARK:
         w = re.sub(u'\u07f2(\u07eb|\u07ec|\u07ed|\u07ee|\u07ef|\u07f0|\u07f1)', ur"\1\u07f2", w)	
-        
         w = re.sub(u'(a|e|H|i|o|O|u)\u07f2\u07eb$', ur"\1\u0301n", w)
 
-
-    
     ### RAISING TONES AT THE END OF A WORD
         w = re.sub(u'(a|e|H|i|o|O|u)\u07ed$', ur"\1\u030c`", w)
         w = re.sub(u'(a|e|H|i|o|O|u)\u07ed\u07f2$', ur"\1\u030cn`", w)
-
         w = re.sub(u'(a|e|H|i|o|O|u)\u07f1$', ur"\1\u030c\1`", w)
         w = re.sub(u'(a|e|H|i|o|O|u)\u07f1\u07f2$', ur"\1\u030c\1n`", w)
-
-
 
     ### TONES (short):
         w = re.sub(u'\u07eb', ur"\u0301", w)
         w = re.sub(u'\u07ec', ur"\u0300", w)
         w = re.sub(u'\u07ed', ur"\u030c", w)
-
-
 
     ### GBARALI:
         w = re.sub(u'(b|p|t|j|c|d|r|R|s|G|f|k|l|n|m|Y|h|w|y|z|g|S|v|F|D|Q|J|A|T|Z|C|x|q)(b|p|t|j|c|d|r|R|s|G|f|k|l|n|m|Y|h|w|y|z|g|S|v|F|D|Q|J|A|T|Z|C|x|q)(a|e|H|i|o|O|u|N)(\u0301|\u0300|\u030c)', ur"\1\3\4\2\3\4", w)
@@ -181,7 +154,6 @@ class NkoToLatin(OrthographyConverter):
     ##############################################
     ### Incorrect use of ‘ instead of dagbasinna:
         w = re.sub(u'(b|p|t|j|c|d|r|R|s|G|f|k|l|n|m|Y|h|w|y|z|g|S|v|F|D|Q|J|A|T|Z|C|x|q)‘(b|p|t|j|c|d|r|R|s|G|f|k|l|n|m|Y|h|w|y|z|g|S|v|F|D|Q|J|A|T|Z|C|x|q)', ur"\1\2", w)
-        
         w = w.replace("\u07d1", "")
         w = w.replace(u'X', ur"n")
 
@@ -213,21 +185,9 @@ class NkoToLatin(OrthographyConverter):
 
     ##  s/[-,;:\.\x84\x85\"\x91-\x94\xAB\xBB\x96\x97\(\)\?\!]//g;
 
-    ### PUNCTUATION:
-#        w = re.sub(u' ,', ur", ", w)
-#        w = re.sub(u' !', ur"! ", w)
-#        w = re.sub(u' \?', ur"? ", w)
-#        w = re.sub(u' \.', ur".", w)
-#        w = re.sub(u' \x85', ur"\x85 ", w)
-#        w = re.sub(u' :', ur": ", w)
-#        w = re.sub(u' ;', ur"; ", w)
-#        w = re.sub(u' \(', ur"(", w)
-#        w = re.sub(u' \)', ur")", w)
-
         w = w.replace(u'H', ur"ɛ")
         w = w.replace(u'O', ur"ɔ")
         w = w.replace(u'Y', ur"ɲ")
-    #    w = w.replace(u'N', ur"n")
         w = w.replace(u'R', ur"rr")
         w = w.replace(u'G', ur"gb")
         w = w.replace(u'S', ur"sh")   # sh
@@ -239,16 +199,13 @@ class NkoToLatin(OrthographyConverter):
         w = w.replace(u'T', ur"t\u0323")   ### J"
         w = w.replace(u'Z', ur"z\u0323")   ### J"
         w = w.replace(u'C', ur"s\u0323")   ### S=
-        
-        w = w.replace(u'd\u0323IErrEshIsh', ur"DIERESIS")
-        w = w.replace(u'd\u0323en\u0301nEn', ur"DENNEN")
-        
         w = w.replace(u'\u07f8', ur",")
         w = w.replace(u'\u07f9', ur"!")
         w = re.sub(u'[‘]([^‘])', ur"`\1", w)
         w = re.sub(u'[’]([^’])', ur"'\1", w)
         w = w.replace('_', '')
         w = w.replace(u'\u0640', '')
+        w = w.replace(u'N', u'n')
         
         if debug:
             print "LAT", w.encode("utf-8")
