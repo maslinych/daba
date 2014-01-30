@@ -245,8 +245,10 @@ class NkoToLatin(OrthographyConverter):
         
         w = w.replace(u'\u07f8', ur",")
         w = w.replace(u'\u07f9', ur"!")
-        w = re.sub(u'[‘’]([^‘’])', ur"'\1", w)
+        w = re.sub(u'[‘]([^‘])', ur"`\1", w)
+        w = re.sub(u'[’]([^’])', ur"'\1", w)
         w = w.replace('_', '')
+        w = w.replace(u'\u0640', '')
         
         if debug:
             print "LAT", w.encode("utf-8")
