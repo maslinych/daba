@@ -49,6 +49,7 @@ pattern :v: [ {|san}:: ] | :v: [:v: :mrph:IMMED]
 # participles
 # -nin/-nɛn PTCP.RES
 pattern :v/ptcp: [ {|nin}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
+pattern :v/ptcp: [ {|nɛn}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
 # -ta PTCP.POT
 pattern :v/ptcp: [ {|ta}:: ] | :ptcp: [:v: :mrph:PTCP.POT]
 # -tɔ PTCP.PROG
