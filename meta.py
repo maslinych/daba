@@ -26,13 +26,14 @@ from collections import namedtuple
 import tempfile
 import shutil
 
+
 class MetaConfig(object):
     def __init__(self, conffile=None):
         tree = e.ElementTree()
         config = tree.parse(conffile)
         field = namedtuple('Field', 'id type name default')
         def parse_value(elem):
-            if 'list'in elem.attrib['type']:
+            if 'list' in elem.attrib['type']:
                 elem.attrib['default'] = [i.attrib['name'] for i in elem.findall('list/item')]
             else:
                 elem.attrib['default'] = None
@@ -41,7 +42,7 @@ class MetaConfig(object):
         #FIXME: make it a list
         self.data = {}
         for sec in config.findall('section'):
-            self.data[sec.attrib['id']] = (sec.attrib['name'], 
+            self.data[sec.attrib['id']] = (sec.attrib, 
                     [field(**parse_value(f)) for f in sec.findall('field')])
 
         self.widgets = {
@@ -85,23 +86,20 @@ class MetaConfig(object):
         if default:
             kwargs[default] = tuple.default
         return widget(parent, **kwargs)
- 
 
-class MetaPanel(wx.ScrolledWindow):
-    'Panel holding metadata'
+
+class DataPanel(wx.ScrolledWindow):
     def __init__(self, parent, config=None, section=None, *args, **kwargs):
         wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
         self.SetScrollRate(20, 20)
-        self.parent = parent
+        self.widgetlist = dict()
         self.config = config
         self.section = section
-        self.widgetlist = dict()
-
         gridSizer = wx.FlexGridSizer(rows=1,cols=2,hgap=10,vgap=10)
 
         expandOption = dict(flag=wx.EXPAND)
         noOptions = dict()
-        for wdata in self.config.data[section][1]:
+        for wdata in self.config.data[self.section][1]:
             # prepare widget data for future use
             name = wdata.id
             widget = self.config.makeWidget(self,wdata) 
@@ -112,12 +110,80 @@ class MetaPanel(wx.ScrolledWindow):
             gridSizer.Add(widget, **expandOption)
         self.SetSizer(gridSizer)
         self.Layout()
+
+
+class MetaPanel(wx.Panel):
+    'Panel holding metadata'
+    def __init__(self, parent, config=None, section=None, multiple=False, sep="|", *args, **kwargs):
+        wx.Panel.__init__(self, parent, *args, **kwargs)
+        self.config = config
+        self.section = section
+        self.multiple = multiple
+        self.sep = sep
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(self.sizer)
+        self.panels = []
+        self.title = self.config.data[self.section][0]['name']
+
+        if multiple:
+            buttons = wx.BoxSizer(wx.HORIZONTAL)
+            addbutton = wx.Button(self, -1, "Rajouter un " + self.title)
+            addbutton.Bind(wx.EVT_BUTTON, self.addPanel)
+            delbutton = wx.Button(self, -1, "Effacer un " + self.title)
+            delbutton.Bind(wx.EVT_BUTTON, self.delPanel)
+            buttons.Add(addbutton, 0, 0, 0)
+            buttons.Add(delbutton, 0, 0, 0)
+            self.sizer.Add(buttons)
+            self.panelbook = wx.Notebook(self)
+            self.addPanel()
+            self.sizer.Add(self.panelbook, 1, wx.EXPAND, 0)
+        else:
+            self.addPanel()
+        self.sizer.Fit(self)
+        self.Layout()
+
+    def addPanel(self, evt=None):
+        if self.multiple:
+            panel = DataPanel(self.panelbook, config=self.config, section=self.section)
+            self.panelbook.AddPage(panel, self.title + " " + str(len(self.panels)+1))
+        else:
+            panel = DataPanel(self, config=self.config, section=self.section)
+            self.sizer.Add(panel, 1, wx.EXPAND, 0)
+        self.panels.append(panel)
+        self.Layout()
+
+    def delPanel(self, evt=None):
+        current = self.panelbook.GetSelection()
+        if self.multiple:
+            self.panelbook.DeletePage(current)
+            del self.panels[current]
+            self.Layout()
+        else:
+            pass
+
+    def setValue(self, field, value):
+        if self.multiple:
+            vlist = value.split(self.sep)
+            while len(vlist) > len(self.panels):
+                self.addPanel()
+        else:
+            vlist = [value]
+        for val,panel in zip(vlist, self.panels):
+            widget, wtype = panel.widgetlist[field]
+            self.config.wvalues[wtype].set(widget, val)
         
     def collectValues(self):
         result = {}
-        for name, (widget,wtype) in self.widgetlist.iteritems():
-            result[':'.join([self.section,name])] = self.config.wvalues[wtype].get(widget)
+        for panel in self.panels:
+            for name, (widget,wtype) in panel.widgetlist.iteritems():
+                fieldname = ':'.join([self.section,name])
+                value = self.config.wvalues[wtype].get(widget)
+                try:
+                    result[fieldname] = self.sep.join([result[fieldname], unicode(value)]) 
+                except (KeyError):
+                    result[fieldname] = unicode(value)
         return result
+
 
 
 class FilePanel(wx.Panel):
@@ -180,9 +246,13 @@ class MainFrame(wx.Frame):
 
     def draw_metapanels(self):
         for sec in self.config.data:
-            metapanel = MetaPanel(self.notebook, config=self.config, section=sec)
+            if 'multiple' in self.config.data[sec][0]:
+                multiple = True
+            else:
+                multiple = False
+            metapanel = MetaPanel(self.notebook, config=self.config, section=sec, multiple=multiple)
             self.metapanels[sec] = metapanel
-            self.notebook.AddPage(metapanel, self.config.data[sec][0])
+            self.notebook.AddPage(metapanel, self.config.data[sec][0]['name'])
 
     def parse_file(self,ifile):
         tree = e.ElementTree()
@@ -221,8 +291,7 @@ class MainFrame(wx.Frame):
                 except ValueError:
                     print "Unknown meta field:", name, content
                     break
-                widget, wtype =  self.metapanels[sec].widgetlist[field]
-                self.config.wvalues[wtype].set(widget, content)
+                self.metapanels[sec].setValue(field, content)
             except KeyError:
                 pass
 

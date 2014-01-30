@@ -23,8 +23,8 @@
     <field id="date" type="datetext" name="Date d&#8217;acc&#232;s/de l&#8217;&#233;mission (dd.mm.yyyy)" default="" />
     <field id="misc" type="long_text" name="Autres" />
   </section>
-  <section id="author" name="Auteur">
-    <field id="name" type="text" name="Nom de l&#8217;auteur/locuteur" />
+  <section id="author" name="Auteur" save="authors.csv" multiple="true">
+      <field id="name" type="text" name="Nom de l&#8217;auteur/locuteur/traducteur" />
     <field id="sex" type="closed_list" name="Sexe">
       <list>
 	<item name="inconnu" />
