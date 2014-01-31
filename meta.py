@@ -25,6 +25,8 @@ from xml.parsers.expat import ExpatError
 from collections import namedtuple
 import tempfile
 import shutil
+import csv
+from TextCtrlAutoComplete import TextCtrlAutoComplete
 
 
 class MetaConfig(object):
@@ -112,9 +114,65 @@ class DataPanel(wx.ScrolledWindow):
         self.Layout()
 
 
+class MetaDB(object):
+    'Storage for reusable metadata values'
+    def __init__(self, dbfile, fieldnames):
+        self._data = []
+        self._strings = []
+        self._map = {}
+        self.dbfile = dbfile
+        self.fieldnames = fieldnames
+        if os.path.exists(self.dbfile):
+            with open(dbfile, 'rb') as csvfile:
+                dbreader = csv.DictReader(csvfile)
+                for row in dbreader:
+                    row = self._decode_row(row)
+                    key = self._row_as_string(row)
+                    self._strings.append(key)
+                    self._data.append(row)
+                    self._map[key] = row
+
+    def __contains__(self, item):
+        return item in self._data
+
+    def _decode_row(self, row):
+        utf = {}
+        for k,v in row.iteritems():
+            utf[k.decode('utf-8')] = v.decode('utf-8')
+        return utf
+
+    def _encode_row(self, row):
+        utf = {}
+        for k,v in row.iteritems():
+            utf[k.encode('utf-8')] = v.encode('utf-8')
+        return utf
+
+    def _row_as_string(self, row):
+        return u' '.join([row[field.decode('utf-8')] for field in self.fieldnames])
+
+    def append(self, mdict):
+        if mdict not in self._data:
+            self._data.append(mdict)
+            self._strings.append(self._row_as_string(mdict))
+
+    def get(self, key):
+        return self._map[key]
+
+    def getList(self):
+        return self._strings
+
+    def write(self):
+        if self._data:
+            with open(self.dbfile, 'wb') as csvfile:
+                dbwriter = csv.DictWriter(csvfile, self.fieldnames)
+                dbwriter.writeheader()
+                for row in self._data:
+                    dbwriter.writerow(self._encode_row(row))
+
+
 class MetaPanel(wx.Panel):
     'Panel holding metadata'
-    def __init__(self, parent, config=None, section=None, multiple=False, sep="|", *args, **kwargs):
+    def __init__(self, parent, config=None, section=None, multiple=False, sep="|", dbfile=None, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.config = config
         self.section = section
@@ -124,6 +182,22 @@ class MetaPanel(wx.Panel):
         self.SetSizer(self.sizer)
         self.panels = []
         self.title = self.config.data[self.section][0]['name']
+        self.db = None
+    
+        if dbfile:
+            fieldnames = [':'.join([self.section, wdata.id]) for wdata in self.config.data[self.section][1]]
+            self.db = MetaDB(dbfile, fieldnames)
+            searchbox = wx.BoxSizer(wx.HORIZONTAL)
+            label = wx.StaticText(self, -1, "Chercher dans la liste")
+            choicelist = self.db.getList() or ['']
+            self.selector = TextCtrlAutoComplete(self, choices=choicelist)
+            self.selector.SetSelectCallback(self.onItemSelected)
+            selectbutton = wx.Button(self, label="Selectionner")
+            selectbutton.Bind(wx.EVT_BUTTON, self.onItemSelected)
+            searchbox.Add(label)
+            searchbox.Add(self.selector, 1, wx.EXPAND)
+            searchbox.Add(selectbutton)
+            self.sizer.Add(searchbox, 0, wx.EXPAND)
 
         if multiple:
             buttons = wx.BoxSizer(wx.HORIZONTAL)
@@ -135,10 +209,8 @@ class MetaPanel(wx.Panel):
             buttons.Add(delbutton, 0, 0, 0)
             self.sizer.Add(buttons)
             self.panelbook = wx.Notebook(self)
-            self.addPanel()
             self.sizer.Add(self.panelbook, 1, wx.EXPAND, 0)
-        else:
-            self.addPanel()
+        self.addPanel()
         self.sizer.Fit(self)
         self.Layout()
 
@@ -161,29 +233,48 @@ class MetaPanel(wx.Panel):
         else:
             pass
 
-    def setValue(self, field, value):
-        if self.multiple:
+    def setValue(self, field, value, current=False):
+        if self.multiple and not current:
             vlist = value.split(self.sep)
             while len(vlist) > len(self.panels):
                 self.addPanel()
         else:
             vlist = [value]
-        for val,panel in zip(vlist, self.panels):
+        if current and self.multiple:
+            panels = [self.panels[self.panelbook.GetSelection()]]
+        else:
+            panels = self.panels
+        for val,panel in zip(vlist, panels):
             widget, wtype = panel.widgetlist[field]
             self.config.wvalues[wtype].set(widget, val)
         
     def collectValues(self):
         result = {}
+        nonempty = False
         for panel in self.panels:
             for name, (widget,wtype) in panel.widgetlist.iteritems():
                 fieldname = ':'.join([self.section,name])
-                value = self.config.wvalues[wtype].get(widget)
+                value = unicode(self.config.wvalues[wtype].get(widget))
+                if value:
+                    nonempty = True
                 try:
-                    result[fieldname] = self.sep.join([result[fieldname], unicode(value)]) 
+                    result[fieldname] = self.sep.join([result[fieldname], value]) 
                 except (KeyError):
-                    result[fieldname] = unicode(value)
+                    result[fieldname] = value
+        if self.db:
+            if nonempty:
+                self.db.append(result)
+            self.db.write()
         return result
 
+    def onItemSelected(self, values):
+        for value in values:
+            mdict = self.db.get(value)
+            for field,val in mdict.iteritems():
+                try:
+                    self.setValue(field.split(':')[1], val, current=True)
+                except KeyError:
+                    print "No field named " + field
 
 
 class FilePanel(wx.Panel):
@@ -246,11 +337,16 @@ class MainFrame(wx.Frame):
 
     def draw_metapanels(self):
         for sec in self.config.data:
-            if 'multiple' in self.config.data[sec][0]:
+            secattrs = self.config.data[sec][0]
+            if 'multiple' in secattrs:
                 multiple = True
             else:
                 multiple = False
-            metapanel = MetaPanel(self.notebook, config=self.config, section=sec, multiple=multiple)
+            if 'save' in secattrs:
+                dbfile = secattrs['save']
+            else:
+                dbfile = None
+            metapanel = MetaPanel(self.notebook, config=self.config, section=sec, multiple=multiple, dbfile=dbfile)
             self.metapanels[sec] = metapanel
             self.notebook.AddPage(metapanel, self.config.data[sec][0]['name'])
 
