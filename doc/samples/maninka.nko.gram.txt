@@ -1,0 +1,189 @@
+# Maninka morphotactic patterns
+
+# macro definitions
+macro   @nasal-v@       <re>.*[aoeuiɔɛ]n</re>
+macro   @nonnasal-v@    <re>.*[aoeuiɔɛ][^n]?</re>
+
+# processing instructions
+plan
+for token:
+stage 0 add sequential parse common_inflection
+stage 0 add parallel parse v_inflection 
+stage 0 apply lookup
+return if parsed
+stage 1 add sequential parse common_derivation
+stage 1 add parallel parse v_derivation
+stage 1 add parallel parse v_prefixes
+stage 1 add parallel parse n_derivation
+stage 1 add parallel parse vq_derivation
+stage 1 apply lookup
+return if parsed
+stage 2 add parallel parse reduplication
+stage 2 apply lookup
+return if parsed
+stage 3 add parallel decompose pos_composition
+return if parsed
+
+## INFLECTION
+
+# nominal/common inflection
+section common_inflection
+# -` ART
+pattern :n/adj/ptcp/n.prop: [ {|`}:: ] | :n/adj/ptcp/n.prop: [:n/adj/ptcp/n.prop: :mrph:ART]
+
+section v_inflection
+# verbal inflection
+# -la/-na INF
+pattern :v: [ {@nonnasal-v@|là}:: ] | :v: [:v: :mrph:INF.LA]
+pattern :v: [ {@nonnasal-v@|lá}:: ] | :v: [:v: :mrph:INF.LA]
+pattern :v: [ {@nasal-v@|nà}:: ] | :v: [:v: :mrph:INF.LA]
+pattern :v: [ {@nasal-v@|ná}:: ] | :v: [:v: :mrph:INF.LA]
+# -san IMMED
+pattern :v: [ {|sàn}:: ] | :v: [:v: :mrph:IMMED] 
+pattern :v: [ {|sán}:: ] | :v: [:v: :mrph:IMMED] 
+# participles
+# -nin/-nɛn PTCP.RES
+pattern :v/ptcp: [ {|nìn}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
+pattern :v/ptcp: [ {|nín}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
+pattern :v/ptcp: [ {|nɛ́n}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
+pattern :v/ptcp: [ {|nɛ̀n}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
+# -ta PTCP.POT
+pattern :v/ptcp: [ {|tà}:: ] | :ptcp: [:v: :mrph:PTCP.POT]
+pattern :v/ptcp: [ {|tá}:: ] | :ptcp: [:v: :mrph:PTCP.POT]
+# -tɔ PTCP.PROG
+pattern :v/ptcp: [ {|tɔ̀}:: ] | :ptcp: [:v: :mrph:PTCP.PROG]
+pattern :v/ptcp: [ {|tɔ́}:: ] | :ptcp: [:v: :mrph:PTCP.PROG]
+# -bali PTCP.NEG
+pattern :v/ptcp: [ {|bàlì}:: ] | :ptcp: [:v: :mrph:PTCP.NEG]
+pattern :v/ptcp: [ {|bálí}:: ] | :ptcp: [:v: :mrph:PTCP.NEG]
+
+## DERIVATION
+
+section common_derivation
+# -ya/-ɲa ABSTR
+pattern :n/v: [ {|yà}:: ] | :n: [:n/adj/ptcp: :mrph:ABSTR]
+pattern :n/v: [ {|yá}:: ] | :n: [:n/adj/ptcp: :mrph:ABSTR]
+pattern :n/v: [ {|ɲà}:: ] | :n: [:n/adj/ptcp: :mrph:ABSTR]
+pattern :n/v: [ {|ɲá}:: ] | :n: [:n/adj/ptcp: :mrph:ABSTR]
+# -nin DIM
+pattern :n/adj/ptcp: [ {|nìn}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ] 
+pattern :n/adj/ptcp: [ {|nín}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ] 
+# -ba AUGM
+pattern :n/adj/ptcp: [ {|bà}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:AUG ]
+pattern :n/adj/ptcp: [ {|bá}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:AUG ]
+# -nte AG.EX
+pattern :n: [ {|ntè}:: ] | :n: [ :n/adj/v: :mrph:AG.EX ] 
+pattern :n: [ {|nté}:: ] | :n: [ :n/adj/v: :mrph:AG.EX ] 
+# ‑ɲɔɔn RECP
+pattern :n: [ {|ɲɔ̀ɔn}:: ] | :n: [ :v/n: :mrph:RECP]
+pattern :n: [ {|ɲɔ́ɔn}:: ] | :n: [ :v/n: :mrph:RECP]
+
+
+# verbal derivation
+section v_derivation
+# -baa AG.OCC
+pattern :n/adj: [ {|bàa}:: ] | :n/adj: [ :v: :mrph:AG.OCC ]
+pattern :n/adj: [ {|báa}:: ] | :n/adj: [ :v: :mrph:AG.OCC ]
+# -la/-na AG.PRM
+pattern :n: [ {@nonnasal-v@|là}:: ] | :n: [ :v: :mrph:AG.PRM ] 
+pattern :n: [ {@nonnasal-v@|lá}:: ] | :n: [ :v: :mrph:AG.PRM ] 
+pattern :n: [ {@nasal-v@|nà}:: ] | :n: [ :v: :mrph:AG.PRM ] 
+pattern :n: [ {@nasal-v@|ná}:: ] | :n: [ :v: :mrph:AG.PRM ] 
+# -lan/-nan/-ran INSTR
+pattern :n: [ {@nonnasal-v@|làn}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@nonnasal-v@|lán}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@nasal-v@|nàn}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@nasal-v@|nán}:: ] | :n: [ :v: :mrph:INSTR]
+# -li/-nin NMLZ
+pattern :n: [ {@nonnasal-syl@|lì}:: ] | :n: [ :v: :mrph:NMLZ]
+pattern :n: [ {@nonnasal-syl@|lí}:: ] | :n: [ :v: :mrph:NMLZ]
+pattern :n: [ {@nasal-syl@|nìn}:: ] | :n: [ :v: :mrph:NMLZ]
+pattern :n: [ {@nasal-syl@|nín}:: ] | :n: [ :v: :mrph:NMLZ]
+
+section v_prefixes
+# lá-/ná- CAUS
+#pattern :v: [ {la|}:: ] | :v: [ :mrph:CAUS :v: ] 
+#pattern :v: [ {na|}:: ] | :v: [ :mrph:CAUS :v: ] 
+# mà- SUPER
+#pattern :v: [ {ma|}:: ] | :v: [ :mrph:SUPER :v: ]
+# dɔ́ ~ rɔ́-/nɔ́ IN
+#pattern :v: [ {dɔ|}:: ] | :v: [ :mrph:IN :v: ] 
+#pattern :v: [ {rɔ|}:: ] | :v: [ :mrph:IN :v: ] 
+#pattern :v: [ {nɔ|}:: ] | :v: [ :mrph:IN :v: ] 
+
+section n_derivation
+# -laka LOC.GENT
+pattern :n/n.prop: [ {@nonnasal-v@|là|kà}:: ] | :n/n.prop: [ :n/n.prop: :mrph:LOC :mrph:GENT ] 
+pattern :n/n.prop: [ {@nonnasal-v@|lá|ká}:: ] | :n/n.prop: [ :n/n.prop: :mrph:LOC :mrph:GENT ] 
+pattern :n/n.prop: [ {@nonnasal-v@|là|ká}:: ] | :n/n.prop: [ :n/n.prop: :mrph:LOC :mrph:GENT ] 
+# -ka  GENT
+pattern :n/n.prop: [ {|kà}:: ] | :n/n.prop: [ :n/n.prop: :mrph:GENT ]
+pattern :n/n.prop: [ {|ká}:: ] | :n/n.prop: [ :n/n.prop: :mrph:GENT ]
+# -la/-na LOC
+pattern :n/n.prop: [ {@nonnasal-v@|là}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
+pattern :n/n.prop: [ {@nonnasal-v@|lá}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
+pattern :n/n.prop: [ {@nasal-v@|nà}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
+pattern :n/n.prop: [ {@nasal-v@|ná}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
+# -ntan PRIV
+pattern :adj/n: [ {|ntàn}:: ] | :adj/n: [ :n: :mrph:PRIV]
+pattern :adj/n: [ {|ntán}:: ] | :adj/n: [ :n: :mrph:PRIV]
+# -ma COM
+pattern :n: [ {|mà}:: ] | :adj/n: [ :n: :mrph:COM]
+pattern :n: [ {|má}:: ] | :adj/n: [ :n: :mrph:COM]
+# -nan ORD
+pattern :num: [ {|nàn}:: ] | :adj: [ :num: :mrph:ORD ]
+pattern :num: [ {|nán}:: ] | :adj: [ :num: :mrph:ORD ]
+# -ta FOC.ADJ
+pattern :adj: [ {|tà}:: ] | :adj: [ :adj: :mrph:FOC.ADJ ]
+pattern :adj: [ {|tá}:: ] | :adj: [ :adj: :mrph:FOC.ADJ ]
+# -tɔ ST
+pattern :n/adj: [ {|tɔ́}:: ] | :n/adj: [ :n: :mrph:ST ] 
+pattern :n/adj: [ {|tɔ̀}:: ] | :n/adj: [ :n: :mrph:ST ] 
+
+
+# vq derivation
+section vq_derivation
+# -man ADJ
+pattern :vq: [ {|màn}:: ] | :adj: [ :vq: :mrph:ADJ ]
+pattern :vq: [ {|mán}:: ] | :adj: [ :vq: :mrph:ADJ ]
+# -ya/-ɲa DEQU
+pattern :vq: [ {@nonnasal-v@|yà}:: ] | :n/v: [ :vq: :mrph:DEQU]
+pattern :vq: [ {@nonnasal-v@|yá}:: ] | :n/v: [ :vq: :mrph:DEQU]
+pattern :vq: [ {@nasal-v@|ɲà}:: ] | :n/v: [ :vq: :mrph:DEQU]
+pattern :vq: [ {@nasal-v@|ɲá}:: ] | :n/v: [ :vq: :mrph:DEQU]
+
+## reduplication
+section reduplication
+pattern :v: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>}:: ] | :v: [ :v: :v: ]
+pattern :adj: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>}:: ] | :adj: [ :adj: :adj: ]
+pattern :num: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>}:: ] | :num: [ :num: :num: ]
+pattern :v: [ {<re>(?P<stem>.+)</re>|-|<re>(?P=stem)</re>}:: ] | :v: [ :v: :: :v: ]
+pattern :adj: [ {<re>(?P<stem>.+)</re>|-|<re>(?P=stem)</re>}:: ] | :adj: [ :adj: :: :adj: ]
+pattern :num: [ {<re>(?P<stem>.+)</re>|-|<re>(?P=stem)</re>}:: ] | :num: [ :num: :: :num: ]
+pattern :v: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>|<re>(?P=stem)</re>}:: ] | :v: [ :v: :v: :v: ]
+pattern :adj: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>|<re>(?P=stem)</re>}:: ] | :adj: [ :adj: :adj: :adj: ]
+
+## composition
+# general part-of-speech composition patterns
+#
+# two-word composites
+section pos_composition
+# v/n + n = n
+pattern :n: [ :n/v: :n: ] | :n: [ :n/v: :n: ]
+# n + v = n/v
+pattern :n/v: [ :n: :v: ] | :n/v: [ :n: :v: ]
+# n + adj/num = n
+pattern :n: [ :n: :adj/num: ] | :n: [ :n: :adj/num: ]
+# dtm + v = n
+pattern :n: [ :dtm: :v: ] | :n: [ :dtm: :v: ]
+# three-word composites
+# n + adj/pp + n = n
+pattern :n: [ :n: :adj/pp: :n: ] | :n: [ :n: :adj/pp: :n: ]
+# n + pp + n + n = n
+pattern :n: [ :n: :pp: :n: :n: ] | :n: [ :n: :pp: :n: :n: ]
+# dtm/n + v + n = n
+pattern :n: [ :dtm/n: :v: :n: ] | :n: [ :dtm/n: :v: :n: ]
+# n + pp + v = n/v
+pattern :n/v: [ :n: :pp: :v: ] | :n/v: [ :n: :pp: :v: ]
+
+
