@@ -30,20 +30,12 @@ return if parsed
 section common_inflection
 # -` ART
 pattern :n/adj/ptcp/n.prop: [ {|`}:: ] | :n/adj/ptcp/n.prop: [:n/adj/ptcp/n.prop: :mrph:ART]
-# -lù, -nù, -lú PL
-pattern :n/adj/num/dtm/prn/ptcp/n.prop: [ {@nonasal-v@|lu}:: ] | :n/adj/num/dtm/prn/ptcp/n.prop: [:n/adj/num/dtm/prn/ptcp/n.prop: :mrph:PL]
-pattern :n/adj/num/dtm/prn/ptcp/n.prop: [ {@nasal-v@|nu}:: ] | :n/adj/num/dtm/prn/ptcp/n.prop: [:n/adj/num/dtm/prn/ptcp/n.prop: :mrph:PL]
-
 
 section v_inflection
 # verbal inflection
 # -la/-na INF
 pattern :v: [ {@nonnasal-v@|la}:: ] | :v: [:v: :mrph:INF.LA]
 pattern :v: [ {@nasal-v@|na}:: ] | :v: [:v: :mrph:INF.LA]
-# -da/-ra/-na AOR.INTR
-pattern :v: [ {|da}:: ] | :v: [:v: :mrph:AOR.INTR]
-pattern :v: [ {@nonnasal-v@|ra}:: ] | :v: [:v: :mrph:AOR.INTR]
-pattern :v: [ {@nasal-v@|na}:: ] | :v: [:v: :mrph:AOR.INTR]
 # -san IMMED
 pattern :v: [ {|san}:: ] | :v: [:v: :mrph:IMMED] 
 # participles
