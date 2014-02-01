@@ -224,11 +224,11 @@ class FileWrapper(object):
 
 
 class Processor(object):
-    def __init__(self, dictloader, grammarloader, converters=None):
+    def __init__(self, dictloader, grammarloader, converters=None, detone=False):
         self.dictloader = dictloader
         self.converters = converters
         self.grammar = grammarloader.grammar
-        self.parser = newmorph.Parser(self.dictloader.dictionary, self.grammar)
+        self.parser = newmorph.Parser(self.dictloader.dictionary, self.grammar, detone=detone)
 
     def parse(self, txt):
         self.parsed = []
@@ -304,6 +304,7 @@ def main():
     aparser.add_argument("-g", "--grammar", help="Grammar specification file")
     aparser.add_argument("-n", "--noparse", action='store_true', help="Do not parse, only process resources")
     aparser.add_argument("-l", "--list", help="Read input filenames list from file")
+    aparser.add_argument("-t", "--detone", action='store_true', help="Ignore tones in dictionary lookups")
     args = aparser.parse_args()
 
     dl = DictLoader()
@@ -314,7 +315,7 @@ def main():
     if args.grammar:
         gr.load(args.grammar)
     if not args.noparse:
-        pp = Processor(dl, gr, converters=args.script)
+        pp = Processor(dl, gr, converters=args.script, detone=args.detone)
         if args.list:
             with open(args.list) as filelist:
                 for line in filelist:

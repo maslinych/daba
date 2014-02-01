@@ -10,28 +10,6 @@ def nullgloss(word):
     'str -> Gloss'
     return Gloss(word, set([]), '', ())
 
-def lookup_gloss(gloss,gdict):
-    'Gloss, Dictionary -> tuple(Gloss)'
-    lookup_form = None
-    try:
-        if gloss.form in gdict:
-            lookup_form = gloss.form
-        else:
-            bare = detone(gloss.form)
-            if not gloss.form == bare and bare in gdict:
-                lookup_form = bare
-        if lookup_form:
-            pattern = emptyGloss._replace(ps=gloss.ps, gloss=gloss.gloss)
-            return tuple([dgloss for dgloss in gdict[lookup_form] if dgloss.matches(pattern)])
-        else:
-            return ()
-    except (KeyError,AttributeError):
-        if gloss.form in gdict:
-            print 'PP', gloss.form, gdict[gloss.form]
-        else:
-            print 'PN', gloss.form
-        return ()
-
 def parse_composite(form, gdict, numparts):
     'Str, Dictionary, Int -> [[Str]]'
     def parse_composite_aux(form, gdict, num, result):
@@ -128,7 +106,7 @@ def firstmatch(func, patterns):
     return lambda gloss: seq(patterns, [gloss])
 
 class Parser(object):
-    def __init__(self, dictionary, grammar):
+    def __init__(self, dictionary, grammar, detone=False):
         'Dictionary, Grammar, str -> Parser'
         self.dictionary = dictionary
         self.funcdict = {
@@ -143,6 +121,7 @@ class Parser(object):
                 'decompose': self.decompose
                 }
         self.processing = []
+        self.detone = detone
         if grammar is None:
             self.processing.append((0, f_apply(self.lookup), ('apply', 'lookup')))
         else:
@@ -159,6 +138,28 @@ class Parser(object):
                             funclist.append(self.grammar.patterns[f])
                     self.processing.append((step[0], funclist[0](*funclist[1:]), step[1]))
 
+    def lookup_gloss(self, gloss, gdict):
+        'Gloss, Dictionary -> tuple(Gloss)'
+        lookup_form = None
+        try:
+            if gloss.form in gdict and not self.detone:
+                lookup_form = gloss.form
+            else:
+                bare = detone(gloss.form)
+                if not gloss.form == bare and bare in gdict:
+                    lookup_form = bare
+            if lookup_form:
+                pattern = emptyGloss._replace(ps=gloss.ps, gloss=gloss.gloss)
+                return tuple([dgloss for dgloss in gdict[lookup_form] if dgloss.matches(pattern)])
+            else:
+                return ()
+        except (KeyError,AttributeError):
+            if gloss.form in gdict:
+                print 'PP', gloss.form, gdict[gloss.form]
+            else:
+                print 'PN', gloss.form
+            return ()
+
     def lookup(self, lemma, make_lemma=False):
         'Gloss -> Maybe([Gloss])'
         result = None
@@ -169,7 +170,7 @@ class Parser(object):
                 new = CompactGloss(*lemma)
                 for i,g in enumerate(lemma.morphemes):
                     if not parsed(g):
-                        dictlist = lookup_gloss(g, self.dictionary)
+                        dictlist = self.lookup_gloss(g, self.dictionary)
                         if dictlist:
                             new = new._replace(morphemes = tuple([dictlist if j==i else m for j,m in enumerate(new.morphemes)]))
                 result = []
@@ -190,7 +191,7 @@ class Parser(object):
                         commonps = lemma.ps
                     result.append(ngloss._replace(gloss = commongloss, ps = commonps))
             else:
-                result = lookup_gloss(lemma, self.dictionary)
+                result = self.lookup_gloss(lemma, self.dictionary)
             return result
 
     def parse(self, pattern, gloss, joinchar='-'):
