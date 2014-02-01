@@ -142,12 +142,17 @@ class Parser(object):
         'Gloss, Dictionary -> tuple(Gloss)'
         lookup_form = None
         try:
-            if gloss.form in gdict and not self.detone:
-                lookup_form = gloss.form
-            else:
-                bare = detone(gloss.form)
-                if not gloss.form == bare and bare in gdict:
+            if self.detone:
+                bare = detone(gloss.form) 
+                if bare in gdict:
                     lookup_form = bare
+            else:
+                if gloss.form in gdict:
+                    lookup_form = gloss.form
+                else:
+                    bare = detone(gloss.form)
+                    if not gloss.form == bare and bare in gdict:
+                        lookup_form = bare
             if lookup_form:
                 pattern = emptyGloss._replace(ps=gloss.ps, gloss=gloss.gloss)
                 return tuple([dgloss for dgloss in gdict[lookup_form] if dgloss.matches(pattern)])
