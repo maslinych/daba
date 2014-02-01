@@ -15,7 +15,12 @@ INFLECTION = [
     'PL',
     'PTCP.PRIV',
     'PTCP.POT',
-    'RES'
+    'RES',
+    'ART',
+    'INF',
+    'PTCP.NEG',
+    'IMMED',
+    'AOR.INTR'
     ]
 
 class VariantsLoader(object):
@@ -37,12 +42,28 @@ class VariantsLoader(object):
 def dedot(s, repl=''):
     return s.replace('.', repl)
 
+def print_fields(fields, unique=True):
+    if unique:
+        print u"\t".join([u'|'.join(filter(None, set(s))) for s in fields]).encode('utf-8')
+    else:
+        print u"\t".join([u'|'.join(filter(None, s)) for s in fields]).encode('utf-8')
+
+
 def print_token(token, args, vardict, polidict):
     gt = formats.GlossToken(token)
     if gt.type == 'Comment':
         return
-    print u"{0}\t".format(gt.token).encode('utf-8'),
+    if not gt.type == "w":
+        print u"{0}\t".format(gt.token).encode('utf-8'),
     if gt.type == 'w':
+        if args.convert:
+            token = gt.glosslist[0].form
+            if not args.tonal:
+                token = detone(token)
+        else:
+            token = gt.token
+        print u"{0}\t".format(token).encode('utf-8'),
+
         if args.tonal:
             get_lemma = lambda x: ''.join(c for c in x if c not in '.')
         elif args.nullify:
@@ -56,6 +77,7 @@ def print_token(token, args, vardict, polidict):
             get_lemma = lambda x: detone(''.join(c for c in x if c not in '.'))
 
         #tonals = []
+        fields = []
         lemmas = []
         forms = []
         tags = set()
@@ -103,17 +125,26 @@ def print_token(token, args, vardict, polidict):
                     for variant in vardict[g]:
                         lemmas.append(get_lemma(variant))
                 
+            fields = [lemmas, tags, forms, glosses, deep]
+
+            if args.convert:
+                fields.append([gt.token])
+
             if args.polisemy:
                 for ge, gvs in polidict[dedot(g.form)].items():
                     if dedot(ge, '_') in glosses:
                         polisemy.extend(gvs)
+                fields.append(polisemy)
 
-        if args.unique:
-            print u"\t".join([u'|'.join(filter(None, set(s))) for s in [lemmas, tags, forms, glosses, deep, polisemy]]).encode('utf-8')
-        else:
-            print u"\t".join([u'|'.join(filter(None, s)) for s in [lemmas, tags, forms, glosses, deep, polisemy]]).encode('utf-8')
+        print_fields(fields, unique=args.unique)
+
     else:
-        print u"\t".join([gt.token, gt.type, gt.token, gt.token, gt.token]).encode('utf-8')
+        nfields = 6
+        if args.polisemy:
+            nfields += 1
+        if args.convert:
+            nfields += 1
+        print u"\t".join([gt.token, gt.type] + [gt.token]*(nfields-2)).encode('utf-8')
 
 def main():
     oparser = argparse.ArgumentParser(description='Native Daba format to vertical format converter')
@@ -123,6 +154,7 @@ def main():
     oparser.add_argument("-n", "--nullify", action="store_true", help="Transliterate all non-ascii characters")
     oparser.add_argument("-v", "--variants", help="Treat all variants in given dictionary as alternative lemmas")
     oparser.add_argument("-p", "--polisemy", action="store_true", help="Show polisemy in a separate field (suggests -v)")
+    oparser.add_argument("-c", "--convert", action="store_true", help="Normalize wordform field, move source to the end")
     args = oparser.parse_args()
 
     reader = formats.HtmlReader(args.infile)
