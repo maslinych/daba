@@ -201,11 +201,12 @@ class NkoToLatin(OrthographyConverter):
         w = w.replace(u'C', ur"s\u0323")   ### S=
         w = w.replace(u'\u07f8', ur",")
         w = w.replace(u'\u07f9', ur"!")
-        w = re.sub(u'[‘]([^‘])', ur"`\1", w)
-        w = re.sub(u'[’]([^’])', ur"'\1", w)
+        w = re.sub(u'[‘]', ur"`", w)
+        w = re.sub(u'[’]', ur"'", w)
         w = w.replace('_', '')
         w = w.replace(u'\u0640', '')
         w = w.replace(u'N', u'n')
+        w = re.sub(ur'^i\u0301`$', ur'i\u0301', w)
         
         if debug:
             print "LAT", w.encode("utf-8")
