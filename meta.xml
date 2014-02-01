@@ -25,6 +25,7 @@
   </section>
   <section id="author" name="Auteur" save="authors.csv" multiple="true">
       <field id="name" type="text" name="Nom de l&#8217;auteur/locuteur/traducteur" />
+      <field id="spelling" type="text" name="Author's name spelling" />
     <field id="sex" type="closed_list" name="Sexe">
       <list>
 	<item name="inconnu" />
