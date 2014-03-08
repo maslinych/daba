@@ -279,7 +279,7 @@ class TextCtrlAutoComplete (wx.TextCtrl, listmix.ColumnSorterMixin ):
         event.Skip ()
 
     def onControlChanged(self, event):
-        #self._showDropDown( False )
+        self._showDropDown( False )
         event.Skip()
 
 

@@ -124,7 +124,8 @@ class MetaDB(object):
         self.fieldnames = fieldnames
         if os.path.exists(self.dbfile):
             with open(dbfile, 'rb') as csvfile:
-                dbreader = csv.DictReader(csvfile)
+                dbreader = csv.DictReader(csvfile, restval='')
+                self.csvnames = dbreader.fieldnames
                 for row in dbreader:
                     row = self._decode_row(row)
                     key = self._row_as_string(row)
@@ -138,7 +139,12 @@ class MetaDB(object):
     def _decode_row(self, row):
         utf = {}
         for k,v in row.iteritems():
-            utf[k.decode('utf-8')] = v.decode('utf-8')
+            try:
+                utf[k.decode('utf-8')] = v.decode('utf-8')
+            except (AttributeError):
+                print "ERROR:", k, v
+                print "ROW", row
+                utf[k.decode('utf-8')] = ''
         return utf
 
     def _encode_row(self, row):
@@ -148,7 +154,7 @@ class MetaDB(object):
         return utf
 
     def _row_as_string(self, row):
-        return u' '.join([row[field.decode('utf-8')] for field in self.fieldnames])
+        return u' '.join([row[field.decode('utf-8')] for field in self.csvnames])
 
     def append(self, mdict):
         if mdict not in self._data:
@@ -164,7 +170,7 @@ class MetaDB(object):
     def write(self):
         if self._data:
             with open(self.dbfile, 'wb') as csvfile:
-                dbwriter = csv.DictWriter(csvfile, self.fieldnames)
+                dbwriter = csv.DictWriter(csvfile, self.fieldnames, restval='')
                 dbwriter.writeheader()
                 for row in self._data:
                     dbwriter.writerow(self._encode_row(row))
@@ -192,11 +198,11 @@ class MetaPanel(wx.Panel):
             choicelist = self.db.getList() or ['']
             self.selector = TextCtrlAutoComplete(self, choices=choicelist)
             self.selector.SetSelectCallback(self.onItemSelected)
-            selectbutton = wx.Button(self, label="Selectionner")
-            selectbutton.Bind(wx.EVT_BUTTON, self.onItemSelected)
+            #selectbutton = wx.Button(self, label="Selectionner")
+            #selectbutton.Bind(wx.EVT_BUTTON, self.onItemSelected)
             searchbox.Add(label)
             searchbox.Add(self.selector, 1, wx.EXPAND)
-            searchbox.Add(selectbutton)
+            #searchbox.Add(selectbutton)
             self.sizer.Add(searchbox, 0, wx.EXPAND)
 
         if multiple:
@@ -275,6 +281,9 @@ class MetaPanel(wx.Panel):
                     self.setValue(field.split(':')[1], val, current=True)
                 except KeyError:
                     print "No field named " + field
+                except ValueError:
+                    print "DICT", mdict
+                    print "FAILED", field, val
 
 
 class FilePanel(wx.Panel):
@@ -402,7 +411,9 @@ class MainFrame(wx.Frame):
             try:
                 name = m.attrib['name']
                 if name in metaheaders:
-                    print "Duplicate metadata values:", name
+                    # be silent
+                    #print "Duplicate metadata values:", name
+                    head.remove(m)
                 else:
                     metaheaders[name] = m
             except KeyError:
