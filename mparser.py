@@ -208,20 +208,6 @@ class GrammarLoader(object):
             cPickle.dump(self.grammar, o)
 
 
-class FileWrapper(object):
-    def __init__(self, encoding='utf-8'):
-        self.encoding = encoding
-
-    def read(self, filename):
-        basename, ext = os.path.splitext(filename)
-        if ext in ['.txt']:
-            self.metadata, self.txt = formats.TxtReader(filename).data()
-        elif ext in ['.html', '.htm']:
-            self.metadata, self.txt = formats.HtmlReader(filename).data()
-
-    def write(self, parsed, filename):
-        formats.HtmlWriter((self.metadata, parsed), filename, self.encoding).write()
-
 
 class Processor(object):
     def __init__(self, dictloader, grammarloader, converters=None, detone=False):
@@ -286,9 +272,9 @@ def load_plugins():
 
 def parse_file(infile, outfile, pp, args):
     print 'Processing', infile
-    io = FileWrapper()
+    io = formats.FileWrapper()
     io.read(infile)
-    io.write(pp.parse(io.txt), outfile)
+    io.write(outfile, pp.parse(io.para))
     print 'Finished', outfile
 
 

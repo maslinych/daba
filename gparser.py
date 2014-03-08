@@ -213,14 +213,14 @@ class MainFrame(wx.Frame):
     def InitValues(self):
         self.infile = None
         self.outfile = None
-        self.io = mparser.FileWrapper()
+        self.io = formats.FileWrapper()
         self.parsed = False
 
     def OnParse(self,e):
         @contextmanager
         def wait_for_parser():
             self.processor = mparser.Processor(self.dl, self.gr, converters=self.resourcepanel.convlist.selection)
-            yield self.processor.parse(self.io.txt)
+            yield self.processor.parse(self.io.para)
 
         dlg = wx.MessageDialog(self, 'Please wait: parsing in progress', 'Please wait', wx.OK)
         dlg.ShowModal()
@@ -255,7 +255,7 @@ class MainFrame(wx.Frame):
             self.dirname = os.path.dirname(self.infile)
             self.io.read(self.infile)
             self.parsed = False
-            self.filepanel.control.SetValue('\n\n'.join(self.io.txt))
+            self.filepanel.control.SetValue('\n\n'.join(self.io.para))
         dlg.Destroy()
 
     def OnClose(self,e):
@@ -269,7 +269,7 @@ class MainFrame(wx.Frame):
             self.OnSaveAs(e)
         else:
             self.OnParse(e)
-            self.io.write(self.processor.parsed, self.outfile)
+            self.io.write(self.outfile, result=self.processor.parsed)
 
     def OnSaveAs(self,e):
         if not self.infile:
@@ -283,7 +283,7 @@ class MainFrame(wx.Frame):
                 if not os.path.splitext(self.outfile)[1] == '.html' :
                     self.outfile = ''.join([self.outfile, os.path.extsep, 'html'])
                     self.OnParse(e)
-                    self.io.write(self.processor.parsed, self.outfile)
+                    self.io.write(self.outfile, result=self.processor.parsed)
             dlg.Destroy()
 
 

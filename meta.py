@@ -27,6 +27,7 @@ import tempfile
 import shutil
 import csv
 from TextCtrlAutoComplete import TextCtrlAutoComplete
+import formats
 
 
 class MetaConfig(object):
@@ -252,7 +253,10 @@ class MetaPanel(wx.Panel):
             panels = self.panels
         for val,panel in zip(vlist, panels):
             widget, wtype = panel.widgetlist[field]
-            self.config.wvalues[wtype].set(widget, val)
+            try:
+                self.config.wvalues[wtype].set(widget, val)
+            except (AssertionError):
+                print "ASS", field, value
         
     def collectValues(self):
         result = {}
@@ -303,6 +307,7 @@ class MainFrame(wx.Frame):
     def __init__(self, parent, config, encoding='utf-8', *args, **kwargs):
         wx.Frame.__init__(self, parent, *args, **kwargs)
 
+        self.cleanup = True
         self.init_values()
         self.config = config
         self.metapanels = {}
@@ -359,93 +364,37 @@ class MainFrame(wx.Frame):
             self.metapanels[sec] = metapanel
             self.notebook.AddPage(metapanel, self.config.data[sec][0]['name'])
 
-    def parse_file(self,ifile):
-        tree = e.ElementTree()
-        if os.path.splitext(ifile.name)[1] in ['.html', '.xhtml', '.xml']:
-            try:
-                self.xml = tree.parse(ifile)
-            except ExpatError:
-                #FIXME: show error message
-                self.filename = None
-            if self.xml:
-                self.update_interface()
-                self.txt = u'\n\n'.join([p.text or '' for p in self.xml.findall('body/p')])
-        elif os.path.splitext(ifile.name)[1] in ['.txt']:
-            self.txt = ifile.read().decode(self.encoding)
-            html = e.Element('html')
-            head = e.SubElement(html, 'head')
-            e.SubElement(head, 'meta', {'http-equiv': "Content-Type", 'content': "text/html; charset={0}".format(self.encoding)})
-            body = e.SubElement(html, 'body')
-            for p in re.split(r'(\r?\n)+\r?\n', self.txt):
-                if p:
-                    para = e.SubElement(body, 'p')
-                    para.text = p
-            self.xml = html
-        else:
-            self.filename = None
+    def parse_file(self, ifile):
+        self.io = formats.FileWrapper()
+        self.io.read(ifile)
+        self.metadata = self.io.metadata
+        self.txt = u''.join(self.io.para)
 
     def update_interface(self):
-        head = self.xml.find('head')
-        for meta in self.xml.findall('head/meta'):
+        for name, content in self.metadata.iteritems():
             try:
-                name = meta.attrib['name']
-                content = meta.attrib['content']
-                self.metadata[name] = content
-                try:
-                    sec, field = name.split(':')
-                except ValueError:
-                    print "Unknown meta field:", name, content
-                    break
+                sec, field = name.split(':')
+            except (ValueError):
+                print "Unknown meta field:", name, content
+            try:
                 self.metapanels[sec].setValue(field, content)
-            except KeyError:
+            except (KeyError):
+                # be silent
+                #print "Error setting field value:", name, content
                 pass
 
     def update_metadata(self):
         # collect all metadata given
         for mp in self.metapanels.itervalues():
             self.metadata.update(mp.collectValues())
-        head = self.xml.find('head')
-        metaheaders = {}
-        
-        for m in self.xml.findall('head/meta'):
-            try:
-                name = m.attrib['name']
-                if name in metaheaders:
-                    # be silent
-                    #print "Duplicate metadata values:", name
-                    head.remove(m)
-                else:
-                    metaheaders[name] = m
-            except KeyError:
-                pass
-
-        for k,v in self.metadata.iteritems():
-            if v:
-                if k in metaheaders:
-                    metaheaders[k].attrib['content'] = unicode(v)
-                else:
-                    e.SubElement(head, 'meta', {'name':k, 'content': unicode(v)})
-            else:
-                if k in metaheaders:
-                    head.remove(metaheaders[k])
 
     def write_xmldata(self):
         self.update_metadata()
         tempout = tempfile.NamedTemporaryFile(delete=False)
-        try: 
-            e.ElementTree(self.xml).write(tempout)
-        except TypeError:
-            #FIXME: show proper error message
-            print "Serialization error"
-            print e.dump(e.ElementTree(self.xml))
-        tempout.close()    
-        with open(tempout.name, 'r') as infile:
-            try:
-                with open(os.path.join(self.dirname, self.filename),'wb') as outfile:
-                    shutil.copyfileobj(infile, outfile)
-            except IOError:
-                #FIXME: show proper error message
-                print "Error writing file!"
+        self.io.write(tempout.name, metadata=self.metadata)
+        tempout.close()
+        outfile = os.path.join(self.dirname, self.filename)
+        shutil.copyfile(tempout.name, outfile)
         os.unlink(tempout.name)
 
     def NoFileError(self,e):
@@ -463,9 +412,11 @@ class MainFrame(wx.Frame):
             self.infile = dlg.GetPath()
             self.filename = os.path.basename(self.infile)
             self.dirname = os.path.dirname(self.infile)
-            with open(os.path.join(self.dirname, self.filename), 'r') as f:
-                self.parse_file(f)
-                self.filepanel.control.SetValue(self.txt)
+            infile = os.path.join(self.dirname, self.filename)
+            self.parse_file(infile)
+            if self.cleanup:
+                self.update_interface()
+            self.filepanel.control.SetValue(self.txt)
         dlg.Destroy()
 
     def OnSave(self,e):
@@ -498,6 +449,7 @@ class MainFrame(wx.Frame):
         self.init_values()
         self.notebook.DeleteAllPages()
         self.draw_metapanels()
+        self.filepanel.control.SetValue('')
 
 
 if __name__ == '__main__':

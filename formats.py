@@ -62,6 +62,7 @@ class TxtReader(BaseReader):
         with open(filename) as f:
             self.para = re.split(os.linesep + '{2,}', normalizeText(f.read().decode(encoding).strip()))
 
+
 class HtmlReader(BaseReader):
     def __init__(self, filename, onlymeta=False):
         self.metadata = OrderedDict()
@@ -114,6 +115,7 @@ class HtmlReader(BaseReader):
             return (text, annot)
 
         par = []
+        stext = []
         for event, elem in e.iterparse(filename):
             if elem.tag == 'meta':
                 name = elem.get('name')
@@ -121,12 +123,15 @@ class HtmlReader(BaseReader):
                     self.metadata[name] = elem.get('content')
             elif elem.tag == 'p':
                 self.numpar += 1
-                self.para.append(elem.text or ''.join([normalizeText(j.text) for j in elem.findall('span') if j.get('class') == 'sent']))
+                #self.para.append(elem.text or ''.join([normalizeText(j.text) for j in elem.findall('span') if j.get('class') == 'sent']))
                 self.glosses.append(par)
                 par = []
+                self.para.append(' '.join(stext))
+                stext = []
                 elem.clear()
             elif elem.tag == 'span' and elem.get('class') == 'sent':
                 self.numsent += 1
+                stext.append(elem.text)
                 par.append(parse_sent(elem, onlymeta=onlymeta))
                 elem.clear()
 
@@ -150,6 +155,25 @@ class HtmlReader(BaseReader):
         pp, sp, tp, gp = index
         self.glosses[pp][sp][1][tp][1][2][gp] = gloss
 
+class SimpleHtmlWriter(object):
+    def __init__(self, (metadata, para), filename, encoding="utf-8"):
+        self.encoding = encoding
+        self.metadata = metadata
+        self.para = para
+        self.filename = filename
+
+        html = e.Element('html')
+        head = e.SubElement(html, 'head')
+        e.SubElement(head, 'meta', {'http-equiv': "Content-Type", 'content': "text/html; charset={0}".format(self.encoding)})
+        body = e.SubElement(html, 'body')
+        for p in para:
+            if p:
+                para = e.SubElement(body, 'p')
+                para.text = p
+        self.xml = html
+
+    def write(self):
+        e.ElementTree(self.xml).write(self.filename, self.encoding)
 
 class HtmlWriter(object):
     def __init__(self, (metadata, para), filename, encoding="utf-8"):
@@ -241,6 +265,41 @@ class HtmlWriter(object):
 
     def write(self):
         e.ElementTree(self.xml).write(self.filename, self.encoding)
+
+
+class FileWrapper(object):
+    def __init__(self, encoding='utf-8'):
+        self.encoding = encoding
+
+    def read(self, filename):
+        try:
+            basename, ext = os.path.splitext(filename)
+        except (AttributeError):
+            print "FILENAME", filename
+        if ext in ['.txt']:
+            self._reader = TxtReader(filename)
+            self.format = 'txt'
+            self.parsed = False
+        elif ext in ['.html', '.htm']:
+            self._reader = HtmlReader(filename)
+            self.format = 'html'
+            self.parsed = True
+            self.glosses = self._reader.glosses
+        self.metadata, self.para = self._reader.data()
+        if self.format == 'txt':
+            self.glosses = self.para
+
+    def write(self, filename, result=None, metadata=None, parsed=None):
+        if result is None:
+            result = self.glosses
+        if metadata is None:
+            metadata = self.metadata
+        if parsed is None:
+            parsed = self.parsed
+        if parsed:
+            HtmlWriter((metadata, result), filename, self.encoding).write()
+        else:
+            SimpleHtmlWriter((metadata, result), filename, self.encoding).write()
 
 
 class DictWriter(object):
