@@ -256,7 +256,9 @@ class MetaPanel(wx.Panel):
             try:
                 self.config.wvalues[wtype].set(widget, val)
             except (AssertionError):
-                print "ASS", field, value
+                if value:
+                    print u"Incorrect value '{0}' for field '{1}' will be ignored".format(field, value)
+
         
     def collectValues(self):
         result = {}
@@ -286,8 +288,8 @@ class MetaPanel(wx.Panel):
                 except KeyError:
                     print "No field named " + field
                 except ValueError:
-                    print "DICT", mdict
-                    print "FAILED", field, val
+                    if val:
+                        print u"Incorrect value '{0}' for field '{1}' will be ignored".format(field, val)
 
 
 class FilePanel(wx.Panel):
@@ -375,13 +377,13 @@ class MainFrame(wx.Frame):
             try:
                 sec, field = name.split(':')
             except (ValueError):
-                print "Unknown meta field:", name, content
+                print "Malformed meta field:", name, content
             try:
-                self.metapanels[sec].setValue(field, content)
+                if sec != "_auto":
+                    self.metapanels[sec].setValue(field, content)
             except (KeyError):
-                # be silent
-                #print "Error setting field value:", name, content
-                pass
+                if content:
+                    print u"Incorrect value '{0}' for field '{1}' will be ignored".format(field, content)
 
     def update_metadata(self):
         # collect all metadata given

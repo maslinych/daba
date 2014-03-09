@@ -120,11 +120,20 @@ class TextCtrlAutoComplete (wx.TextCtrl, listmix.ColumnSorterMixin ):
         else: self.SetChoices ( choices )
 
         def handler_close(evt):
+            # unbinding...
             gp = self
             while ( gp != None ) :
-                gp.Bind ( wx.EVT_MOVE , self.onControlChanged, gp )
-                gp.Bind ( wx.EVT_SIZE , self.onControlChanged, gp )
+                gp.Unbind( wx.EVT_MOVE , gp, -1, -1)
+                gp.Unbind( wx.EVT_SIZE , gp, -1, -1)
                 gp = gp.GetParent()
+
+
+        #def handler_close(evt):
+        #    gp = self
+        #    while ( gp != None ) :
+        #        gp.Bind ( wx.EVT_MOVE , self.onControlChanged, gp )
+        #        gp.Bind ( wx.EVT_SIZE , self.onControlChanged, gp )
+        #        gp = gp.GetParent()
 
         self.Bind( wx.EVT_KILL_FOCUS, self.onControlChanged, self )
         self.Bind( wx.EVT_TEXT , self.onEnteredText, self )
