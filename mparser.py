@@ -274,7 +274,7 @@ def parse_file(infile, outfile, pp, args):
     print 'Processing', infile
     io = formats.FileWrapper()
     io.read(infile)
-    io.write(outfile, pp.parse(io.para))
+    io.write(outfile, pp.parse(io.para), parsed=True)
     print 'Finished', outfile
 
 

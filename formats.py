@@ -131,7 +131,8 @@ class HtmlReader(BaseReader):
                 elem.clear()
             elif elem.tag == 'span' and elem.get('class') == 'sent':
                 self.numsent += 1
-                stext.append(elem.text)
+                if elem.text is not None:
+                    stext.append(elem.text)
                 par.append(parse_sent(elem, onlymeta=onlymeta))
                 elem.clear()
 

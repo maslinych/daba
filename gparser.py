@@ -19,6 +19,7 @@
 import wx
 import os
 import mparser
+import formats
 from contextlib import contextmanager
 from plugins import OrthographyConverter
 
@@ -269,7 +270,7 @@ class MainFrame(wx.Frame):
             self.OnSaveAs(e)
         else:
             self.OnParse(e)
-            self.io.write(self.outfile, result=self.processor.parsed)
+            self.io.write(self.outfile, result=self.processor.parsed, parsed=True)
 
     def OnSaveAs(self,e):
         if not self.infile:
@@ -283,7 +284,7 @@ class MainFrame(wx.Frame):
                 if not os.path.splitext(self.outfile)[1] == '.html' :
                     self.outfile = ''.join([self.outfile, os.path.extsep, 'html'])
                     self.OnParse(e)
-                    self.io.write(self.outfile, result=self.processor.parsed)
+                    self.io.write(self.outfile, result=self.processor.parsed, parsed=True)
             dlg.Destroy()
 
 
