@@ -338,7 +338,10 @@ class MainFrame(wx.Frame):
         splitter.SplitVertically(self.filepanel, self.notebook)
         splitter.SetMinimumPaneSize(20)
 
-        self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
+        retainbutton = wx.ToggleButton(self, -1, 'Retain values for the next file')
+        retainbutton.Bind(wx.EVT_TOGGLEBUTTON, self.OnRetainToggled)
+        self.Sizer = wx.BoxSizer(wx.VERTICAL)
+        self.Sizer.Add(retainbutton)
         self.Sizer.Add(splitter, 1, wx.EXPAND)
         #Sizer.Add(self.filepanel, 1, wx.EXPAND)
         #Sizer.Add(notebook, 1, wx.EXPAND)
@@ -348,7 +351,8 @@ class MainFrame(wx.Frame):
     def init_values(self):
         self.filename = None
         self.dirname = os.curdir
-        self.metadata = {}
+        if self.cleanup:
+            self.metadata = {}
         self.txt = ''
 
     def draw_metapanels(self):
@@ -398,6 +402,9 @@ class MainFrame(wx.Frame):
         outfile = os.path.join(self.dirname, self.filename)
         shutil.copyfile(tempout.name, outfile)
         os.unlink(tempout.name)
+    
+    def OnRetainToggled(self, e):
+        self.cleanup = not self.cleanup
 
     def NoFileError(self,e):
         dlg = wx.MessageDialog(self, 'Error: no file opened!', 'No file opened', wx.OK)
@@ -449,8 +456,9 @@ class MainFrame(wx.Frame):
     def OnClose(self,e):
         self.OnSave(e)
         self.init_values()
-        self.notebook.DeleteAllPages()
-        self.draw_metapanels()
+        if self.cleanup:
+            self.notebook.DeleteAllPages()
+            self.draw_metapanels()
         self.filepanel.control.SetValue('')
 
 
