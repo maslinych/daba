@@ -115,6 +115,7 @@ class HtmlReader(BaseReader):
             return (text, annot)
 
         par = []
+        partext = []
         stext = []
         for event, elem in e.iterparse(filename):
             if elem.tag == 'meta':
@@ -128,6 +129,7 @@ class HtmlReader(BaseReader):
                 par = []
                 self.para.append(' '.join(stext))
                 stext = []
+                partext.append(elem.text)
                 elem.clear()
             elif elem.tag == 'span' and elem.get('class') == 'sent':
                 self.numsent += 1
@@ -135,6 +137,8 @@ class HtmlReader(BaseReader):
                     stext.append(elem.text)
                 par.append(parse_sent(elem, onlymeta=onlymeta))
                 elem.clear()
+        if not ''.join(self.para):
+            self.para = partext
 
         for k,v in [ 
                 ('_auto:words', self.numwords),
@@ -166,6 +170,8 @@ class SimpleHtmlWriter(object):
         html = e.Element('html')
         head = e.SubElement(html, 'head')
         e.SubElement(head, 'meta', {'http-equiv': "Content-Type", 'content': "text/html; charset={0}".format(self.encoding)})
+        for (name, content) in self.metadata.items():
+            md = e.SubElement(head, 'meta', {'name': name, 'content': content})
         body = e.SubElement(html, 'body')
         for p in para:
             if p:

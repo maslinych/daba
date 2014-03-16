@@ -133,6 +133,8 @@ class MetaDB(object):
                     self._strings.append(key)
                     self._data.append(row)
                     self._map[key] = row
+        else:
+            self.csvnames = self.fieldnames
 
     def __contains__(self, item):
         return item in self._data
