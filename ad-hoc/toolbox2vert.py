@@ -97,21 +97,17 @@ class TokenConverter(object):
 
     def convert(self, token):
         fields = []
-        if token.type == 'w':
-            for coltype in self.config.columns:
-                if isinstance(coltype, basestring):
-                    if coltype in self.config.annotlevels['token']:
-                        fields.append(token.word[coltype])
-                    elif coltype in self.config.annotlevels['morpheme']:
+        for coltype in self.config.columns:
+            if isinstance(coltype, basestring):
+                if coltype in self.config.annotlevels['token']:
+                    fields.append(token.word[coltype])
+                elif coltype in self.config.annotlevels['morpheme']:
+                    if token.morphemes:
                         fields.append('-'.join([m[coltype] for m in token.morphemes]))
-                else:
-                    fields.append(coltype(token))
-        elif token.type == 'c':
-            for col in self.config.columns:
-                if col == self.config.tagfield:
-                    fields.append('c')
-                else:
-                    fields.append(token.word.base)
+                    else:
+                        fields.append(token.word.base)
+            else:
+                fields.append(coltype(token))
         return u'\t'.join(fields)
 
 
@@ -174,10 +170,10 @@ class Record(object):
         self.morphemes = Layers(self._morphemes)
 
     def _tokenize(self, string):
-        return re.findall('[^ .,:;?!()"“”]+|[.,:;?!()"“”]+', string)
+        return re.findall(u'[^ .,:;?!()"“”]+|[.,:;?!()"“”]+', string)
 
     def ispunct(self, string):
-        return bool(re.match('[.,:;?!()"“”]+$', string))
+        return bool(re.match(u'[.,:;?!()"“”]+$', string))
 
     def itokens(self):
         morphs = collections.deque(self.morphemes)
@@ -192,8 +188,7 @@ class Record(object):
                 try:
                     morphemes.append(morphs.popleft())
                 except IndexError:
-                    print 'TTT', tok
-                    print 'ispunct', self.ispunct(tok.base)
+                    print 'TTT', self.tokens
 
                 while morphs and morphs[0].isaffix:
                         morphemes.append(morphs.popleft())
