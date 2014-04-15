@@ -7,6 +7,7 @@ import argparse
 import collections
 from itertools import izip_longest
 from nltk import toolbox
+from xml.sax.saxutils import quoteattr
 
 ShToken = collections.namedtuple('ShToken', 'type, word, morphemes')
 
@@ -36,6 +37,12 @@ class ShGloss(collections.Mapping):
     def __repr__(self):
         return repr(self._dict)
 
+    def __unicode__(self):
+        return unicode(self._dict)
+
+    def __len__(self):
+        return len(self._dict)
+
 
 class Layers(collections.Iterable):
     def __init__(self, tuples):
@@ -48,6 +55,13 @@ class Layers(collections.Iterable):
 
     def __iter__(self):
         return iter(self.tokens)
+
+    def __unicode__(self):
+        ' '.join(unicode(i) for i in self.tokens)
+
+    def __len__(self):
+        return len(self.tokens)
+
 
 
 class TokenConverter(object):
@@ -170,25 +184,29 @@ class Record(object):
         self.morphemes = Layers(self._morphemes)
 
     def _tokenize(self, string):
-        return re.findall(u'[^ .,:;?!()"“”]+|[.,:;?!()"“”]+', string)
+        return re.findall(u'[^ .,:;?!()"“”–‒«»]+|[.,:;?!()"“–‒”«»]+', string)
 
     def ispunct(self, string):
-        return bool(re.match(u'[.,:;?!()"“”]+$', string))
+        return bool(re.match(u'[.,:;?!()"“”–‒«»]+$', string))
 
     def itokens(self):
         morphs = collections.deque(self.morphemes)
+        npunct = 0
         for tok in self.tokens:
             morphemes = []
             if self.ispunct(tok.base):
                 toktype = 'c'
+                npunct += 1
                 if tok.base == '-':
                     morphemes.append(morphs.popleft())
             else:
                 toktype = 'w'
-                try:
-                    morphemes.append(morphs.popleft())
-                except IndexError:
-                    print 'TTT', self.tokens
+                # only if sentence is glossed
+                if self.morphemes:
+                    try:
+                        morphemes.append(morphs.popleft())
+                    except IndexError:
+                        print dict(self.metadata)['ref'], "tokens:", len(self.tokens), "punct:", npunct, "morphemes:", len(self.morphemes)
 
                 while morphs and morphs[0].isaffix:
                         morphemes.append(morphs.popleft())
@@ -227,12 +245,8 @@ class VertFormatter(object):
         self.parser = parser
         self.outfile = outfile
 
-    def _escape_attribute(self, string):
-        #FIXME write escaping function
-        pass
- 
     def print_metadata(self, record):
-        return u' '.join([u'{0}="{1}"'.format(k,v) for k,v in record.metadata])
+        return u' '.join([u'{0}={1}'.format(k,quoteattr(v)) for k,v in record.metadata])
 
     def print_token(self, token):
         return self.parser.config.tc.convert(token)
