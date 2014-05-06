@@ -164,6 +164,8 @@
 	<item name="Information : Narratif" />
 	<item name="Information : Interview" />
 	<item name="Information : Intervention publique" />
+	<item name="Information : Lettre publique" />
+	<item name="Information : Blog" />
 	<item name="Documents : Record keeping" />
 	<item name="Documents : Instruction" />
 	<item name="Documents : Document normatif" />
@@ -201,12 +203,21 @@
   <section id="corpus" name="Technique">
     <field id="operator" type="open_list" name="Nom d&#8217;op&#233;rateur du texte">
       <list>
+	<item name="Parvina Alieva" />
+	<item name="Ekaterina Aplonova" />
+	<item name="Evgenia Bogacheva" />
+	<item name="Artem Davydov" />
 	<item name="Artem Davydov" />
 	<item name="Anna Erman" />
+	<item name="Anna Ivanova" />
+	<item name="Dmitry Matveev" />
 	<item name="Jean Jacques Meric" />
+	<item name="Ekaterina Nikiforova" />
 	<item name="Daria Ogorodnikova" />
+	<item name="Egor Solonovich" />
 	<item name="Elisaveta Volkova" />
 	<item name="Valentin Vydrine" />
+	<item name="Monika Zeutschel" />
       </list>
     </field>
     <field id="adddate" type="date" name="Date de modification du texte" />
