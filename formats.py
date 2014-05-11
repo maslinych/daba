@@ -58,6 +58,7 @@ class BaseReader(object):
 
 class TxtReader(BaseReader):
     def __init__(self, filename, encoding="utf-8"):
+        self.isdummy = True
         self.metadata = {}
         with open(filename) as f:
             self.para = re.split(os.linesep + '{2,}', normalizeText(f.read().decode(encoding).strip()))
@@ -71,6 +72,7 @@ class HtmlReader(BaseReader):
         self.numwords = 0
         self.numsent = 0
         self.numpar = 0
+        self.isdummy = False
 
         def elem_to_gloss(xgloss):
             morphemes = []
@@ -126,8 +128,8 @@ class HtmlReader(BaseReader):
                 self.numpar += 1
                 #self.para.append(elem.text or ''.join([normalizeText(j.text) for j in elem.findall('span') if j.get('class') == 'sent']))
                 self.glosses.append(par)
-                par = []
                 self.para.append(' '.join(stext))
+                par = []
                 stext = []
                 partext.append(elem.text)
                 elem.clear()
@@ -139,6 +141,7 @@ class HtmlReader(BaseReader):
                 elem.clear()
         if not ''.join(self.para):
             self.para = partext
+            self.isdummy = True
 
         for k,v in [ 
                 ('_auto:words', self.numwords),
@@ -284,17 +287,18 @@ class FileWrapper(object):
         except (AttributeError):
             print "FILENAME", filename
         if ext in ['.txt']:
-            self._reader = TxtReader(filename)
             self.format = 'txt'
-            self.parsed = False
+            self._reader = TxtReader(filename)
         elif ext in ['.html', '.htm']:
-            self._reader = HtmlReader(filename)
             self.format = 'html'
+            self._reader = HtmlReader(filename)
+        self.metadata, self.para = self._reader.data()
+        if self._reader.isdummy:
+            self.parsed = False
+            self.glosses = self.para
+        else:
             self.parsed = True
             self.glosses = self._reader.glosses
-        self.metadata, self.para = self._reader.data()
-        if self.format == 'txt':
-            self.glosses = self.para
 
     def write(self, filename, result=None, metadata=None, parsed=None):
         if result is None:
