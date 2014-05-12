@@ -3,6 +3,7 @@
 
 import sys
 import os
+import re
 import optparse
 import argparse
 import formats
@@ -86,7 +87,7 @@ def print_token(token, args, vardict, polidict):
         polisemy = []
         for g in gt.glosslist:
             tags = tags.union(g.ps)
-            if g.gloss.isupper():
+            if re.match(r'^[A-Z0-9.]+$', g.gloss):
                 gls = g.gloss
             else:
                 gls = dedot(g.gloss, '_')
