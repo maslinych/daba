@@ -430,10 +430,10 @@ class VariantsDict(MutableMapping):
         form, ps, gs, ms = gloss
         try:
             if form in self._data[(self.freezeps(ps), gs)]:
-                return self._data[(self.freezeps(ps), gs)].difference(set([form]))
+                return self._data[(self.freezeps(ps), gs)]
         except KeyError:
             pass
-        return set()
+        return []
 
     def __setitem__(self, gloss, value):
         assert isinstance(value, set)
@@ -442,7 +442,7 @@ class VariantsDict(MutableMapping):
 
     def add(self, glosslist):
         f, ps, gs, ms = glosslist[0]
-        self._data[(self.freezeps(ps), gs)] = set([gloss.form for gloss in glosslist])
+        self._data[(self.freezeps(ps), gs)] = [gloss.form for gloss in glosslist]
 
     def __delitem__(self, gloss):
         form, ps, gs, ms = gloss
