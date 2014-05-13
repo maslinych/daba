@@ -16,6 +16,8 @@ INFLECTION = [
     'PL',
     'PTCP.PRIV',
     'PTCP.POT',
+    'PTCP.RES',
+    'PTCP.PROG',
     'RES',
     'ART',
     'INF',

@@ -432,7 +432,14 @@ class VariantsDict(MutableMapping):
             if form in self._data[(self.freezeps(ps), gs)]:
                 return self._data[(self.freezeps(ps), gs)]
         except KeyError:
-            pass
+            if not gs and ms:
+                for m in ms:
+                    if m.ps is not 'mrph':
+                        try:
+                            if m.form in self._data[(self.freezeps(m.ps), m.gloss)]:
+                                return self._data[(self.freezeps(m.ps), m.gloss)]
+                        except KeyError:
+                            pass
         return []
 
     def __setitem__(self, gloss, value):
