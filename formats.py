@@ -409,7 +409,7 @@ class DabaDict(MutableMapping):
 
 class VariantsDict(MutableMapping):
     def __init__(self):
-        self._data = {}
+        self._data = defaultdict(list)
 
     def freezeps(self, ps):
         assert isinstance(ps, set)
@@ -428,18 +428,22 @@ class VariantsDict(MutableMapping):
 
     def __getitem__(self, gloss):
         form, ps, gs, ms = gloss
-        try:
-            if form in self._data[(self.freezeps(ps), gs)]:
-                return self._data[(self.freezeps(ps), gs)]
-        except KeyError:
-            if not gs and ms:
-                for m in ms:
-                    if m.ps is not 'mrph':
-                        try:
-                            if m.form in self._data[(self.freezeps(m.ps), m.gloss)]:
-                                return self._data[(self.freezeps(m.ps), m.gloss)]
-                        except KeyError:
-                            pass
+        lookup = []
+        if gs:
+            lookup.append((form, (self.freezeps(ps), gs)))
+        if ms:
+            stems = [m for m in ms if m.ps is not 'mrph']
+            if len(stems) == 1:
+                g = stems[0]
+                lookup.append((g.form, (self.freezeps(g.ps), g.gloss)))
+        for f, lkp in lookup:
+            try:
+                variants = self._data[lkp]
+                for varlist in variants:
+                    if f in varlist:
+                        return varlist
+            except KeyError:
+                pass
         return []
 
     def __setitem__(self, gloss, value):
@@ -449,7 +453,7 @@ class VariantsDict(MutableMapping):
 
     def add(self, glosslist):
         f, ps, gs, ms = glosslist[0]
-        self._data[(self.freezeps(ps), gs)] = [gloss.form for gloss in glosslist]
+        self._data[(self.freezeps(ps), gs)].append([gloss.form for gloss in glosslist])
 
     def __delitem__(self, gloss):
         form, ps, gs, ms = gloss
