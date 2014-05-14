@@ -432,7 +432,7 @@ class VariantsDict(MutableMapping):
         if gs:
             lookup.append((form, (self.freezeps(ps), gs)))
         if ms:
-            stems = [m for m in ms if m.ps is not 'mrph']
+            stems = [m for m in ms if 'mrph' not in m.ps]
             if len(stems) == 1:
                 g = stems[0]
                 lookup.append((g.form, (self.freezeps(g.ps), g.gloss)))
