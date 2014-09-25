@@ -2,11 +2,11 @@
 
 # macro definitions
 macro   @nasal-syl@     <re>.*([nmɲŋ]..?n?|n)</re>
-macro   @nasal-v@       <re>.*[aoeuiɔɛ]n</re>
-macro   @nonnasal-v@    <re>.*[aoeuiɔɛ][^n]?</re>
+macro   @nasal-v@       <re>.*[aoeuiɔɛ][́̀̌]?n</re>
+macro   @nonnasal-v@    <re>.*[aoeuiɔɛ][́̀̌]?[^n]?</re>
 macro   @glide-syl@     <re>.*[rl]..?</re>
-macro   @nonnasal-syl@  <re>.*([^nmɲŋ]?[aoeuiɔɛ]+)</re>
-macro   @nonnasalglide-syl@     <re>.*([^rlnmɲŋ]?[aoeuiɔɛ]+)</re>
+macro   @nonnasal-syl@  <re>.*([^nmɲŋ]?[aoeuiɔɛ]+[́̀̌]?)</re>
+macro   @nonnasalglide-syl@     <re>.*([^rlnmɲŋ]?[aoeuiɔɛ]+[́̀̌]?)</re>
 macro   @syl@   [^aoeuiɔɛ]*(?P<V>[aoeuiɔɛ])(?P=V)?(n(?=([^aoeuiɔɛ]|$)))?
 macro   @syl1@  [^aoeuiɔɛ]*(?P<V1>[aoeuiɔɛ])(?P=V1)?(n(?=([^aoeuiɔɛ]|$)))?
 macro   @syl2@  [^aoeuiɔɛ]*(?P<V2>[aoeuiɔɛ])(?P=V2)?(n(?=([^aoeuiɔɛ]|$)))?
