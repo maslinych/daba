@@ -73,14 +73,14 @@ def print_token(token, args, vardict, polidict, get_lemma):
     if not gt.type == "w":
         print u"{0}\t".format(gt.token).encode('utf-8'),
     if gt.type == 'w':
-        original = gt.glosslist[0].form
+        normalized = gt.glosslist[0].form
         if args.convert:
-            token = get_lemma(original)
+            token = get_lemma(normalized)
         else:
-            token = original
+            token = gt.token
         print u"{0}\t".format(token).encode('utf-8'),
 
-        #tonals = []
+        tonals = []
         fields = []
         lemmas = []
         tags = set()
@@ -96,6 +96,11 @@ def print_token(token, args, vardict, polidict, get_lemma):
             else:
                 gls = dedot(g.gloss, '_')
             glosses.append(gls)
+            if not args.tonal:
+                if g.morphemes:
+                    tonals.append(''.join([dedot(m.form) for m in g.morphemes]))
+                else:
+                    tonals.append(dedot(g.form))
             if g.morphemes:
                 #HACK: if we have no gloss on the top, make up lemma from morphemes
                 # targeted at inflected forms analyzed by the parser
@@ -103,6 +108,7 @@ def print_token(token, args, vardict, polidict, get_lemma):
                     lemmas.append(get_lemma(''.join([dedot(m.form) for m in g.morphemes if m.gloss not in INFLECTION])))
                 else:
                     lemmas.append(get_lemma(g.form))
+
                 if args.igt:
                     if not g.gloss:
                         igtforms.append('-'.join([dedot(m.form) for m in g.morphemes]))
@@ -137,6 +143,9 @@ def print_token(token, args, vardict, polidict, get_lemma):
             if args.convert:
                 fields.append([gt.token])
 
+            if not args.tonal:
+                fields.append(tonals)
+
             if args.polisemy:
                 for ge, gvs in polidict[dedot(g.form)].items():
                     if dedot(ge, '_') in glosses:
@@ -156,6 +165,8 @@ def print_token(token, args, vardict, polidict, get_lemma):
         if args.igt:
             nfields += 2
         if args.convert:
+            nfields += 1
+        if not args.tonal:
             nfields += 1
         print u"\t".join([gt.token, gt.type] + [gt.token]*(nfields-2)).encode('utf-8')
 
