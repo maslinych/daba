@@ -51,40 +51,42 @@ def print_fields(fields, unique=True):
     else:
         print u"\t".join([u'|'.join(filter(None, s)) for s in fields]).encode('utf-8')
 
+def make_lemmafunc(args):
+    if args.tonal:
+        get_lemma = lambda x: dedot(x)
+    elif args.nullify:
+        nullify_dict={u'ɔ': 'o', u'ɛ': 'e', u'ɲ': 'ny'}
+        def get_lemma(x):
+            x = detone(''.join(c for c in x if c not in '.'))
+            for source, target in nullify_dict.items():
+                x = x.replace(source, target)
+            return x
+    else:
+        get_lemma = lambda x: detone(dedot(x))
+    return get_lemma
 
-def print_token(token, args, vardict, polidict):
+
+def print_token(token, args, vardict, polidict, get_lemma):
     gt = formats.GlossToken(token)
     if gt.type == 'Comment':
         return
     if not gt.type == "w":
         print u"{0}\t".format(gt.token).encode('utf-8'),
     if gt.type == 'w':
+        original = gt.glosslist[0].form
         if args.convert:
-            token = gt.glosslist[0].form
-            if not args.tonal:
-                token = detone(token)
+            token = get_lemma(original)
         else:
-            token = gt.token
+            token = original
         print u"{0}\t".format(token).encode('utf-8'),
-
-        if args.tonal:
-            get_lemma = lambda x: ''.join(c for c in x if c not in '.')
-        elif args.nullify:
-            nullify_dict={u'ɔ': 'o', u'ɛ': 'e', u'ɲ': 'ny'}
-            def get_lemma(x):
-                x = detone(''.join(c for c in x if c not in '.'))
-                for source, target in nullify_dict.items():
-                    x = x.replace(source, target)
-                return x
-        else:
-            get_lemma = lambda x: detone(''.join(c for c in x if c not in '.'))
 
         #tonals = []
         fields = []
         lemmas = []
-        forms = []
         tags = set()
         glosses = []
+        igtforms = []
+        igtglosses = []
         deep = []
         polisemy = []
         for g in gt.glosslist:
@@ -101,17 +103,18 @@ def print_token(token, args, vardict, polidict):
                     lemmas.append(get_lemma(''.join([dedot(m.form) for m in g.morphemes if m.gloss not in INFLECTION])))
                 else:
                     lemmas.append(get_lemma(g.form))
-                if not g.gloss:
-                    forms.append('-'.join([dedot(m.form) for m in g.morphemes]))
-                    gls = []
-                    for m in g.morphemes:
-                        if m.gloss.isupper():
-                            gls.append(m.gloss)
-                        else:
-                            gls.append(dedot(m.gloss, '_'))
-                    glosses.append('-'.join(gls))
-                else:
-                    forms.append(dedot(g.form))
+                if args.igt:
+                    if not g.gloss:
+                        igtforms.append('-'.join([dedot(m.form) for m in g.morphemes]))
+                        gls = []
+                        for m in g.morphemes:
+                            if m.gloss.isupper():
+                                gls.append(m.gloss)
+                            else:
+                                gls.append(dedot(m.gloss, '_'))
+                        igtglosses.append('-'.join(gls))
+                    else:
+                        igtforms.append(dedot(g.form))
                 for m in g.morphemes:
                     # add grammatical glosses to tags
                     if m.gloss.isupper():
@@ -120,7 +123,8 @@ def print_token(token, args, vardict, polidict):
                         deep.append(get_lemma(m.form))
                         #deep.append(m.gloss)
             else:
-                forms.append(dedot(g.form))
+                if args.igt:
+                    igtforms.append(dedot(g.form))
                 lemmas.append(get_lemma(g.form))
 
             if args.variants:
@@ -128,7 +132,7 @@ def print_token(token, args, vardict, polidict):
                     for variant in vardict[g]:
                         lemmas.append(get_lemma(variant))
                 
-            fields = [lemmas, tags, forms, glosses, deep]
+            fields = [lemmas, tags, glosses, deep]
 
             if args.convert:
                 fields.append([gt.token])
@@ -138,13 +142,19 @@ def print_token(token, args, vardict, polidict):
                     if dedot(ge, '_') in glosses:
                         polisemy.extend(gvs)
                 fields.append(polisemy)
+            
+            if args.igt:
+                fields.append(igtforms)
+                fields.append(igtglosses)
 
         print_fields(fields, unique=args.unique)
 
     else:
-        nfields = 6
+        nfields = 5
         if args.polisemy:
             nfields += 1
+        if args.igt:
+            nfields += 2
         if args.convert:
             nfields += 1
         print u"\t".join([gt.token, gt.type] + [gt.token]*(nfields-2)).encode('utf-8')
@@ -158,6 +168,7 @@ def main():
     oparser.add_argument("-v", "--variants", help="Treat all variants in given dictionary as alternative lemmas")
     oparser.add_argument("-p", "--polisemy", action="store_true", help="Show polisemy in a separate field (suggests -v)")
     oparser.add_argument("-c", "--convert", action="store_true", help="Normalize wordform field, move source to the end")
+    oparser.add_argument("-i", "--igt", action="store_true", help="Add morpheme-segmented form/gloss pair suited to copy as IGT examples")
     args = oparser.parse_args()
 
     reader = formats.HtmlReader(args.infile)
@@ -197,7 +208,7 @@ def main():
         for sent,annot in par:
             print "<s>"
             for token in annot:
-                print_token(token, args, vardict, polidict)
+                print_token(token, args, vardict, polidict, make_lemmafunc(args))
             print "</s>"
         print "</p>"
 
