@@ -43,13 +43,16 @@ def tokenize(string):
             ('Op', (r'[\[\]|:{}]',)),
             #('Regex', (r'<(\w|[-={}\[\]|().,^$+*?:\\])*>', re.UNICODE)),
             ('Regex', (r'<re>.*?</re>', re.UNICODE)),
+            ('QuotedName', (ur'"[^"\n]+"', re.UNICODE)),
             ('Name', (ur'[^:<>\[\]{}| \n]+', re.UNICODE)),
             #('Name', (ur"(\w[\u0300\u0301\u0302]?)+([-./](\w[\u0300\u0301\u0302]?)+)*['\u2019]?",re.UNICODE)),
             #('Name', (ur'(\w[\u0300\u0301]?([-./](\w[\u0300\u0301]?)+)*|[-0-9][-0-9]*)',re.UNICODE))
             ]
     useless = ['Comment', 'NL', 'Space']
     tok = make_tokenizer(specs)
+    #print "DEBUG TOKENIZER: ", [x for x in tok(string)]
     return [x for x in tok(string) if x.type not in useless]
+    
 
 def unwrap_re(tupl):
     unre = lambda s: s[4:-5]
@@ -68,7 +71,8 @@ def unwrap_re(tupl):
     return re.compile(ur'^{0}$'.format(''.join(unfolded)))
 
 tokval = lambda x: x.value
-name = some(lambda t: t.type == 'Name') >> tokval
+unquote = lambda s: s.strip('"')
+name = some(lambda t: t.type in ['Name', 'QuotedName']) >> tokval >> unquote
 pslabel = some(lambda t: t.value in PSLIST) >> tokval
 space = some(lambda t: t.type == 'Space') >> tokval
 op = lambda s: a(Token('Op', s)) >> tokval
