@@ -48,7 +48,7 @@ def parse_expr(expr):
         try:
             result.append(parse_gloss(gexpr))
         except (LexerError, NoParseError) as e:
-            sys.stderr.write('In rule: {0}'.format(gexpr))
+            sys.stderr.write(u'In rule: {0}'.format(gexpr).encode('utf-8'))
             sys.stderr.write(unicode(e) + '\n')
             return []
     return result
