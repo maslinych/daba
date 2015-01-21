@@ -376,7 +376,7 @@ class MainFrame(wx.Frame):
         self.io = formats.FileWrapper()
         self.io.read(ifile)
         self.metadata = self.io.metadata
-        self.txt = u''.join(self.io.para)
+        self.txt = u''.join([p for p in self.io.para if p is not None])
 
     def update_interface(self):
         for name, content in self.metadata.iteritems():
