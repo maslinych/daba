@@ -182,7 +182,7 @@ def main():
     oparser.add_argument("-i", "--igt", action="store_true", help="Add morpheme-segmented form/gloss pair suited to copy as IGT examples")
     args = oparser.parse_args()
 
-    reader = formats.HtmlReader(args.infile)
+    reader = formats.HtmlReader(args.infile.decode("utf-8"))
 
     if args.variants:
         vardict, polidict = VariantsLoader(args.variants).get()
@@ -191,7 +191,7 @@ def main():
         polidict = None
 
     print "<doc ",
-    print u'id="{0}"'.format(os.path.basename(args.infile)).encode('utf-8'),
+    print u'id="{0}"'.format(os.path.basename(args.infile.decode("utf-8"))).encode('utf-8'),
     
     metad = dict(reader.metadata)
     print u'source_type="{0}"'.format(metad.setdefault('source:type', 'UNDEF')).encode('utf-8'),
