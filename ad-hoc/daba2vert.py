@@ -65,6 +65,13 @@ def make_lemmafunc(args):
         get_lemma = lambda x: detone(dedot(x))
     return get_lemma
 
+def make_tagstring(gloss):
+    if gloss.morphemes:
+        mtags = u' [{}]'.format(u' '.join(map(make_tagstring, [m for m in gloss.morphemes])))
+    else:
+        mtags = u''
+    return u'/'.join(gloss.ps or '_') + mtags
+
 
 def print_token(token, args, vardict, polidict, get_lemma):
     gt = formats.GlossToken(token)
@@ -156,6 +163,9 @@ def print_token(token, args, vardict, polidict, get_lemma):
                 fields.append(igtforms)
                 fields.append(igtglosses)
 
+            if args.debugfields:
+                fields.append([make_tagstring(g) for g in gt.glosslist])
+                
         print_fields(fields, unique=args.unique)
 
     else:
@@ -168,6 +178,9 @@ def print_token(token, args, vardict, polidict, get_lemma):
             nfields += 1
         if not args.tonal:
             nfields += 1
+        if args.debugfields:
+            nfields += 1
+
         print u"\t".join([gt.token, gt.type] + [gt.token]*(nfields-2)).encode('utf-8')
 
 def main():
@@ -180,6 +193,7 @@ def main():
     oparser.add_argument("-p", "--polisemy", action="store_true", help="Show polisemy in a separate field (suggests -v)")
     oparser.add_argument("-c", "--convert", action="store_true", help="Normalize wordform field, move source to the end")
     oparser.add_argument("-i", "--igt", action="store_true", help="Add morpheme-segmented form/gloss pair suited to copy as IGT examples")
+    oparser.add_argument("-d", "--debugfields", action="store_true", help="Add debug fields for Jean-Jacques")
     args = oparser.parse_args()
 
     reader = formats.HtmlReader(args.infile.decode("utf-8"))
