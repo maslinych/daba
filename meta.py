@@ -263,22 +263,23 @@ class MetaPanel(wx.Panel):
 
         
     def collectValues(self):
+        multilist = []
         result = {}
         nonempty = False
         for panel in self.panels:
+            multilist.append([])
             for name, (widget,wtype) in panel.widgetlist.iteritems():
                 fieldname = ':'.join([self.section,name])
                 value = unicode(self.config.wvalues[wtype].get(widget))
                 if value:
                     nonempty = True
-                try:
-                    result[fieldname] = self.sep.join([result[fieldname], value]) 
-                except (KeyError):
-                    result[fieldname] = value
+                multilist[-1].append((fieldname, value))
         if self.db:
             if nonempty:
-                self.db.append(result)
+                for fieldlist in multilist:
+                    self.db.append(dict(fieldlist))
             self.db.write()
+            result = map(lambda x:(x[0][0],self.sep.join(zip(*x)[1])), zip(*multilist))
         return result
 
     def onItemSelected(self, values):
