@@ -80,7 +80,9 @@ class ChainDict(object):
         return sum([len(dic) for dic in self.dictlist])
 
     def __iter__(self):
-        return itertools.chain([iter(dic) for dic in self.dictlist])
+        for dic in self.dictlist:
+            for key in dic:
+                yield key
 
     def __contains__(self, key):
         for dic in self.dictlist:
