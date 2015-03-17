@@ -145,6 +145,7 @@ class MetaDB(object):
                 print "ERROR:", k, v
                 print "ROW", row
                 utf[k.decode('utf-8')] = ''
+        utf = self._normalize_row(utf)
         return utf
 
     def _encode_row(self, row):
@@ -153,22 +154,28 @@ class MetaDB(object):
             utf[k.encode('utf-8')] = v.encode('utf-8')
         return utf
 
+    def _normalize_row(self, row):
+        for k,v in row.iteritems():
+            if row[k] in [0, "0", 'inconnu']:
+                row[k] = ""
+        return row
+
     def _row_as_string(self, row):
         try:
             return u' '.join([row[field.decode('utf-8')] for field in self.csvnames])
-        except (KeyError):
+        except (KeyError, TypeError):
             print self.csvnames, row
 
     def append(self, mdict):
         if mdict not in self._map.itervalues() and mdict[self.keyfield]:
-            self._map[self._row_as_string(mdict)] = mdict
+            self._map[self._row_as_string(mdict)] = self._normalize_row(mdict)
 
     def update(self, key, mdict):
-        self._map[key] = mdict
+        self._map[key] = self._normalize_row(mdict)
 
     def remove(self, mdict):
         if mdict in self._map.itervalues():
-            self._map = dict((k, v) for k, v in self._map.iteritems() if v != mdict)
+            self._map = dict((k, v) for k, v in self._map.iteritems() if v != self._normalize_row(mdict))
         else:
             print mdict
             raise KeyError
@@ -178,7 +185,7 @@ class MetaDB(object):
 
     def getKey(self, mdict):
         if mdict in self._map.itervalues():
-            return self._row_as_string(mdict)
+            return self._row_as_string(self._normalize_row(mdict))
         else:
             raise KeyError
 
