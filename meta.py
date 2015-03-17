@@ -117,12 +117,11 @@ class DataPanel(wx.ScrolledWindow):
 
 class MetaDB(object):
     'Storage for reusable metadata values'
-    def __init__(self, dbfile, fieldnames):
-        self._data = []
-        self._strings = []
+    def __init__(self, dbfile, fieldnames, keyfield=None):
         self._map = {}
         self.dbfile = dbfile
         self.fieldnames = fieldnames
+        self.keyfield = keyfield
         if os.path.exists(self.dbfile):
             with open(dbfile, 'rb') as csvfile:
                 dbreader = csv.DictReader(csvfile, restval='')
@@ -130,14 +129,12 @@ class MetaDB(object):
                 for row in dbreader:
                     row = self._decode_row(row)
                     key = self._row_as_string(row)
-                    self._strings.append(key)
-                    self._data.append(row)
                     self._map[key] = row
         else:
             self.csvnames = self.fieldnames
 
     def __contains__(self, item):
-        return item in self._data
+        return item in self._map.itervalues()
 
     def _decode_row(self, row):
         utf = {}
@@ -157,31 +154,55 @@ class MetaDB(object):
         return utf
 
     def _row_as_string(self, row):
-        return u' '.join([row[field.decode('utf-8')] for field in self.csvnames])
+        try:
+            return u' '.join([row[field.decode('utf-8')] for field in self.csvnames])
+        except (KeyError):
+            print self.csvnames, row
 
     def append(self, mdict):
-        if mdict not in self._data:
-            self._data.append(mdict)
-            self._strings.append(self._row_as_string(mdict))
+        if mdict not in self._map.itervalues() and mdict[self.keyfield]:
+            self._map[self._row_as_string(mdict)] = mdict
+
+    def update(self, key, mdict):
+        self._map[key] = mdict
+
+    def remove(self, mdict):
+        if mdict in self._map.itervalues():
+            self._map = dict((k, v) for k, v in self._map.iteritems() if v != mdict)
+        else:
+            print mdict
+            raise KeyError
 
     def get(self, key):
         return self._map[key]
 
+    def getKey(self, mdict):
+        if mdict in self._map.itervalues():
+            return self._row_as_string(mdict)
+        else:
+            raise KeyError
+
     def getList(self):
-        return self._strings
+        return self._map.keys()
 
     def write(self):
-        if self._data:
+        if self._map:
             with open(self.dbfile, 'wb') as csvfile:
                 dbwriter = csv.DictWriter(csvfile, self.fieldnames, restval='')
                 dbwriter.writeheader()
-                for row in self._data:
+                rows = self._map.values()
+                if self.keyfield:
+                    try:
+                        rows.sort(key=lambda d: d[self.keyfield])
+                    except(KeyError):
+                        pass
+                for row in rows:
                     dbwriter.writerow(self._encode_row(row))
 
 
 class MetaPanel(wx.Panel):
     'Panel holding metadata'
-    def __init__(self, parent, config=None, section=None, multiple=False, sep="|", dbfile=None, *args, **kwargs):
+    def __init__(self, parent, config=None, section=None, multiple=False, sep="|", dbfile=None, keyfield=None, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.config = config
         self.section = section
@@ -190,12 +211,13 @@ class MetaPanel(wx.Panel):
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(self.sizer)
         self.panels = []
+        self.dbkeys = []
         self.title = self.config.data[self.section][0]['name']
         self.db = None
     
         if dbfile:
             fieldnames = [':'.join([self.section, wdata.id]) for wdata in self.config.data[self.section][1]]
-            self.db = MetaDB(dbfile, fieldnames)
+            self.db = MetaDB(dbfile, fieldnames, keyfield=keyfield)
             searchbox = wx.BoxSizer(wx.HORIZONTAL)
             label = wx.StaticText(self, -1, "Chercher dans la liste")
             choicelist = self.db.getList() or ['']
@@ -231,13 +253,18 @@ class MetaPanel(wx.Panel):
             panel = DataPanel(self, config=self.config, section=self.section)
             self.sizer.Add(panel, 1, wx.EXPAND, 0)
         self.panels.append(panel)
+        self.dbkeys.append(None)
         self.Layout()
 
+    def getCurrentPanel(self):
+        return self.panelbook.GetSelection()
+
     def delPanel(self, evt=None):
-        current = self.panelbook.GetSelection()
+        current = self.getCurrentPanel()
         if self.multiple:
             self.panelbook.DeletePage(current)
             del self.panels[current]
+            del self.dbkeys[current]
             self.Layout()
         else:
             pass
@@ -250,7 +277,7 @@ class MetaPanel(wx.Panel):
         else:
             vlist = [value]
         if current and self.multiple:
-            panels = [self.panels[self.panelbook.GetSelection()]]
+            panels = [self.panels[self.getCurrentPanel()]]
         else:
             panels = self.panels
         for val,panel in zip(vlist, panels):
@@ -261,30 +288,44 @@ class MetaPanel(wx.Panel):
                 if value:
                     print u"Incorrect value '{0}' for field '{1}' will be ignored".format(field, value)
 
-        
-    def collectValues(self):
+    def getDBkey(self, mdict):
+        if self.db:
+            if not any(zip(*mdict.items())[1]):
+                try:
+                    return self.db.getKey(mdict)
+                except (KeyError):
+                    return None
+
+    def initDBkeys(self):
+        if self.db:
+            self.dbkeys = [self.getDBkey(dict(fieldlist)) for fieldlist in self.getPanelValues()]
+
+    def getPanelValues(self):
         multilist = []
-        result = {}
-        nonempty = False
         for panel in self.panels:
             multilist.append([])
             for name, (widget,wtype) in panel.widgetlist.iteritems():
                 fieldname = ':'.join([self.section,name])
                 value = unicode(self.config.wvalues[wtype].get(widget))
-                if value:
-                    nonempty = True
                 multilist[-1].append((fieldname, value))
+        return multilist
+
+    def collectValues(self):
+        multilist = self.getPanelValues()
+        result = map(lambda x:(x[0][0],self.sep.join(zip(*x)[1])), zip(*multilist))
         if self.db:
-            if nonempty:
-                for fieldlist in multilist:
+            for (fieldlist, dbkey) in zip(multilist, self.dbkeys):
+                if dbkey:
+                    self.db.update(dbkey, dict(fieldlist))
+                else:
                     self.db.append(dict(fieldlist))
             self.db.write()
-            result = map(lambda x:(x[0][0],self.sep.join(zip(*x)[1])), zip(*multilist))
         return result
 
     def onItemSelected(self, values):
         for value in values:
             mdict = self.db.get(value)
+            self.dbkeys[self.getCurrentPanel()] = self.db.getKey(mdict)
             for field,val in mdict.iteritems():
                 try:
                     self.setValue(field.split(':')[1], val, current=True)
@@ -369,7 +410,11 @@ class MainFrame(wx.Frame):
                 dbfile = secattrs['save']
             else:
                 dbfile = None
-            metapanel = MetaPanel(self.notebook, config=self.config, section=sec, multiple=multiple, dbfile=dbfile)
+            if 'keyfield' in secattrs:
+                keyfield = secattrs['keyfield']
+            else:
+                keyfield=None
+            metapanel = MetaPanel(self.notebook, config=self.config, section=sec, multiple=multiple, dbfile=dbfile, keyfield=keyfield)
             self.metapanels[sec] = metapanel
             self.notebook.AddPage(metapanel, self.config.data[sec][0]['name'])
 
@@ -391,6 +436,10 @@ class MainFrame(wx.Frame):
             except (KeyError):
                 if content:
                     print u"Incorrect value '{0}' for field '{1}' will be ignored".format(field, content)
+        else:
+            for mp in self.metapanels.itervalues():
+                mp.initDBkeys()
+
 
     def update_metadata(self):
         # collect all metadata given
