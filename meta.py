@@ -32,6 +32,7 @@ import formats
 
 class MetaConfig(object):
     def __init__(self, conffile=None):
+        self.confdir = os.path.dirname(conffile)
         tree = e.ElementTree()
         config = tree.parse(conffile)
         field = namedtuple('Field', 'id type name default')
@@ -357,7 +358,7 @@ class FilePanel(wx.Panel):
 
 class MainFrame(wx.Frame):
     """Main frame."""
-    def __init__(self, parent, config, encoding='utf-8', *args, **kwargs):
+    def __init__(self, parent, config=None, encoding='utf-8', *args, **kwargs):
         wx.Frame.__init__(self, parent, *args, **kwargs)
 
         self.cleanup = True
@@ -384,15 +385,25 @@ class MainFrame(wx.Frame):
         splitter = wx.SplitterWindow(self)
         self.filepanel = FilePanel(splitter)
         self.notebook = wx.Notebook(splitter)
-        self.draw_metapanels()
+        if self.config:
+            self.draw_metapanels()
 
         splitter.SplitVertically(self.filepanel, self.notebook)
         splitter.SetMinimumPaneSize(20)
 
+        configbutton = wx.FilePickerCtrl(self, -1, wildcard="*.xml", style=wx.FLP_USE_TEXTCTRL | wx.FLP_OPEN | wx.FLP_FILE_MUST_EXIST)
+        configbutton.Bind(wx.EVT_FILEPICKER_CHANGED, self.OnConfigSelected)
+        configbutton.SetTextCtrlProportion(2)
+        configbutton.SetTextCtrlGrowable(True)
         retainbutton = wx.ToggleButton(self, -1, 'Retain values for the next file')
         retainbutton.Bind(wx.EVT_TOGGLEBUTTON, self.OnRetainToggled)
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
+        #buttonsizer = wx.BoxSizer(wx.HORIZONTAL)
+        #buttonsizer.Add(configbutton, 0, wx.EXPAND)
+        #buttonsizer.Add(retainbutton, 0 , wx.EXPAND)
+        self.Sizer.Add(configbutton, 0, wx.EXPAND)
         self.Sizer.Add(retainbutton)
+        #self.Sizer.Add(buttonsizer, 0, wx.EXPAND)
         self.Sizer.Add(splitter, 1, wx.EXPAND)
         #Sizer.Add(self.filepanel, 1, wx.EXPAND)
         #Sizer.Add(notebook, 1, wx.EXPAND)
@@ -415,6 +426,8 @@ class MainFrame(wx.Frame):
                 multiple = False
             if 'save' in secattrs:
                 dbfile = secattrs['save']
+                if not os.path.isabs(dbfile):
+                    dbfile = os.path.join(self.config.confdir, dbfile)
             else:
                 dbfile = None
             if 'keyfield' in secattrs:
@@ -424,6 +437,10 @@ class MainFrame(wx.Frame):
             metapanel = MetaPanel(self.notebook, config=self.config, section=sec, multiple=multiple, dbfile=dbfile, keyfield=keyfield)
             self.metapanels[sec] = metapanel
             self.notebook.AddPage(metapanel, self.config.data[sec][0]['name'])
+
+    def clear_metapanels(self):
+        self.metapanels = {}
+        self.notebook.DeleteAllPages()
 
     def parse_file(self, ifile):
         self.io = formats.FileWrapper()
@@ -464,6 +481,20 @@ class MainFrame(wx.Frame):
     
     def OnRetainToggled(self, e):
         self.cleanup = not self.cleanup
+
+    def OnConfigSelected(self, e):
+        if self.filename:
+            self.FileOpenedError(e)
+        else:
+            confpath = e.GetPath()
+            self.config = MetaConfig(confpath)
+            self.clear_metapanels()
+            self.draw_metapanels()
+
+    def FileOpenedError(self,e):
+        dlg = wx.MessageDialog(self, 'Error: please close the file first.', wx.OK)
+        dlg.ShowModal()
+        dlg.Destroy()
 
     def NoFileError(self,e):
         dlg = wx.MessageDialog(self, 'Error: no file opened!', 'No file opened', wx.OK)
@@ -522,10 +553,10 @@ class MainFrame(wx.Frame):
 
 
 if __name__ == '__main__':
-    confname = 'meta.xml'
-    metaconfig = MetaConfig(confname)
+    #confname = 'meta.xml'
+    #metaconfig = MetaConfig(confname)
     app = wx.App()
-    frame = MainFrame(None, config=metaconfig, title="Bamana corpus metaeditor")
+    frame = MainFrame(None, title="Bamana corpus metaeditor")
     frame.Show()
     app.MainLoop()
 
