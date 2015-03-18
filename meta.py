@@ -22,12 +22,54 @@ import os
 import re
 import xml.etree.cElementTree as e
 from xml.parsers.expat import ExpatError
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 import tempfile
 import shutil
 import csv
+import uuid
 from TextCtrlAutoComplete import TextCtrlAutoComplete
 import formats
+
+
+class MetaData(object):
+    def __init__(self, metadict=None):
+        self.namesep = u':'
+        self.valuesep = u'|'
+        self._data = defaultdict(lambda: defaultdict(tuple))
+        if metadict:
+            self.fromPlain(metadict)
+
+    def fromPlain(self, metadict):
+        for mkey, mvalue in metadict.iteritems():
+            try:
+                section, name = mkey.split(self.namesep)
+            except (ValueError):
+                print "Malformed meta field:", name, content
+            values = mvalue.split(self.valuesep)
+            self._data[section][name] = values
+
+    def toPlain(self):
+        return dict(
+                (self.namesep.join([section, name]), self.valuesep.join(values)) 
+                for section, d in self._data.iteritems() for name, values in d.iteritems()
+                )
+
+    def getSection(self, section):
+        fnames, fvalues = zip(*[(k,v) for k,v in self._data[section].iteritems()])
+        return map(lambda vs: zip(fnames, vs), zip(*fvalues))
+
+    def setSection(self, section, secdata):
+        for name, values in  map(lambda x: (x[0][0], zip(*x)[1]), zip(*secdata)):
+            self._data[section][name] = values
+
+    def itersections(self):
+        for secname in self._data.iterkeys():
+            if secname != "_auto":
+                yield (secname, self.getSection(secname))
+
+
+FieldConfig = namedtuple('FieldConfig', 'id type name default readonly')
+FieldConfig.__new__.__defaults__ = (None, None, None, None, None)
 
 
 class MetaConfig(object):
@@ -35,20 +77,39 @@ class MetaConfig(object):
         self.confdir = os.path.dirname(conffile)
         tree = e.ElementTree()
         config = tree.parse(conffile)
-        field = namedtuple('Field', 'id type name default')
-        def parse_value(elem):
+        def parse_field_xml(elem):
             if 'list' in elem.attrib['type']:
                 elem.attrib['default'] = [i.attrib['name'] for i in elem.findall('list/item')]
             else:
                 elem.attrib['default'] = None
             return elem.attrib
 
-        #FIXME: make it a list
-        self.data = {}
+        self._data = {}
         for sec in config.findall('section'):
-            self.data[sec.attrib['id']] = (sec.attrib, 
-                    [field(**parse_value(f)) for f in sec.findall('field')])
+            if 'save' in sec.attrib:
+                if not os.path.isabs(sec.attrib['save']):
+                    sec.attrib['dbfile'] = os.path.join(self.confdir, sec.attrib['save'])
+            self._data[sec.attrib['id']] = (sec.attrib, 
+                    [FieldConfig(**parse_field_xml(f)) for f in sec.findall('field')])
 
+    def getSectionConfig(self, section):
+        return self._data[section][1]
+
+    def getSectionTitle(self, section):
+        return self._data[section][0]['name']
+
+    def getSectionFieldnames(self, section):
+        return [':'.join([section, fconfig.id]) for fconfig in self._data[section][1]]
+
+    def getSectionAttributes(self, section):
+        return self._data[section][0]
+
+    def sections(self):
+        return self._data.iterkeys()
+
+
+class GUIBuilder(object):
+    def __init__(self):
         self.widgets = {
                 'text': (wx.TextCtrl, None, None),
                 'long_text': (wx.TextCtrl, None, {'style': wx.TE_MULTILINE}),
@@ -59,7 +120,6 @@ class MetaConfig(object):
                 'date': (wx.GenericDatePickerCtrl, None, None),
                 'datetext': (wx.lib.masked.Ctrl, None, {'autoformat': 'EUDATEDDMMYYYY.'}),
                 }
-
         operate = namedtuple('Operate', 'get set')
         def parse_date(str):
             d = wx.DateTime()
@@ -80,18 +140,33 @@ class MetaConfig(object):
                     wx.lib.masked.BaseMaskedTextCtrl.SetValue),
                 }
 
-    def makeLabel(self, parent, tuple):
-        return wx.StaticText(parent, label=tuple.name)
+    def makeLabel(self, parent, field):
+        return wx.StaticText(parent, label=field.name)
 
-    def makeWidget(self, parent, tuple):
-        widget, default, kwargs = self.widgets[tuple.type]
+    def makeWidget(self, parent, field):
+        widget, default, kwargs = self.widgets[field.type]
         if not kwargs:
             kwargs = {}
         if default:
-            kwargs[default] = tuple.default
-        return widget(parent, **kwargs)
+            kwargs[default] = field.default
+        result = widget(parent, **kwargs)
+        if field.readonly:
+            result.Enable(False)
+        return result
 
+    def getWidgetValue(self, wtype, widget):
+        return unicode(self.wvalues[wtype].get(widget))
 
+    def setWidgetValue(self, wtype, widget, value):
+        try:
+            self.wvalues[wtype].set(widget, value)
+        except (AssertionError):
+            if value:
+                print u"Incorrect value '{0}' for field '{1}' will be ignored".format(field, value)
+                return False
+        return True
+
+    
 class DataPanel(wx.ScrolledWindow):
     def __init__(self, parent, config=None, section=None, *args, **kwargs):
         wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
@@ -99,29 +174,52 @@ class DataPanel(wx.ScrolledWindow):
         self.widgetlist = dict()
         self.config = config
         self.section = section
+        self.builder = GUIBuilder() # FIXME make one instance at the top level
         gridSizer = wx.FlexGridSizer(rows=1,cols=2,hgap=10,vgap=10)
 
         expandOption = dict(flag=wx.EXPAND)
         noOptions = dict()
-        for wdata in self.config.data[self.section][1]:
+        for wdata in self.config.getSectionConfig(self.section):
             # prepare widget data for future use
             name = wdata.id
-            widget = self.config.makeWidget(self,wdata) 
+            widget = self.builder.makeWidget(self,wdata) 
             wtype = wdata.type
             self.widgetlist[name] = (widget,wtype)
             # position widget on the plane
-            gridSizer.Add(self.config.makeLabel(self,wdata), **noOptions)
+            gridSizer.Add(self.builder.makeLabel(self,wdata), **noOptions)
             gridSizer.Add(widget, **expandOption)
         self.SetSizer(gridSizer)
         self.Layout()
 
+    def setPanelData(self, secdata):
+        try:
+            for name, value in secdata:
+                self.setFieldValue(name, value)
+        except (ValueError):
+            print "PD", secdata
+
+    def setFieldValue(self, name, value):
+            widget, wtype = self.widgetlist[name]
+            self.builder.setWidgetValue(wtype, widget, value)
+
+    def getPanelData(self):
+        return [(name, self.getFieldValue(name)) for name in self.widgetlist.iterkeys()]
+
+    def getFieldValue(self, name):
+        widget, wtype = self.widgetlist[name]
+        return self.builder.getWidgetValue(wtype, widget)
+
 
 class MetaDB(object):
     'Storage for reusable metadata values'
-    def __init__(self, dbfile, fieldnames, keyfield=None):
+    def __init__(self, dbfile, secname, fieldnames, keyfield=None, idcolumn="uuid", namesep=":"):
         self._map = {}
+        self._strmap = {}
         self.dbfile = dbfile
+        self.secname = secname
+        self.namesep = namesep
         self.fieldnames = fieldnames
+        self.idcolumn = idcolumn
         self.keyfield = keyfield
         if os.path.exists(self.dbfile):
             with open(dbfile, 'rb') as csvfile:
@@ -129,13 +227,23 @@ class MetaDB(object):
                 self.csvnames = dbreader.fieldnames
                 for row in dbreader:
                     row = self._decode_row(row)
-                    key = self._row_as_string(row)
+                    key = row[self.idcolumn]
                     self._map[key] = row
+                    self._strmap[self._row_as_string(self._normalize_row(row))] = key
         else:
             self.csvnames = self.fieldnames
 
-    def __contains__(self, item):
-        return item in self._map.itervalues()
+    def __contains__(self, key):
+        return key in self._map
+
+    def __getitem__(self, key):
+        return self._map[key]
+
+    def _strip_secname(self, mkey):
+        prefix = self.secname + self.namesep
+        if mkey.startswith(prefix):
+            return mkey[len(prefix):]
+        return mkey
 
     def _decode_row(self, row):
         utf = {}
@@ -146,13 +254,27 @@ class MetaDB(object):
                 print "ERROR:", k, v
                 print "ROW", row
                 utf[k.decode('utf-8')] = ''
-        utf = self._normalize_row(utf)
+        #utf = self._normalize_row(utf)
+        utf = dict((self._strip_secname(k),v) for k,v in utf.iteritems())
+        if self.idcolumn not in utf.keys():
+            key = self._add_uuid(utf)
         return utf
 
+    def _add_uuid(self, mdict):
+        key = str(uuid.uuid4())
+        mdict[self.idcolumn] = key
+        return key
+
+    def _remove_uuid(self, mdict):
+        return dict((k,v) for k,v in mdict.iteritems() if k != self.idcolumn)
+
+    def _add_secname(self, key):
+        return self.namesep.join([self.secname, key])
+    
     def _encode_row(self, row):
         utf = {}
         for k,v in row.iteritems():
-            utf[k.encode('utf-8')] = v.encode('utf-8')
+            utf[self._add_secname(k).encode('utf-8')] = v.encode('utf-8')
         return utf
 
     def _normalize_row(self, row):
@@ -163,35 +285,58 @@ class MetaDB(object):
 
     def _row_as_string(self, row):
         try:
-            return u' '.join([row[field.decode('utf-8')] for field in self.csvnames])
+            return u' '.join([row[self._strip_secname(field).decode('utf-8')] for field in self.csvnames if field != self.idcolumn])
         except (KeyError, TypeError):
             print self.csvnames, row
+    
+    def is_not_trivial(self, mdict):
+        return any(self._normalize_row(mdict).values())
+
+    def has_keyfield(self, mdict):
+        return self.keyfield in mdict
+
+    def is_known_by_key(self, mdict):
+        if self.idcolumn in mdict:
+            return mdict[self.idcolumn] in self._map
+        else:
+            return False
+
+    def _match_content(self, mdict, dbentry):
+        return self._normalize_row(mdict) == self._remove_uuid(dbentry)
+
+    def content_matches(self, mdict):
+        return any([self._match_content(mdict, dbentry) for dbentry in self._map.itervalues()])
 
     def append(self, mdict):
-        if mdict not in self._map.itervalues() and mdict[self.keyfield]:
-            self._map[self._row_as_string(mdict)] = self._normalize_row(mdict)
+        key = self._add_uuid(mdict)
+        dbentry = self._normalize_row(mdict)
+        self._map[key] = dbentry
+        self.write()
+        return dbentry
 
     def update(self, key, mdict):
         self._map[key] = self._normalize_row(mdict)
+        self.write()
 
-    def remove(self, mdict):
-        if mdict in self._map.itervalues():
-            self._map = dict((k, v) for k, v in self._map.iteritems() if v != self._normalize_row(mdict))
+    def getEntryByUUID(self, uuid):
+        return self._map[uuid]
+
+    def getEntryByKey(self, key):
+        return self._map[self._strmap[key]]
+
+    def getEntryUUID(self, mdict):
+        if self.is_not_trivial(mdict) and self.has_keyfield(mdict):
+            if self.is_known_by_key(mdict):
+                return mdict[self.idcolumn]
+            elif self.content_matches(mdict):
+                for key, dbentry in self._map.iteritems():
+                    if self._match_content(mdict, dbentry):
+                        return key
         else:
-            print mdict
-            raise KeyError
-
-    def get(self, key):
-        return self._map[key]
-
-    def getKey(self, mdict):
-        if mdict in self._map.itervalues():
-            return self._row_as_string(self._normalize_row(mdict))
-        else:
-            raise KeyError
+            return None
 
     def getList(self):
-        return self._map.keys()
+        return self._strmap.keys()
 
     def write(self):
         if self._map:
@@ -210,24 +355,24 @@ class MetaDB(object):
 
 class MetaPanel(wx.Panel):
     'Panel holding metadata'
-    def __init__(self, parent, config=None, section=None, multiple=False, sep="|", dbfile=None, keyfield=None, *args, **kwargs):
+    def __init__(self, parent, config=None, section=None, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.config = config
         self.section = section
-        self.multiple = multiple
-        self.sep = sep
+        self.secattrs = self.config.getSectionAttributes(self.section)
+        self.multiple = 'multiple' in self.secattrs
+        self.hasdbfile = 'dbfile' in self.secattrs 
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(self.sizer)
         self.panels = []
-        self.dbkeys = []
-        self.title = self.config.data[self.section][0]['name']
+        self.title = self.config.getSectionTitle(self.section)
         self.db = None
     
-        if dbfile:
-            fieldnames = [':'.join([self.section, wdata.id]) for wdata in self.config.data[self.section][1]]
-            self.db = MetaDB(dbfile, fieldnames, keyfield=keyfield)
+        if self.hasdbfile:
+            fieldnames = self.config.getSectionFieldnames(self.section)
+            self.db = MetaDB(self.secattrs['dbfile'], self.section, fieldnames, keyfield=self.secattrs['keyfield'])
             searchbox = wx.BoxSizer(wx.HORIZONTAL)
-            label = wx.StaticText(self, -1, "Chercher dans la liste")
+            label = wx.StaticText(self, wx.ID_ANY, "Chercher dans la liste")
             choicelist = self.db.getList() or ['']
             self.selector = TextCtrlAutoComplete(self, choices=choicelist)
             self.selector.SetSelectCallback(self.onItemSelected)
@@ -238,7 +383,7 @@ class MetaPanel(wx.Panel):
             #searchbox.Add(selectbutton)
             self.sizer.Add(searchbox, 0, wx.EXPAND)
 
-        if multiple:
+        if self.multiple:
             buttons = wx.BoxSizer(wx.HORIZONTAL)
             addbutton = wx.Button(self, -1, "Rajouter un " + self.title)
             addbutton.Bind(wx.EVT_BUTTON, self.addPanel)
@@ -261,88 +406,59 @@ class MetaPanel(wx.Panel):
             panel = DataPanel(self, config=self.config, section=self.section)
             self.sizer.Add(panel, 1, wx.EXPAND, 0)
         self.panels.append(panel)
-        self.dbkeys.append(None)
         self.Layout()
 
-    def getCurrentPanel(self):
+    def getCurrentPanelID(self):
         return self.panelbook.GetSelection()
 
+    def getCurrentPanel(self):
+        return self.panels[self.getCurrentPanelID()]
+
     def delPanel(self, evt=None):
-        current = self.getCurrentPanel()
+        current = self.getCurrentPanelID()
         if self.multiple:
             self.panelbook.DeletePage(current)
             del self.panels[current]
-            del self.dbkeys[current]
             self.Layout()
         else:
+            #FIXME should the only panel be deleted anyway?
             pass
 
-    def setValue(self, field, value, current=False):
-        if self.multiple and not current:
-            vlist = value.split(self.sep)
-            while len(vlist) > len(self.panels):
-                self.addPanel()
-        else:
-            vlist = [value]
-        if current and self.multiple:
-            panels = [self.panels[self.getCurrentPanel()]]
-        else:
-            panels = self.panels
-        for val,panel in zip(vlist, panels):
-            widget, wtype = panel.widgetlist[field]
-            try:
-                self.config.wvalues[wtype].set(widget, val)
-            except (AssertionError):
-                if value:
-                    print u"Incorrect value '{0}' for field '{1}' will be ignored".format(field, value)
+    def setSectionData(self, secdata):
+        while len(secdata) > len(self.panels):
+            self.addPanel()
+        for panel, data in zip(self.panels, secdata):
+            if self.db:
+                # get updated data from db
+                dbentrykey = self.db.getEntryUUID(dict(data))
+                if dbentrykey:
+                    data = self.db.getEntryByUUID(dbentrykey).items()
+            panel.setPanelData(data)
+            
+    def setCurrentPanelData(self, secdata):
+        self.getCurrentPanel().setPanelData(secdata)
 
-    def getDBkey(self, mdict):
+    def getCurrentPanelData(self):
+        return self.getCurrentPanel().getPanelData()
+
+    def getSectionData(self):
         if self.db:
-            if not any(zip(*mdict.items())[1]):
-                try:
-                    return self.db.getKey(mdict)
-                except (KeyError):
-                    return None
-
-    def initDBkeys(self):
-        if self.db:
-            self.dbkeys = [self.getDBkey(dict(fieldlist)) for fieldlist in self.getPanelValues()]
-
-    def getPanelValues(self):
-        multilist = []
-        for panel in self.panels:
-            multilist.append([])
-            for name, (widget,wtype) in panel.widgetlist.iteritems():
-                fieldname = ':'.join([self.section,name])
-                value = unicode(self.config.wvalues[wtype].get(widget))
-                multilist[-1].append((fieldname, value))
-        return multilist
-
-    def collectValues(self):
-        multilist = self.getPanelValues()
-        result = map(lambda x:(x[0][0],self.sep.join(zip(*x)[1])), zip(*multilist))
-        if self.db:
-            for (fieldlist, dbkey) in zip(multilist, self.dbkeys):
-                if dbkey:
-                    self.db.update(dbkey, dict(fieldlist))
-                else:
-                    self.db.append(dict(fieldlist))
-            self.db.write()
-        return result
+            self.saveDBEntries()
+        return [panel.getPanelData() for panel in self.panels]
 
     def onItemSelected(self, values):
-        for value in values:
-            mdict = self.db.get(value)
-            self.dbkeys[self.getCurrentPanel()] = self.db.getKey(mdict)
-            for field,val in mdict.iteritems():
-                try:
-                    self.setValue(field.split(':')[1], val, current=True)
-                except KeyError:
-                    print "No field named " + field
-                except ValueError:
-                    if val:
-                        print u"Incorrect value '{0}' for field '{1}' will be ignored".format(field, val)
+        for keystr in values:
+            dbentry = self.db.getEntryByKey(keystr)
+            self.setCurrentPanelData(dbentry.iteritems())
 
+    def saveDBEntries(self):
+        for panel in self.panels:
+            mdict = dict(panel.getPanelData())
+            dbentrykey = self.db.getEntryUUID(mdict)
+            if dbentrykey:
+                self.db.update(dbentrykey, mdict)
+            else:
+                self.db.append(mdict)
 
 class FilePanel(wx.Panel):
     'Text fileview panel'
@@ -355,6 +471,7 @@ class FilePanel(wx.Panel):
         Sizer.Add(self.control, 1, wx.EXPAND)
         self.SetSizer(Sizer)
         self.SetAutoLayout(1)
+
 
 class MainFrame(wx.Frame):
     """Main frame."""
@@ -398,15 +515,9 @@ class MainFrame(wx.Frame):
         retainbutton = wx.ToggleButton(self, -1, 'Retain values for the next file')
         retainbutton.Bind(wx.EVT_TOGGLEBUTTON, self.OnRetainToggled)
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
-        #buttonsizer = wx.BoxSizer(wx.HORIZONTAL)
-        #buttonsizer.Add(configbutton, 0, wx.EXPAND)
-        #buttonsizer.Add(retainbutton, 0 , wx.EXPAND)
         self.Sizer.Add(configbutton, 0, wx.EXPAND)
         self.Sizer.Add(retainbutton)
-        #self.Sizer.Add(buttonsizer, 0, wx.EXPAND)
         self.Sizer.Add(splitter, 1, wx.EXPAND)
-        #Sizer.Add(self.filepanel, 1, wx.EXPAND)
-        #Sizer.Add(notebook, 1, wx.EXPAND)
         self.SetSizer(self.Sizer)
         self.Layout()
 
@@ -414,29 +525,14 @@ class MainFrame(wx.Frame):
         self.filename = None
         self.dirname = os.curdir
         if self.cleanup:
-            self.metadata = {}
+            self.metadata = MetaData()
         self.txt = ''
 
     def draw_metapanels(self):
-        for sec in self.config.data:
-            secattrs = self.config.data[sec][0]
-            if 'multiple' in secattrs:
-                multiple = True
-            else:
-                multiple = False
-            if 'save' in secattrs:
-                dbfile = secattrs['save']
-                if not os.path.isabs(dbfile):
-                    dbfile = os.path.join(self.config.confdir, dbfile)
-            else:
-                dbfile = None
-            if 'keyfield' in secattrs:
-                keyfield = secattrs['keyfield']
-            else:
-                keyfield=None
-            metapanel = MetaPanel(self.notebook, config=self.config, section=sec, multiple=multiple, dbfile=dbfile, keyfield=keyfield)
-            self.metapanels[sec] = metapanel
-            self.notebook.AddPage(metapanel, self.config.data[sec][0]['name'])
+        for secname in self.config.sections():
+            metapanel = MetaPanel(self.notebook, config=self.config, section=secname)
+            self.metapanels[secname] = metapanel
+            self.notebook.AddPage(metapanel, self.config.getSectionTitle(secname))
 
     def clear_metapanels(self):
         self.metapanels = {}
@@ -445,35 +541,22 @@ class MainFrame(wx.Frame):
     def parse_file(self, ifile):
         self.io = formats.FileWrapper()
         self.io.read(ifile)
-        self.metadata = self.io.metadata
+        self.metadata = MetaData(self.io.metadata)
         self.txt = u''.join([p for p in self.io.para if p is not None])
 
     def update_interface(self):
-        for name, content in self.metadata.iteritems():
-            try:
-                sec, field = name.split(':')
-            except (ValueError):
-                print "Malformed meta field:", name, content
-            try:
-                if sec != "_auto":
-                    self.metapanels[sec].setValue(field, content)
-            except (KeyError):
-                if content:
-                    print u"Incorrect value '{0}' for field '{1}' will be ignored".format(field, content)
-        else:
-            for mp in self.metapanels.itervalues():
-                mp.initDBkeys()
-
+        for secname, secdata in self.metadata.itersections():
+            self.metapanels[secname].setSectionData(secdata)
 
     def update_metadata(self):
         # collect all metadata given
-        for mp in self.metapanels.itervalues():
-            self.metadata.update(mp.collectValues())
+        for secname, mp in self.metapanels.iteritems():
+            self.metadata.setSection(secname, mp.getSectionData())
 
     def write_xmldata(self):
         self.update_metadata()
         tempout = tempfile.NamedTemporaryFile(delete=False)
-        self.io.write(tempout.name, metadata=self.metadata)
+        self.io.write(tempout.name, metadata=self.metadata.toPlain())
         tempout.close()
         outfile = os.path.join(self.dirname, self.filename)
         shutil.copyfile(tempout.name, outfile)
@@ -506,6 +589,9 @@ class MainFrame(wx.Frame):
 
     def OnOpen(self,e):
         """ Open a file"""
+        if not self.config:
+            self.NoFileError(e)
+            return False
         dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             self.infile = dlg.GetPath()

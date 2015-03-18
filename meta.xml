@@ -92,6 +92,7 @@
       </list>
     </field>
     <field id="addon" type="long_text" name="Informations biographiques utiles" />    
+    <field id="uuid" type="text" name="Auteur UUID" readonly="true" />
   </section>
   <section id="text" name="Texte">
     <field id="title" type="text" name="Titre" />
