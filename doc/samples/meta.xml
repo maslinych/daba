@@ -33,7 +33,7 @@
 	<item name="f" />
       </list>
     </field>
-    <field id="birth_year" type="int" name="Ann&#233;e de naissance" default="" />
+    <field id="birth_year" type="text" name="Ann&#233;e de naissance" default="" />
     <field id="dialect" type="open_list" name="Place de socialisation langagi&#232;re">
       <list>
 	<item name="inconnu" />
