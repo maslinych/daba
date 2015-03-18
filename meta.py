@@ -481,6 +481,7 @@ class MainFrame(wx.Frame):
         self.cleanup = True
         self.init_values()
         self.config = config
+        self.dirname = os.curdir
         self.metapanels = {}
         self.encoding = encoding
 
@@ -523,7 +524,6 @@ class MainFrame(wx.Frame):
 
     def init_values(self):
         self.filename = None
-        self.dirname = os.curdir
         if self.cleanup:
             self.metadata = MetaData()
         self.txt = ''
