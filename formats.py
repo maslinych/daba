@@ -485,7 +485,7 @@ class DictReader(object):
                     ps = []
                 return Gloss(f, set(ps), g, ())
             except (ValueError):
-                print "Error line:", str(self.line), unicode(v)
+                print "Error line:", str(self.line), unicode(v).encode('utf-8')
 
         def normalize(value): 
             return normalizeText(value.translate({ord(u'.'):None,ord(u'-'):None}).lower())
