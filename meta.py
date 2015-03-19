@@ -416,6 +416,8 @@ class MetaPanel(wx.Panel):
         return self.panelbook.GetSelection()
 
     def getCurrentPanel(self):
+        if len(self.panels) < 1:
+            self.addPanel()
         return self.panels[self.getCurrentPanelID()]
 
     def delPanel(self, evt=None):
@@ -465,6 +467,7 @@ class MetaPanel(wx.Panel):
                 dbentry = self.db.append(mdict)
                 panel.setPanelData(dbentry.items())
                 self.selector.SetChoices(self.db.getList())
+
 
 class FilePanel(wx.Panel):
     'Text fileview panel'
