@@ -229,7 +229,7 @@ class MetaDB(object):
                     row = self._decode_row(row)
                     key = row[self.idcolumn]
                     self._map[key] = row
-                    self._strmap[self._row_as_string(self._normalize_row(row))] = key
+                    self._strmap[self._make_keystring(row)] = key
         else:
             self.csvnames = self.fieldnames
 
@@ -285,10 +285,13 @@ class MetaDB(object):
 
     def _row_as_string(self, row):
         try:
-            return u' '.join([row[self._strip_secname(field).decode('utf-8')] for field in self.csvnames if field != self.idcolumn])
+            return u' '.join([row[self._strip_secname(field)] for field in self.csvnames if self._strip_secname(field) != self.idcolumn])
         except (KeyError, TypeError):
             print self.csvnames, row
     
+    def _make_keystring(self, mdict):
+        return self._row_as_string(self._normalize_row(mdict))
+
     def is_not_trivial(self, mdict):
         return any(self._normalize_row(mdict).values())
 
@@ -311,6 +314,7 @@ class MetaDB(object):
         key = self._add_uuid(mdict)
         dbentry = self._normalize_row(mdict)
         self._map[key] = dbentry
+        self._strmap[self._make_keystring(mdict)] = key
         self.write()
         return dbentry
 
@@ -460,6 +464,7 @@ class MetaPanel(wx.Panel):
             else:
                 dbentry = self.db.append(mdict)
                 panel.setPanelData(dbentry.items())
+                self.selector.SetChoices(self.db.getList())
 
 class FilePanel(wx.Panel):
     'Text fileview panel'
