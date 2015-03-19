@@ -458,7 +458,8 @@ class MetaPanel(wx.Panel):
             if dbentrykey:
                 self.db.update(dbentrykey, mdict)
             else:
-                self.db.append(mdict)
+                dbentry = self.db.append(mdict)
+                panel.setPanelData(dbentry.items())
 
 class FilePanel(wx.Panel):
     'Text fileview panel'
