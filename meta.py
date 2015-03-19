@@ -126,18 +126,22 @@ class GUIBuilder(object):
             d.ParseDate(str)
             return d
         self.wvalues = {
-                'text': operate(wx.TextCtrl.GetValue, wx.TextCtrl.SetValue),
-                'long_text': operate(wx.TextCtrl.GetValue, wx.TextCtrl.SetValue),
+                'text': operate(wx.TextCtrl.GetValue, 
+                    lambda w,t: wx.TextCtrl.SetValue(w, unicode(t))),
+                'long_text': operate(wx.TextCtrl.GetValue, 
+                    lambda w,t: wx.TextCtrl.SetValue(w, unicode(t))),
                 'int': operate(wx.lib.intctrl.IntCtrl.GetValue, 
-                    lambda w,t: wx.lib.intctrl.IntCtrl.SetValue(w,int(t))),
-                'closed_list': operate(wx.Choice.GetStringSelection, wx.Choice.SetStringSelection),
-                'open_list': operate(wx.ComboBox.GetValue, wx.ComboBox.SetValue),
+                    lambda w,t: wx.lib.intctrl.IntCtrl.SetValue(w,int(t) if t else 0)),
+                'closed_list': operate(wx.Choice.GetStringSelection, 
+                    lambda w,t: wx.Choice.SetStringSelection(w, unicode(t) if t else u'inconnu')),
+                'open_list': operate(wx.ComboBox.GetValue, 
+                    lambda w,t: wx.ComboBox.SetValue(w, unicode(t))),
                 'checklist': operate(lambda t: ';'.join(wx.CheckListBox.GetCheckedStrings(t)), 
                     lambda w,t: wx.CheckListBox.SetCheckedStrings(w, t.split(';'))),
                 'date': operate(lambda t: wx.GenericDatePickerCtrl.GetValue(t).FormatDate(),
                     lambda w,t: wx.GenericDatePickerCtrl.SetValue(w, parse_date(t))),
                 'datetext': operate(wx.lib.masked.TextCtrl.GetValue,
-                    wx.lib.masked.BaseMaskedTextCtrl.SetValue),
+                    lambda w,t: wx.lib.masked.BaseMaskedTextCtrl.SetValue(w, unicode(t))),
                 }
 
     def makeLabel(self, parent, field):
@@ -192,15 +196,15 @@ class DataPanel(wx.ScrolledWindow):
         self.Layout()
 
     def setPanelData(self, secdata):
-        try:
-            for name, value in secdata:
-                self.setFieldValue(name, value)
-        except (ValueError):
-            print "PD", secdata
+        for name, value in secdata:
+            self.setFieldValue(name, value)
 
     def setFieldValue(self, name, value):
             widget, wtype = self.widgetlist[name]
-            self.builder.setWidgetValue(wtype, widget, value)
+            try:
+                self.builder.setWidgetValue(wtype, widget, value)
+            except (ValueError, TypeError):
+                print "Problem with setting value", u'{1}, {2}:{3}'.format(wtype, name, value).encode('utf-8')
 
     def getPanelData(self):
         return [(name, self.getFieldValue(name)) for name in self.widgetlist.iterkeys()]
