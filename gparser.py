@@ -169,7 +169,7 @@ class ResourcePanel(wx.Panel):
         Sizer.Add(dictlist, 1, wx.EXPAND)
          
         gramlist = GrammarLister(self, grammarloader)
-        Sizer.Add(gramlist, 1, wx.EXPAND)
+        Sizer.Add(gramlist, 0, wx.EXPAND)
 
         self.convlist = ConverterLister(self)
         Sizer.Add(self.convlist, 1, wx.EXPAND)
