@@ -65,8 +65,10 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
         else:
             return gstring
    
-    def psmatch(self, other):
-        if self.ps and other.ps:
+    def psmatch(self, other, strict=False):
+        if strict:
+            return self.ps == other.ps
+        elif self.ps and other.ps:
             return bool(self.ps.intersection(other.ps))
         else:
             return True
@@ -97,11 +99,11 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
         else:
             return False
 
-    def matches(self,other,fuzzy=False):
+    def matches(self, other, fuzzy=False, psstrict=False):
         'pattern matching device: feature comparison function'
         if other.form and match_any(self.form, other.form) or not other.form:
             if other.gloss and match_any(self.gloss, other.gloss) or not other.gloss:
-                if self.psmatch(other):
+                if self.psmatch(other, strict=psstrict):
                     return self.morphmatch(other,fuzzy)
         return False
     
