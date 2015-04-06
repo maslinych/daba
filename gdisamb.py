@@ -96,7 +96,7 @@ class FileParser(object):
                     token = formats.GlossToken(glosstoken)
                     if token.type == 'w':
                         token.glosslist = selectlist
-                    outgloss.append(token.as_tuple())
+                    outgloss.append(token)
             out[-1].append((sent[0], outgloss))
         fwriter = formats.HtmlWriter((self.metadata, out), filename)
         fwriter.write()
@@ -390,7 +390,7 @@ class GlossSelector(wx.Panel):
     def __init__(self, parent, index, glosstoken, selectlist, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         try:
-            self.toktype, (self.form, self.stage, self.glosslist) = glosstoken
+            self.toktype, (self.form, self.stage, self.glosslist) = glosstoken.as_tuple()
         except ValueError:
             print glosstoken
         self.selectlist = selectlist
@@ -670,7 +670,7 @@ class SentenceAnnotation(wx.Window):
         else:
             self.Sizer = wx.BoxSizer(wx.VERTICAL) 
         for (index, (glosstoken,selectlist)) in enumerate(zip(sentglosses,sentselect)):
-            if glosstoken[0] == 'w':
+            if glosstoken.type == 'w':
                 abox = GlossSelector(self, index, glosstoken, selectlist, vertical=self.vertical)
             else:
                 abox = TokenEditButton(self, index, glosstoken, selectlist)

@@ -46,6 +46,9 @@ class GlossToken(object):
             self.gloss = Gloss(self.token, set(), self.type, ())
             self.glosslist = [self.gloss]
      
+    def __unicode__(self):
+        return u' '.join(self.type, self.token)
+
     def as_tuple(self):
         if self.type == 'w':
             return (self.type, (self.token, self.stage, self.glosslist))
@@ -87,6 +90,9 @@ class HtmlReader(BaseReader):
                 ]:
             self.metadata[k] = unicode(v)
 
+    def __iter__(self):
+        for token in self.tokens:
+            yield token
 
     def iterparse(self):
         glosslist = []
@@ -103,23 +109,23 @@ class HtmlReader(BaseReader):
                 else:
                     partext = u' '.join(sentlist)
                 self.para.append(partext)
-                self.tokens.append(('p', partext))
+                self.tokens.append(GlossToken(('p', partext)))
                 self.numpar += 1
             elif elem.tag in ['span', 'sub']:
                 spanclass = elem.get('class')
                 elemtext = normalizeText(elem.text) or ''
                 if spanclass == 'sent':
                     sentlist.append(elemtext)
-                    self.tokens.append(('s', elemtext))
+                    self.tokens.append(GlossToken(('s', elemtext)))
                     self.numsent += 1
                 elif spanclass == 'c':
-                    self.tokens.append((spanclass, elemtext))
+                    self.tokens.append(GlossToken(('c', elemtext)))
                 elif spanclass == 't':
-                    self.tokens.append(('Tag', elemtext))
+                    self.tokens.append(GlossToken(('Tag', elemtext)))
                 elif spanclass == 'comment':
-                    self.tokens.append(('Comment', elemtext))
+                    self.tokens.append(GlossToken(('Comment', elemtext)))
                 elif spanclass == 'w':
-                    self.tokens.append(('w', (elemtext, elem.get('stage'), glosslist)))
+                    self.tokens.append(GlossToken(('w', (elemtext, elem.get('stage'), glosslist))))
                     glosslist = []
                     self.numwords += 1
                 elif spanclass in ['lemma', 'lemma var'] and not self.onlymeta:
@@ -132,13 +138,13 @@ class HtmlReader(BaseReader):
         par = []
         sentannot = []
         for gt in tokens:
-            if gt[0] == 'p':
+            if gt.type == 'p':
                 glosses.append(par)
                 par = []
-            elif gt[0] == 's':
-                par.append((gt[1], sentannot))
+            elif gt.type == 's':
+                par.append((gt.value, sentannot))
                 sentannot = []
-            elif gt[0] == 'w':
+            elif gt.type == 'w':
                 sentannot.append(gt)
         return glosses
                            
@@ -226,9 +232,6 @@ class HtmlReader(BaseReader):
         pp, sp, tp, gp = index
         self.glosses[pp][sp][1][tp][1][2][gp] = gloss
 
-    def itertokens(self):
-        for token in self.tokens:
-            yield GlossToken(token)
 
 
 class SimpleHtmlWriter(object):
@@ -311,21 +314,21 @@ class HtmlWriter(object):
                 st.tail = '\n'
                 annot = e.SubElement(st, 'span', {'class':'annot'})
                 annot.tail = '\n'
-                for (toktype, tokvalue) in sentannot:
-                    if toktype in ['Comment']:
+                for gt in sentannot:
+                    if gt.type in ['Comment']:
                         c = e.SubElement(annot, 'span', {'class': 'comment'})
-                        c.text = tokvalue
+                        c.text = gt.value
                         c.tail = '\n'
-                    elif toktype in ['Tag']:
+                    elif gt.type in ['Tag']:
                         t = e.SubElement(annot, 'span', {'class': 't'})
-                        t.text = tokvalue
+                        t.text = gt.value
                         t.tail = '\n'
-                    elif toktype in ['c']:
+                    elif gt.type in ['c']:
                         c = e.SubElement(annot, 'span', {'class':'c'})
-                        c.text = tokvalue
+                        c.text = gt.value
                         c.tail = '\n'
-                    elif toktype in ['w']:
-                        sourceform, stage, glosslist = tokvalue
+                    elif gt.type in ['w']:
+                        sourceform, stage, glosslist = gt.value
                         w = e.SubElement(annot, 'span', {'class':'w', 'stage':unicode(stage)})
                         w.text = sourceform
                         variant = False

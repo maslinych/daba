@@ -231,12 +231,12 @@ class Processor(object):
                 prevtoken = False
                 for token in sent:
                     if token.type in ['Comment', 'Tag']:
-                        annot.append((token.type, token.value))
+                        annot.append(formats.GlossToken((token.type, token.value)))
                     elif token.type in ['Punct', 'SentPunct', 'Nonword']:
-                        annot.append(('c', token.value))
+                        annot.append(formats.GlossToken(('c', token.value)))
                     elif token.type in ['Cardinal']:
                         gloss = Gloss(token.value, set(['num']), 'CARDINAL', ())
-                        annot.append(('w', (token.value, 'tokenizer', [gloss])))
+                        annot.append(formats.GlossToken(('w', (token.value, 'tokenizer', [gloss]))))
                     elif token.type in ['Word']:
                         if self.converters:
                             wlist = [token.value]
@@ -260,7 +260,7 @@ class Processor(object):
                             propn = Gloss(token.value, set(['n.prop']), token.value, ())
                             glosslist.insert(0, propn)
 
-                        annot.append(('w', (token.value, unicode(stage), glosslist)))
+                        annot.append(formats.GlossToken(('w', (token.value, unicode(stage), glosslist))))
                         prevtoken = True
 
             self.parsed.append(par)
