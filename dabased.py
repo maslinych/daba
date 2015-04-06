@@ -6,94 +6,162 @@ import re
 import argparse
 import formats
 import grammar
+import functools
 from ntgloss import Gloss
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
-from itertools import tee, izip
+from collections import namedtuple
 import unicodedata as u
 
-getstr = lambda s: u' ++ '.join([unicode(g) for g in zip(*s)[0]])
 
-def parse_gloss(gloss_string):
-    return grammar.fullgloss_parser().parse(grammar.tokenize(gloss_string))
+class ReplaceRule(namedtuple('ReplaceRule', 'inlist outlist')):
+    __slots__ = ()
 
-def recursive_match((gloss, index), pattern):
-    status = False
-    if gloss.matches(pattern):
-        return True
-    elif gloss.morphemes:
-        return any([recursive_match((morph, index), pattern) for morph in gloss.morphemes])
-    return False
+    @property
+    def winsize(self):
+        return len(self.inlist)
 
-def recursive_replace((gloss, index), pattern, target):
-    if gloss.matches(pattern):
-        out = gloss.union(target, psoverride=True)
-    else:
-        out = gloss
-    if gloss.morphemes:
-        out = out._replace(morphemes=tuple(zip(*[recursive_replace((morph, index), pattern, target) for morph in gloss.morphemes])[0]))
-    return (out, index)
+    @property
+    def symmetric(self):
+        return len(self.inlist) == len(self.outlist)
 
-def window(iterable, size):
-    iters = tee(iterable, size)
-    for i in xrange(1, size):
-        for each in iters[i:]:
-            next(each, None)
-    return izip(*iters)
 
-def parse_expr(expr):
-    glosslist = [i.strip() for i in re.split(r'\+\+', expr) if not i in ['++', '']]
-    result = []
-    for gexpr in glosslist:
+class ScriptParser(object):
+    def __init__(self, scriptfile):
+        self.commands_list = []
+        with open(scriptfile) as script:
+            for command in script:
+                if not command.isspace():
+                    self.commands_list.append(self.parse_command(command))
+        self.commands_list = filter(None, self.commands_list)
+
+    def __iter__(self):
+        for rule in self.commands_list:
+            yield rule
+
+    def parse_gloss(self, gloss_string):
+        return grammar.fullgloss_parser().parse(grammar.tokenize(gloss_string))
+
+    def parse_expr(self, expr):
+        glosslist = [i.strip() for i in re.split(r'\+\+', expr) if not i in ['++', '']]
+        result = []
+        for gexpr in glosslist:
+            try:
+                result.append(self.parse_gloss(gexpr))
+            except (LexerError, NoParseError) as e:
+                sys.stderr.write(u'In rule: {0}'.format(gexpr).encode('utf-8'))
+                sys.stderr.write(u'{}\n'.format(e).encode('utf-8'))
+                return []
+        return result
+
+    def parse_command(self, command):
         try:
-            result.append(parse_gloss(gexpr))
-        except (LexerError, NoParseError) as e:
-            sys.stderr.write(u'In rule: {0}'.format(gexpr).encode('utf-8'))
-            sys.stderr.write(u'{}\n'.format(e).encode('utf-8'))
-            return []
-    return result
+            source, sep, target = u.normalize('NFKD', command.decode('utf8')).strip('\n').partition('>>')
+        except (ValueError):
+            sys.stderr.write('Invalid command: {0}\n'.format(command))
+            return
+        sourcelist = self.parse_expr(source)
+        targetlist = self.parse_expr(target)
+        return ReplaceRule(sourcelist, targetlist)
 
-def parse_command(command):
-    try:
-        source, sep, target = u.normalize('NFKD', command.decode('utf8')).strip('\n').partition('>>')
-    except (ValueError):
-        sys.stderr.write('Invalid command: {0}\n'.format(command))
-        return
-    sourcelist = parse_expr(source)
-    targetlist = parse_expr(target)
-    if not len(sourcelist) == len(targetlist):
-        sys.stderr.write('Invalid command: pattern/replacement of unequal length: {0}\n'.format(command))
-        return
-    return (sourcelist, targetlist)
 
-def process_file(infile, outfile, commands_list):
-    # replace glosses
-    dirty = False
-    in_handler = formats.HtmlReader(infile)
-    for inlist, outlist in commands_list:
-        winsize = len(inlist)
-        for glosslist in window(in_handler.itergloss(), winsize):
-            replacelist = []
-            # FIXME special case for 1:1 replacement: allows deep matching
-            if len(inlist) == len(outlist) == 1:
-                if recursive_match(glosslist[0], inlist[0]):
-                    replacelist = [recursive_replace(glosslist[0], inlist[0], outlist[0])]
-            # all other cases: replace only on top level
-            elif all(gloss.matches(pattern) for ((gloss, index), pattern) in zip(glosslist, inlist)):
-                for ((gloss, index), pattern) in zip(glosslist, outlist):
-                    replacelist.append((gloss.union(pattern, psoverride=True), index))
-            if replacelist:
-                dirty = True
-                for (replacement, index) in replacelist:
-                    in_handler.setgloss(replacement, index)
-                #NB: rule application should has side effect (like in sed)
-                print u'{0} -> {1}'.format(getstr(glosslist), getstr(replacelist)).encode('utf-8')
+class StreamEditor(object):
+    def __init__(self, verbose=False):
+        self.dirty = False
+        self.verbose = verbose
 
-    if dirty:
-        out_handler = formats.HtmlWriter((in_handler.metadata, in_handler.glosses), outfile)
-        out_handler.write()
-    return dirty
+    def bind(self, v, f):
+        if (v):
+            return f(v)
+        else:
+            return None
 
+    def m_pipeline(self, val, fns):
+        m_val = val
+        for f in fns:
+            m_val = self.bind(m_val, f)
+        return m_val
+
+    def getstr(self, tokens):
+        return u' ++ '.join([unicode(gloss) for gloss in tokens])
+
+    def feed_tokens(self, winsize, stream=()):
+        window = []
+        for token in stream:
+            if token.type == 'w':
+                if len(window) == winsize:
+                    yield (True, tuple(window))
+                    window = window[1:]
+                window.append(token)
+            else:
+                yield (False, (token,))
+                window = []
+
+    def match(self, glosslist, pattern, recursive=False):
+        return all(gloss.matches(ingloss, psstrict=True) for gloss, ingloss in zip(glosslist, pattern))
+
+    def replace(self, glosslist, target, recursive=False):
+        return tuple(gloss.union(outgloss, psoverride=True) for gloss, outgloss in zip(glosslist, target))
+
+    def recursive_replace(self, gloss, pattern, target):
+        if gloss.matches(pattern, psstrict=True):
+            out = gloss.union(target, psoverride=True)
+        else:
+            out = gloss
+        if gloss.morphemes:
+            out = out._replace(morphemes=tuple(self.recursive_replace(morph, pattern, target) for morph in gloss.morphemes))
+        return out
+
+    def make_replace_func(self, rule):
+        # FIXME special case for 1:1 replacement: allows deep matching
+        if rule.symmetric and rule.winsize == 1:
+            replace_func = lambda tokens, rule: tuple(self.recursive_replace(gloss, pattern, target) for gloss, pattern, target in zip(tokens, rule.inlist, rule.outlist)) 
+            domatch = False
+        elif not rule.symmetric:
+            replace_func = lambda tokens, rule: rule.outlist
+            domatch = True
+        else:
+            replace_func = lambda tokens, rule: self.replace(tokens, rule.outlist)
+            domatch = True
+        return (domatch, replace_func)
+
+    def extract_glosses(self, tokens):
+        # FIXME: only first gloss in variants list is checked, others ignored
+        return [gt.glosslist[0] for gt in tokens]
+
+    def insert_glosses(self, tokens, glosslist):
+        out = []
+        if len(tokens) == len(glosslist):
+            for token, gloss in zip(tokens, glosslist):
+                token.glosslist[0] = gloss
+                out.append(token)
+        else:
+            out = [formats.GlossToken(('w', (gloss.form, 'dabased', [gloss]))) for gloss in glosslist]
+        return out
+
+    def apply_rule(self, rule, stream):
+        domatch, replace_func = self.make_replace_func(rule)
+        for tocheck, tokens in self.feed_tokens(rule.winsize, stream):
+            if tocheck:
+                glosslist = self.extract_glosses(tokens)
+                if (not domatch) or (domatch and self.match(glosslist, rule.inlist)):
+                    replacement = replace_func(glosslist, rule)
+                    if not all(g==r for g, r in zip(glosslist, replacement)):
+                        self.dirty = True
+                        outtokens = self.insert_glosses(tokens, replacement)
+                        if self.verbose:
+                            sys.stderr.write(u'{0} -> {1}\n'.format(self.getstr(glosslist), self.getstr(replacement)).encode('utf-8'))
+                    else:
+                        outtokens = tokens
+                    for token in outtokens:
+                        yield token
+            else:
+                for token in tokens:
+                    yield token
+
+    def apply_script(self, script, stream):
+        return self.m_pipeline(stream, [functools.partial(self.apply_rule, rule) for rule in script])
+            
 
 def main():
 
@@ -102,20 +170,18 @@ def main():
     aparser.add_argument('-o', '--outfile', help='Output file', default=None)
     aparser.add_argument('-s', '--script', help='File with edit commands', required=True)
     args = aparser.parse_args()
-
     if not args.outfile:
         args.outfile = args.infile
-    # parse script file
+    # start processing
     print 'Processing', args.infile, 'with rules from', args.script, '...'
-    commands_list = []
-    with open(args.script) as commands:
-        for command in commands:
-            if not command.isspace():
-                commands_list.append(parse_command(command))
-        commands_list = filter(None, commands_list)
-        dirty = process_file(args.infile, args.outfile, commands_list)
-        if dirty:
-            print 'Written', args.outfile
+    sed = StreamEditor(verbose=True)
+    script = ScriptParser(args.script)
+    in_handler = formats.HtmlReader(args.infile, compatibility_mode=False)
+    processed_tokens = [t for t in sed.apply_script(script, in_handler)]
+    if sed.dirty:
+        out_handler = formats.HtmlWriter((in_handler.metadata, in_handler.make_compatible_glosses(processed_tokens)), args.outfile)
+        out_handler.write()
+        print 'Written', args.outfile
 
 if __name__ == '__main__':
     main()
