@@ -957,21 +957,29 @@ class MainFrame(wx.Frame):
         dlg.ShowModal()
         dlg.Destroy()
 
+    def FileOpenedError(self,e):
+        dlg = wx.MessageDialog(self, 'Error: previous file not closed!', 'Previous file is still opened. You should close it before opening the next one', wx.OK)
+        dlg.ShowModal()
+        dlg.Destroy()
+
     def OnOpen(self,e):
         """ Open a file"""
-        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
-        if dlg.ShowModal() == wx.ID_OK:
-            self.infile = dlg.GetPath()
-            self.dirname = os.path.dirname(self.infile)
-            logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
-            self.logger = EditLogger(logfile)
-            self.processor.read_file(self.infile)
-            self.InitUI()
-            self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
-            self.sentpanel.ShowSent(self.processor.glosses[0], 0)
-            self.fileopened = True
-            self.Layout()
-        dlg.Destroy()
+        if self.fileopened:
+            self.FileOpenedError(e)
+        else:
+            dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
+            if dlg.ShowModal() == wx.ID_OK:
+                self.infile = dlg.GetPath()
+                self.dirname = os.path.dirname(self.infile)
+                logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
+                self.logger = EditLogger(logfile)
+                self.processor.read_file(self.infile)
+                self.InitUI()
+                self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
+                self.sentpanel.ShowSent(self.processor.glosses[0], 0)
+                self.fileopened = True
+                self.Layout()
+            dlg.Destroy()
 
     def SaveFiles(self,e):
         if self.localdict:
