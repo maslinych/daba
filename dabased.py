@@ -144,7 +144,7 @@ class StreamEditor(object):
     def apply_script(self, script, stream):
         tokens = stream
         for rule in script:
-            tokens = self.apply_rule(rule, [t for t in tokens])
+            tokens = self.apply_rule(rule, list(tokens))
         return tokens
 
 
@@ -164,7 +164,7 @@ def main():
     sed = StreamEditor(verbose=args.verbose)
     script = ScriptParser(args.script)
     in_handler = formats.HtmlReader(args.infile, compatibility_mode=False)
-    processed_tokens = [t for t in sed.apply_script(script, in_handler)]
+    processed_tokens = list(sed.apply_script(script, in_handler))
     if sed.dirty:
         out_handler = formats.HtmlWriter((in_handler.metadata, in_handler.make_compatible_glosses(processed_tokens)), args.outfile)
         out_handler.write()
