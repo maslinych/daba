@@ -92,11 +92,9 @@ class FileParser(object):
                 if not selectlist:
                     outgloss.append(glosstoken)
                 else:
-                    #FIXME: remove when GlossedText interface is ready
-                    token = formats.GlossToken(glosstoken)
-                    if token.type == 'w':
-                        token.glosslist = selectlist
-                    outgloss.append(token)
+                    if glosstoken.type == 'w':
+                        glosstoken.glosslist = selectlist
+                    outgloss.append(glosstoken)
             out[-1].append((sent[0], outgloss))
         fwriter = formats.HtmlWriter((self.metadata, out), filename)
         fwriter.write()
@@ -502,7 +500,7 @@ class GlossSelector(wx.Panel):
         self.UpdateState(self.statecode, self.gloss)
 
     def GetToken(self):
-        return (self.toktype, (self.form, self.stage, self.glosslist))
+        return formats.GlossToken((self.toktype, (self.form, self.stage, self.glosslist)))
 
     def OnContextMenu(self, evt):
         if not hasattr(self, "joinfwID"):
@@ -656,7 +654,7 @@ class TokenEditButton(wx.Panel):
         dlg.Destroy()
 
     def GetToken(self):
-        return self.token.as_tuple()
+        return self.token
 
 
 class SentenceAnnotation(wx.Window):
@@ -670,12 +668,16 @@ class SentenceAnnotation(wx.Window):
         else:
             self.Sizer = wx.BoxSizer(wx.VERTICAL) 
         for (index, (glosstoken,selectlist)) in enumerate(zip(sentglosses,sentselect)):
-            if glosstoken.type == 'w':
-                abox = GlossSelector(self, index, glosstoken, selectlist, vertical=self.vertical)
-            else:
-                abox = TokenEditButton(self, index, glosstoken, selectlist)
-            self.children.append(abox)
-            self.Sizer.Add(abox)
+            try:
+                if glosstoken.type == 'w':
+                    abox = GlossSelector(self, index, glosstoken, selectlist, vertical=self.vertical)
+                else:
+                    abox = TokenEditButton(self, index, glosstoken, selectlist)
+                self.children.append(abox)
+                self.Sizer.Add(abox)
+            except AttributeError:
+                print glosstoken
+
         self.SetSizer(self.Sizer)
         self.Layout()
 
@@ -918,7 +920,7 @@ class MainFrame(wx.Frame):
                 if searchtype == 'word part':
                     for word in sent[2]:
                         try:
-                            if self.searchstr in formats.GlossToken(word).token:
+                            if self.searchstr in word.token:
                                 self.sentpanel.ShowSent(sent, snum)
                                 break
                         except (AttributeError):
