@@ -6,7 +6,6 @@ import re
 import argparse
 import formats
 import grammar
-import functools
 from ntgloss import Gloss
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
@@ -70,29 +69,17 @@ class StreamEditor(object):
         self.dirty = False
         self.verbose = verbose
 
-    def bind(self, v, f):
-        if (v):
-            return f(v)
-        else:
-            return None
-
-    def m_pipeline(self, val, fns):
-        m_val = val
-        for f in fns:
-            m_val = self.bind(m_val, f)
-        return m_val
-
     def getstr(self, tokens):
         return u' ++ '.join([unicode(gloss) for gloss in tokens])
 
     def feed_tokens(self, winsize, stream=()):
         window = []
         for token in stream:
+            window.append(token)
             if token.type == 'w':
                 if len(window) == winsize:
                     yield (True, tuple(window))
                     window = window[1:]
-                window.append(token)
             else:
                 yield (False, (token,))
                 window = []
@@ -148,20 +135,18 @@ class StreamEditor(object):
                     replacement = replace_func(glosslist, rule)
                     if not all(g==r for g, r in zip(glosslist, replacement)):
                         self.dirty = True
-                        outtokens = self.insert_glosses(tokens, replacement)
+                        tokens = self.insert_glosses(tokens, replacement)
                         if self.verbose:
                             sys.stderr.write(u'{0} -> {1}\n'.format(self.getstr(glosslist), self.getstr(replacement)).encode('utf-8'))
-                    else:
-                        outtokens = tokens
-                    for token in outtokens:
-                        yield token
-            else:
-                for token in tokens:
-                    yield token
+            for token in tokens:
+                yield token
 
     def apply_script(self, script, stream):
-        return self.m_pipeline(stream, [functools.partial(self.apply_rule, rule) for rule in script])
-            
+        tokens = stream
+        for rule in script:
+            tokens = self.apply_rule(rule, [t for t in tokens])
+        return tokens
+
 
 def main():
 
@@ -169,19 +154,22 @@ def main():
     aparser.add_argument('infile', help='Input file (.html)')
     aparser.add_argument('-o', '--outfile', help='Output file', default=None)
     aparser.add_argument('-s', '--script', help='File with edit commands', required=True)
+    aparser.add_argument('-v', '--verbose', help='Print info messages', action='store_true')
     args = aparser.parse_args()
     if not args.outfile:
         args.outfile = args.infile
     # start processing
-    print 'Processing', args.infile, 'with rules from', args.script, '...'
-    sed = StreamEditor(verbose=True)
+    if args.verbose:
+        sys.stderr.write(u'Processing {0} with rules from {1}...\n'.format(args.infile, args.script).encode('utf-8'))
+    sed = StreamEditor(verbose=args.verbose)
     script = ScriptParser(args.script)
     in_handler = formats.HtmlReader(args.infile, compatibility_mode=False)
     processed_tokens = [t for t in sed.apply_script(script, in_handler)]
     if sed.dirty:
         out_handler = formats.HtmlWriter((in_handler.metadata, in_handler.make_compatible_glosses(processed_tokens)), args.outfile)
         out_handler.write()
-        print 'Written', args.outfile
+        if args.verbose:
+            sys.stderr.write(u'Written {0}\n'.format(args.outfile).encode('utf-8'))
 
 if __name__ == '__main__':
     main()
