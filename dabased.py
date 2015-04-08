@@ -30,7 +30,7 @@ class ScriptParser(object):
         self.commands_list = []
         with open(scriptfile) as script:
             for command in script:
-                if not command.isspace():
+                if not command.isspace() and not command.startswith('#'):
                     self.commands_list.append(self.parse_command(command))
         self.commands_list = filter(None, self.commands_list)
 
