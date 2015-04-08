@@ -530,11 +530,11 @@ class GlossSelector(wx.Panel):
         tokens = glosses[sentpanel.snum][2]
         if self.index == 0:
             joinbw.Enable(False)
-        elif not tokens[self.index-1][0] == 'w':
+        elif not tokens[self.index-1].type == 'w':
             joinbw.Enable(False)
         if self.index == len(tokens)-1:
             joinfw.Enable(False)
-        elif not tokens[self.index+1][0] == 'w':
+        elif not tokens[self.index+1].type == 'w':
             joinfw.Enable(False)
 
         self.PopupMenu(menu)
@@ -549,14 +549,14 @@ class GlossSelector(wx.Panel):
         firsttoken = glosses[sentpanel.snum][2][first]
         nexttoken = glosses[sentpanel.snum][2][second]
         #FIXME: will break on non-word tokens
-        newform = firsttoken[1][0] + nexttoken[1][0]
-        newtoken = ('w', (newform, '-1', [Gloss(newform, set([]),'',())]))
+        newform = firsttoken.token + nexttoken.token
+        newtoken = formats.GlossToken(('w', (newform, '-1', [Gloss(newform, set([]),'',())])))
         sentstate[1][first] = []
         del sentstate[1][second]
         sentstate[2][first] = newtoken
         del sentstate[2][second]
         sentpanel.ShowSent(sentstate, sentpanel.snum)
-        self.logger.LogJoin((firsttoken[1][0],nexttoken[1][0]), newform)
+        self.logger.LogJoin((firsttoken.token,nexttoken.token), newform)
 
     def OnJoinForward(self, evt):
         self.JoinTwo(self.index, self.index+1)
@@ -579,7 +579,7 @@ class GlossSelector(wx.Panel):
                 shift = 0
                 for token in result:
                     sentstate[1].insert(self.index+shift, [])
-                    sentstate[2].insert(self.index+shift, ('w', (token, '-1', [Gloss(token, set([]), '', ())])))
+                    sentstate[2].insert(self.index+shift, formats.GlossToken(('w', (token, '-1', [Gloss(token, set([]), '', ())]))))
                     shift = shift+1
                 sentpanel.ShowSent(sentstate, sentpanel.snum)
                 self.logger.LogSplit(self.form, result)
