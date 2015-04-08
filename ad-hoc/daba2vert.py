@@ -73,8 +73,7 @@ def make_tagstring(gloss):
     return u'/'.join(gloss.ps or '_') + mtags
 
 
-def print_token(token, args, vardict, polidict, get_lemma):
-    gt = formats.GlossToken(token)
+def print_token(gt, args, vardict, polidict, get_lemma):
     if gt.type == 'Comment':
         return
     if not gt.type == "w":
