@@ -144,7 +144,7 @@ class HtmlReader(BaseReader):
             elif gt.type == 's':
                 par.append((gt.value, sentannot))
                 sentannot = []
-            elif gt.type == 'w':
+            else:
                 sentannot.append(gt)
         return glosses
                            
