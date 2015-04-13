@@ -128,8 +128,10 @@ class HtmlReader(BaseReader):
                     self.tokens.append(GlossToken(('w', (elemtext, elem.get('stage'), glosslist))))
                     glosslist = []
                     self.numwords += 1
-                elif spanclass in ['lemma', 'lemma var'] and not self.onlymeta:
+                elif spanclass in ['lemma var'] and not self.onlymeta:
                     glosslist.append(self.elem_to_gloss(elem))
+                elif spanclass in ['lemma'] and not self.onlymeta:
+                    glosslist.insert(0, self.elem_to_gloss(elem))
                 if spanclass not in ['m', 'gloss', 'ps', 'lemma', 'lemma var']:
                     elem.clear()
 
@@ -178,18 +180,18 @@ class HtmlReader(BaseReader):
             self.isdummy = True
 
     def elem_to_gloss(self, xgloss):
+        form = normalizeText(xgloss.text)
+        ps = set()
+        gloss = ''
         morphemes = []
-        if xgloss.attrib['class'] in ['lemma', 'm', 'lemma var']:
-            form = normalizeText(xgloss.text)
-            ps = set([])
-            gloss = ''
-            for i in xgloss.getchildren():
-                if i.attrib['class'] == 'ps':
-                    ps = set(i.text.split('/'))
-                elif i.attrib['class'] == 'gloss':
-                    gloss = normalizeText(i.text) 
-                elif i.attrib['class'] == 'm':
-                    morphemes.append(self.elem_to_gloss(i))
+        for sub in list(xgloss):
+            subclass = sub.get('class')
+            if subclass == 'ps':
+                ps = set(filter(None, sub.text.split('/')))
+            elif subclass == 'gloss':
+                gloss = normalizeText(sub.text)
+            elif subclass == 'm':
+                morphemes.append(self.elem_to_gloss(sub))
         return Gloss(form, ps, gloss, tuple(morphemes))
 
     def parse_sent(self, sent, onlymeta=False):
