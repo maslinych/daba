@@ -76,12 +76,11 @@ class StreamEditor(object):
         window = []
         for token in stream:
             window.append(token)
-            if token.type == 'w':
-                if len(window) == winsize:
-                    yield (True, tuple(window))
-                    window = window[1:]
+            if len(window) == winsize and all([t.type == 'w' for t in window]):
+                yield (True, tuple(window))
+                window = window[1:]
             else:
-                yield (False, (token,))
+                yield (False, tuple(window))
                 window = []
 
     def match(self, glosslist, pattern, recursive=False):
