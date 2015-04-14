@@ -140,9 +140,10 @@ class ChainDict(object):
 class DictLoader(object):
     """ Object holding info about dictionaries state.
     """
-    def __init__(self, runtimedir='./run'):
+    def __init__(self, runtimedir='./run', verbose=False):
         self.runtimedir = runtimedir
         self.dictionary = ChainDict()
+        self.verbose = verbose
         for f in os.listdir(self.runtimedir):
             name, ext = os.path.splitext(f)
             if ext in ['.bdi']:
@@ -155,7 +156,8 @@ class DictLoader(object):
         return os.path.join(self.runtimedir, os.path.extsep.join(['-'.join([dic.lang, dic.name, dic.hash]), 'bdi']))
 
     def load(self, dic):
-        print 'LOADED DICT', dic
+        if self.verbose:
+            sys.stderr.write(u'LOADED DICT {}\n'.format(dic).encode('utf-8'))
         self.dictionary.add(dic)
 
     def addfile(self, dictfile):
@@ -184,12 +186,14 @@ class DictLoader(object):
             if d.hash == dicid:
                 dic = d
                 break
-        print 'REMOVED DICT', dic
+        if self.verbose:
+            sys.stderr.write(u'REMOVED DICT {}\n'.format(dic).encode('utf-8'))
         self.dictionary.remove(dic.hash)
         os.unlink(self.filepath(dic))
 
     def save(self, dic):
-        print 'DICT saved', dic
+        if self.verbose:
+            sys.stderr.write(u'DICT saved {}\n'.format(dic).encode('utf-8'))
         self.load(dic)
         with open(self.filepath(dic), 'wb') as o:
             cPickle.dump(dic, o)
@@ -309,9 +313,10 @@ def main():
     aparser.add_argument("-n", "--noparse", action='store_true', help="Do not parse, only process resources")
     aparser.add_argument("-l", "--list", help="Read input filenames list from file")
     aparser.add_argument("-t", "--detone", action='store_true', help="Ignore tones in dictionary lookups")
+    aparser.add_argument("-v", "--verbose", action='store_true', help="Print info messages on loaded dictionaries")
     args = aparser.parse_args()
 
-    dl = DictLoader()
+    dl = DictLoader(verbose=args.verbose)
     gr = GrammarLoader()
     if args.dictionary:
         for dicfile in args.dictionary:
