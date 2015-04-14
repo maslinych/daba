@@ -109,6 +109,21 @@ class ChainDict(object):
                 result.add(prefix)
         return result
 
+    def iteritems(self):
+        result = []
+        keysseen = []
+        for mapping in self.dictlist:
+            for key in mapping:
+                if key not in keysseen:
+                    for lookup in self.dictlist:
+                        try:
+                            result.extend(lookup[key])
+                        except (KeyError):
+                            pass
+                    yield (key, result)
+                    keysseen.append(key)
+                    result = []
+
     def get_dict(self, sha):
         return self._maps[sha]
 
