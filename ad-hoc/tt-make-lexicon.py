@@ -5,10 +5,12 @@ import os
 import sys
 import fnmatch
 import argparse
+import locale
 from collections import defaultdict
 import mparser
 import formats
 from orthography import detone
+from daba2vert import INFLECTION
 
 dedot = lambda s: u''.join([c for c in s if c not in '.'])
 
@@ -17,13 +19,23 @@ def print_line(form, result):
     result.sort()
     sys.stdout.write(u'{}\t{}\n'.format(form, u'\t'.join(result)).encode('utf-8'))
 
-def make_taglist(glosses):
+def make_lemma(gloss):
+    if gloss.morphemes:
+        return ''.join([dedot(m.form) for m in gloss.morphemes if m.gloss not in INFLECTION])
+    else:
+        return dedot(gloss.form)
+
+def make_taglist(glosses, formforlemma=False):
     result = []
     for g in glosses:
-        lemma = dedot(g.form)
+        if formforlemma:
+            lemma = dedot(g.form)
+        else:
+            lemma = make_lemma(g)
         for tag in g.ps:
             result.append(u' '.join([tag, lemma]))
     return result
+
 
 def main():
     aparser = argparse.ArgumentParser(description='Lexicon printer for TreeTagger training')
@@ -33,25 +45,10 @@ def main():
     aparser.add_argument("-c", "--corpus", default=None, help="Corpus root")
     args = aparser.parse_args()
 
+    #locale.setlocale(locale.LC_ALL, 'bm_ML')
 
     if args.join:
         globaldict = defaultdict(list)
-
-    if args.runtimedir:
-        seenkeys = set()
-        dictionary = mparser.DictLoader(runtimedir=args.runtimedir).dictionary
-        for form in dictionary:
-            if ' ' not in form:
-                if not args.tonal:
-                    form = detone(form)
-                if form not in seenkeys:
-                    glosses = dictionary[form]
-                    result = make_taglist(glosses)
-                    seenkeys.add(form)
-                    if args.join:
-                        globaldict[form].extend(result)
-                    else:
-                        print_line(form, result)
 
     if args.corpus:
         seentokens = set()
@@ -62,7 +59,7 @@ def main():
                 reader = formats.HtmlReader(parsfile)
                 for token in reader:
                     if token.type == 'w':
-                        form = dedot(token.glosslist[0].form)
+                        form = dedot(token.glosslist[0].form).lower()
                         if not args.tonal:
                             form = detone(form)
                         else:
@@ -75,6 +72,24 @@ def main():
                                 globaldict[form].extend(result)
                             else:
                                 print_line(form, result)
+
+    if args.runtimedir:
+        seenkeys = set()
+        dictionary = mparser.DictLoader(runtimedir=args.runtimedir).dictionary
+        for form in dictionary:
+            if ' ' not in form:
+                if not args.tonal:
+                    form = detone(form)
+                if args.corpus and form in seentokens:
+                    continue
+                if form not in seenkeys:
+                    glosses = dictionary[form]
+                    result = make_taglist(glosses, formforlemma=True)
+                    seenkeys.add(form)
+                    if args.join:
+                        globaldict[form].extend(result)
+                    else:
+                        print_line(form, result)
 
     if args.join:
         for form, result in globaldict.iteritems():
