@@ -42,7 +42,9 @@ def main():
     aparser.add_argument("-r", "--runtimedir", help="Runtime dir with binary saved dictionaries")
     aparser.add_argument("-t", "--tonal", action="store_true", help="Preserve tones on word forms")
     aparser.add_argument("-j", "--join", action="store_true", help="Join all sources")
+    aparser.add_argument("-p", "--plain", action="store_true", help="Output plain lists of tokens")
     aparser.add_argument("-c", "--corpus", default=None, help="Corpus root")
+    aparser.add_argument("-g", "--glob", default="*.pars.html", help="Filename pattern for search in the corpus dir")
     args = aparser.parse_args()
 
     #locale.setlocale(locale.LC_ALL, 'bm_ML')
@@ -54,24 +56,39 @@ def main():
         seentokens = set()
         parsfiles = []
         for root, dirnames, filenames in os.walk(args.corpus):
-            for filename in fnmatch.filter(filenames, '*.pars.html'):
+            for filename in fnmatch.filter(filenames, args.glob):
                 parsfile = os.path.join(root, filename)
                 reader = formats.HtmlReader(parsfile)
+                lastpunct = None
                 for token in reader:
                     if token.type == 'w':
+                        if lastpunct:
+                            print_line(lastpunct.value, [' '.join([lastpunct.type, lastpunct.value])])
+                            lastpunct = None
                         form = dedot(token.glosslist[0].form).lower()
                         if not args.tonal:
                             form = detone(form)
                         else:
                             # FIXME: unsupported tonal for corpus
                             pass
-                        if form not in seentokens:
+                        if args.plain:
                             result = make_taglist(token.glosslist)
-                            seentokens.add(form)
-                            if args.join:
-                                globaldict[form].extend(result)
-                            else:
-                                print_line(form, result)
+                            print_line(form, result)
+                        else:
+                            if form not in seentokens:
+                                result = make_taglist(token.glosslist)
+                                seentokens.add(form)
+                                if args.join:
+                                    globaldict[form].extend(result)
+                                else:
+                                    print_line(form, result)
+                    elif token.type == 'c':
+                        lastpunct = token
+                    elif token.type == 's':
+                        if lastpunct:
+                            print_line(lastpunct.value, [' '.join(['SENT', lastpunct.value])])
+                            lastpunct = None
+
 
     if args.runtimedir:
         seenkeys = set()
@@ -80,16 +97,23 @@ def main():
             if ' ' not in form:
                 if not args.tonal:
                     form = detone(form)
-                if args.corpus and form in seentokens:
-                    continue
-                if form not in seenkeys:
-                    glosses = dictionary[form]
-                    result = make_taglist(glosses, formforlemma=True)
-                    seenkeys.add(form)
-                    if args.join:
-                        globaldict[form].extend(result)
-                    else:
-                        print_line(form, result)
+                if args.plain:
+                    for gloss in dictionary[form]:
+                        print gloss
+                        result = make_taglist([gloss], formforlemma=True)
+                        for lemma in result:
+                            print_line(form, [lemma])
+                else:
+                    if args.corpus and form in seentokens:
+                        continue
+                    if form not in seenkeys:
+                        glosses = dictionary[form]
+                        result = make_taglist(glosses, formforlemma=True)
+                        seenkeys.add(form)
+                        if args.join:
+                            globaldict[form].extend(result)
+                        else:
+                            print_line(form, result)
 
     if args.join:
         for form, result in globaldict.iteritems():
