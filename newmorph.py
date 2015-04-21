@@ -8,7 +8,7 @@ from orthography import detone
 
 def nullgloss(word):
     'str -> Gloss'
-    return Gloss(word, set([]), '', ())
+    return Gloss(word, (), '', ())
 
 def parse_composite(form, gdict, numparts):
     'Str, Dictionary, Int -> [[Str]]'

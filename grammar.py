@@ -82,8 +82,8 @@ unfoldl = lambda l: [k for j in [i for i in l if i] for k in j]
 unarg = lambda f: lambda args: f(*args)
 joinif = lambda x: ''.join(i for i in x if i)
 denone = lambda s: s or ()
-makeset = lambda s: set(s.split('/')) if s else set([])
-denoneset = lambda s: s or set()
+maketuple = lambda t: tuple(t.split('/')) if t else ()
+denonetuple = lambda t: t or ()
 filternone = lambda s: [i for i in s if i]
 
 def flatten_list(l):
@@ -107,8 +107,8 @@ def str_tokenize(string):
     return [x for x in tok(string) if x.type not in useless]
 
 def stringgloss_parser():
-    ps = pslabel + maybe(many(op_('/') + pslabel)) >> flatten_list >> set
-    lemma = name + op_(':') + ( maybe(ps) >> denoneset ) + op_(':') + maybe(name) 
+    ps = pslabel + maybe(many(op_('/') + pslabel)) >> flatten_list >> maketuple
+    lemma = name + op_(':') + ( maybe(ps) >> denonetuple ) + op_(':') + maybe(name) 
     fullgloss = forward_decl()
     glosslist = skip(space) + op_('[') + fullgloss + maybe( many( skip(space) + fullgloss ) ) + op_(']') >> flatten_list >> filternone >> tuple
     fullgloss.define(lemma + ( maybe(glosslist) >> denone ) >> unarg(Gloss))
@@ -123,7 +123,7 @@ def fullgloss_parser():
     unregex = regex >> unwrap_re
     splitter = oneplus(op_('|') + maybe(re_or_string) ) >> tuple
     form_expr = op_('{') + (maybe(re_or_string) >> foldl) + splitter + op_('}') >> unfoldl >> tuple >> unwrap_re
-    lemma = maybe(form_expr | unregex | name ) + op_(':') + (maybe(name) >> makeset ) + op_(':') + maybe(name | unregex) 
+    lemma = maybe(form_expr | unregex | name ) + op_(':') + (maybe(name) >> maketuple ) + op_(':') + maybe(name | unregex) 
     fullgloss = forward_decl()
     glosslist = skip(op('[')) + many(fullgloss) + skip(op(']')) >> tuple
     fullgloss.define(lemma + ( maybe(glosslist) >> denone ) >> unarg(Gloss))

@@ -410,10 +410,10 @@ class GlossSelector(wx.Panel):
 
         #FIXME: should I keep token string and use it here in spite of glosslist's first form?
         if len(self.glosslist) > 1:
-            self.gloss = Gloss(self.form, set([]), '', ())
+            self.gloss = Gloss(self.form, (), '', ())
             self.statecode = 2
         elif ''.join(self.glosslist[0].ps) in ['', None, '<?>'] and self.glosslist[0].gloss in ['', None, '<?>'] and not self.glosslist[0].morphemes:
-            self.gloss = Gloss(self.glosslist[0].form, set([]), '', ())
+            self.gloss = Gloss(self.glosslist[0].form, (), '', ())
             self.statecode = -1
         else:
             self.gloss = self.glosslist[0]
@@ -487,7 +487,7 @@ class GlossSelector(wx.Panel):
                 self.stage = 'gdisamb.0'
             elif len(self.selectlist) == 0:
                 self.statecode = 2
-                self.gloss = Gloss(self.children[0].gloss.form, set([]), '', ())
+                self.gloss = Gloss(self.children[0].gloss.form, (), '', ())
                 self.stage = self.parserstage
             else:
                 print "Bug: Negative selection!", selected
@@ -550,7 +550,7 @@ class GlossSelector(wx.Panel):
         nexttoken = glosses[sentpanel.snum][2][second]
         #FIXME: will break on non-word tokens
         newform = firsttoken.token + nexttoken.token
-        newtoken = formats.GlossToken(('w', (newform, '-1', [Gloss(newform, set([]),'',())])))
+        newtoken = formats.GlossToken(('w', (newform, '-1', [Gloss(newform, (),'',())])))
         sentstate[1][first] = []
         del sentstate[1][second]
         sentstate[2][first] = newtoken
@@ -579,7 +579,7 @@ class GlossSelector(wx.Panel):
                 shift = 0
                 for token in result:
                     sentstate[1].insert(self.index+shift, [])
-                    sentstate[2].insert(self.index+shift, formats.GlossToken(('w', (token, '-1', [Gloss(token, set([]), '', ())]))))
+                    sentstate[2].insert(self.index+shift, formats.GlossToken(('w', (token, '-1', [Gloss(token, (), '', ())]))))
                     shift = shift+1
                 sentpanel.ShowSent(sentstate, sentpanel.snum)
                 self.logger.LogSplit(self.form, result)
@@ -639,7 +639,7 @@ class TokenEditButton(wx.Panel):
         self.index = index
         self.selectlist = selectlist
         sizer = wx.BoxSizer(wx.VERTICAL)
-        self.token = formats.GlossToken(token)
+        self.token = token
         self.button = wx.Button(self, -1, self.token.token, style=wx.NO_BORDER)
         sizer.Add(self.button,0)
         self.SetSizer(sizer)

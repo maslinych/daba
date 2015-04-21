@@ -254,7 +254,7 @@ class Processor(object):
                     elif token.type in ['Punct', 'SentPunct', 'Nonword']:
                         annot.append(formats.GlossToken(('c', token.value)))
                     elif token.type in ['Cardinal']:
-                        gloss = Gloss(token.value, set(['num']), 'CARDINAL', ())
+                        gloss = Gloss(token.value, ('num',), 'CARDINAL', ())
                         annot.append(formats.GlossToken(('w', (token.value, 'tokenizer', [gloss]))))
                     elif token.type in ['Word']:
                         if self.converters:
@@ -276,7 +276,7 @@ class Processor(object):
 
                         # suggest proper name variant for capitalized words (not in sentence-initial position)
                         if token.value.istitle() and prevtoken and 'n.prop' not in set([]).union(*[g.ps for g in glosslist]):
-                            propn = Gloss(token.value, set(['n.prop']), token.value, ())
+                            propn = Gloss(token.value, ('n.prop',), token.value, ())
                             glosslist.insert(0, propn)
 
                         annot.append(formats.GlossToken(('w', (token.value, unicode(stage), glosslist))))

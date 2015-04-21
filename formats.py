@@ -43,7 +43,7 @@ class GlossToken(object):
         else:
             self.token = self.value
             self.stage = ''
-            self.gloss = Gloss(self.token, set(), self.type, ())
+            self.gloss = Gloss(self.token, (), self.type, ())
             self.glosslist = [self.gloss]
      
     def __unicode__(self):
@@ -181,13 +181,13 @@ class HtmlReader(BaseReader):
 
     def elem_to_gloss(self, xgloss):
         form = normalizeText(xgloss.text)
-        ps = set()
+        ps = ()
         gloss = ''
         morphemes = []
         for sub in list(xgloss):
             subclass = sub.get('class')
             if subclass == 'ps':
-                ps = set(filter(None, sub.text.split('/')))
+                ps = tuple(filter(None, sub.text.split('/')))
             elif subclass == 'gloss':
                 gloss = normalizeText(sub.text)
             elif subclass == 'm':
@@ -408,7 +408,7 @@ class DictWriter(object):
                 for m in gloss.morphemes:
                     sfm = sfm + makeGlossSfm(m, morpheme=True)
             else:
-                sfm = r'\mm ' + ':'.join([gloss.form or '', '/'.join(gloss.ps or set()), gloss.gloss or '']) + os.linesep
+                sfm = r'\mm ' + ':'.join([gloss.form or '', '/'.join(gloss.ps or ()), gloss.gloss or '']) + os.linesep
             return sfm
 
         with codecs.open(self.filename, 'w', encoding=self.encoding) as dictfile:
@@ -485,18 +485,12 @@ class VariantsDict(MutableMapping):
     def __init__(self):
         self._data = defaultdict(list)
 
-    def freezeps(self, ps):
-        assert isinstance(ps, set)
-        l = list(ps)
-        l.sort()
-        return u'/'.join(l)
-
     def __len__(self):
         return len(self._data)
 
     def __iter__(self):
         for (ps, gs), formlist in self._data.iteritems():
-            psset = set(ps.split('/'))
+            psset = tuple(ps.split('/'))
             for form in formlist:
                 yield Gloss(form, psset, gs, ())
 
@@ -504,12 +498,12 @@ class VariantsDict(MutableMapping):
         form, ps, gs, ms = gloss
         lookup = []
         if gs:
-            lookup.append((form, (self.freezeps(ps), gs)))
+            lookup.append((form, (ps, gs)))
         if ms:
             stems = [m for m in ms if 'mrph' not in m.ps]
             if len(stems) == 1:
                 g = stems[0]
-                lookup.append((g.form, (self.freezeps(g.ps), g.gloss)))
+                lookup.append((g.form, (g.ps, g.gloss)))
         for f, lkp in lookup:
             try:
                 variants = self._data[lkp]
@@ -527,11 +521,11 @@ class VariantsDict(MutableMapping):
 
     def add(self, glosslist):
         f, ps, gs, ms = glosslist[0]
-        self._data[(self.freezeps(ps), gs)].append([gloss.form for gloss in glosslist])
+        self._data[(ps, gs)].append([gloss.form for gloss in glosslist])
 
     def __delitem__(self, gloss):
         form, ps, gs, ms = gloss
-        index = (self.freezeps(ps), gs)
+        index = (ps, gs)
         self._data[index].remove(form)
         if not self._data[index]:
             self._data.__delitem__(index)
@@ -547,17 +541,17 @@ class DictReader(object):
         self.line = 0
         lemmalist = []
         key = None
-        ps = set()
+        ps = ()
         ge = ''
 
         def parsemm(v):
             try:
                 f, p, g = v.split(':')
                 if p:
-                    ps = p.split('/')
+                    ps = tuple(p.split('/'))
                 else:
-                    ps = []
-                return Gloss(f, set(ps), g, ())
+                    ps = ()
+                return Gloss(f, ps, g, ())
             except (ValueError):
                 print "Error line:", str(self.line), unicode(v).encode('utf-8')
 
@@ -565,7 +559,7 @@ class DictReader(object):
             return normalizeText(value.translate({ord(u'.'):None,ord(u'-'):None}).lower())
 
         def make_item(value):
-            return [normalize(value), Gloss(form=value,ps=set([]),gloss="",morphemes=())]
+            return [normalize(value), Gloss(form=value,ps=(),gloss="",morphemes=())]
 
         def push_items(primarykey, lemmalist):
             for key, lx in lemmalist:
@@ -580,14 +574,14 @@ class DictReader(object):
                 # end of the artice/dictionary
                 if not line or line.isspace():
                     lemmalist = [(key, item._replace(ps=ps,gloss=ge)) for key, item in lemmalist]
-                    if lemmalist and not ps == set(['mrph']):
+                    if lemmalist and not ps == ('mrph',):
                         if store:
                             push_items(key, lemmalist)
                         if variants and len(lemmalist) > 1:
                             self._variants.add(zip(*lemmalist)[1])
 
                     lemmalist = []
-                    ps = set()
+                    ps = ()
                     ge = ''
                     key = None
 
@@ -603,9 +597,9 @@ class DictReader(object):
                         lemmalist[-1][1] = lemmalist[-1][1]._replace(morphemes=lemmalist[-1][1].morphemes+(parsemm(value),))
                     elif tag in ['ps'] and not ps:
                         if value:
-                            ps = set(value.split('/'))
+                            ps = tuple(value.split('/'))
                         else:
-                            ps = set([])
+                            ps = ()
                     elif tag in ['gf', 'ge'] and not ge:
                         ge = value
                     elif tag in ['gv']:

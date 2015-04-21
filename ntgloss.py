@@ -69,7 +69,7 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
         if strict:
             return self.ps == other.ps
         elif self.ps and other.ps:
-            return bool(self.ps.intersection(other.ps))
+            return bool(set(self.ps) & set(other.ps))
         else:
             return True
 
@@ -108,15 +108,16 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
         return False
     
     def psunion(self, otherps):
-        assert isinstance(otherps, set)
-        assert isinstance(self.ps, set)
         if self.ps and otherps:
-            ps = self.ps.intersection(otherps)
+            ps = [tag for tag in self.ps if tag in otherps]
             if not ps:
                 raise ValueError
         else:
-            ps = self.ps.union(otherps)
-        return ps
+            ps = []
+            for tag in self.ps + otherps:
+                if tag not in ps:
+                    ps.append(tag)
+        return tuple(ps)
 
     def union(self, other, pattern=None, psoverride=False):
         if self.form or self.ps or self.gloss:
@@ -165,7 +166,7 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
         return w
 
 
-emptyGloss = Gloss('',set([]),'',())
+emptyGloss = Gloss('',(),'',())
 
 class Pattern(object):
     def __init__(self, select, mark):
@@ -251,42 +252,42 @@ import unittest
 class TestObjects(unittest.TestCase):
     
     def setUp(self):
-        self.ga = Gloss(u'ab',set(['n']),'gloss',())
-        self.gam = Gloss(u'ab',set(['n']),'gloss', (Gloss(u'a',set(['n']),'gloss',()), Gloss(u'b',set(['mrph']),'ge',())))
-        self.m = Gloss(u'',set([]),'', (Gloss(u'',set(['n']),'',()), Gloss(u'b',set(['mrph']),'ge',())))
-        self.gre = Gloss(('.',),set(['n']),('g.*',),())
-        self.pat = Pattern(Gloss('',set([]),'', (Gloss(('.', 'b'),'','',()),)), Gloss('',set([]),'', (Gloss('',set(['n']),'gloss',()), Gloss('',set(['mrph']),'ge',()),)))
-        self.gm = Gloss(u'abw',set(['n']),'gloss', (Gloss('ab',set([]),'',()),))
-        self.gmw = Gloss(u'abw',set(['n']),'gloss', (Gloss('ab',set([]),'',()), Gloss('w',set([]),'',()),))
-        self.patm = Gloss('',set([]),'', (Gloss(('.', 'b'),'','',()),))
-        self.patmw = Gloss('',set([]),'', (Gloss(('.', 'b'),'','',()), Gloss('w',set([]),'',())))
+        self.ga = Gloss(u'ab',tuple(['n']),'gloss',())
+        self.gam = Gloss(u'ab',tuple(['n']),'gloss', (Gloss(u'a',tuple(['n']),'gloss',()), Gloss(u'b',tuple(['mrph']),'ge',())))
+        self.m = Gloss(u'',tuple([]),'', (Gloss(u'',tuple(['n']),'',()), Gloss(u'b',tuple(['mrph']),'ge',())))
+        self.gre = Gloss(('.',),tuple(['n']),('g.*',),())
+        self.pat = Pattern(Gloss('',tuple([]),'', (Gloss(('.', 'b'),'','',()),)), Gloss('',tuple([]),'', (Gloss('',tuple(['n']),'gloss',()), Gloss('',tuple(['mrph']),'ge',()),)))
+        self.gm = Gloss(u'abw',tuple(['n']),'gloss', (Gloss('ab',tuple([]),'',()),))
+        self.gmw = Gloss(u'abw',tuple(['n']),'gloss', (Gloss('ab',tuple([]),'',()), Gloss('w',tuple([]),'',()),))
+        self.patm = Gloss('',tuple([]),'', (Gloss(('.', 'b'),'','',()),))
+        self.patmw = Gloss('',tuple([]),'', (Gloss(('.', 'b'),'','',()), Gloss('w',tuple([]),'',())))
 
     def test_gloss_general(self):
         # test gloss creation
         #self.assertRaises(GlossError, Gloss, u'')
         # test gloss return value
-        self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a',set(['ps']),'gloss',())))
-        self.assertEquals(u'a:adj/n:gloss', unicode(Gloss(u'a',set(['n','adj']),'gloss',())))
+        self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a',tuple(['ps']),'gloss',())))
+        self.assertEquals(u'a:adj/n:gloss', unicode(Gloss(u'a',tuple(['n','adj']),'gloss',())))
         # test equality comparison
         self.assertEquals(True, emptyGloss == emptyGloss)
-        self.assertEquals(True, Gloss(u'a',set(['n','adj']),'gloss',()) == Gloss(u'a',set(['adj','n']),'gloss',()))
-        self.assertEquals(False, Gloss(u'a',set(['ps']),'gloss',()) == emptyGloss)
-        self.assertEquals(False, Gloss(u'a',set(['n','adj']),'gloss',()) == Gloss(u'a',set(['n']),'gloss',()))
-        #self.assertEquals("Gloss(u'',set([]),'', (Gloss(u'',set(['n']),'',()), Gloss(u'b',set(['mrph']),'ge',())))", repr(self.m))
+        self.assertEquals(True, Gloss(u'a',tuple(['n','adj']),'gloss',()) == Gloss(u'a',tuple(['adj','n']),'gloss',()))
+        self.assertEquals(False, Gloss(u'a',tuple(['ps']),'gloss',()) == emptyGloss)
+        self.assertEquals(False, Gloss(u'a',tuple(['n','adj']),'gloss',()) == Gloss(u'a',tuple(['n']),'gloss',()))
+        #self.assertEquals("Gloss(u'',tuple([]),'', (Gloss(u'',tuple(['n']),'',()), Gloss(u'b',tuple(['mrph']),'ge',())))", repr(self.m))
 
     def test_gloss_psmatch(self):
         # test gloss psmatch
         # synopsis: PATTERN.psmatch(FORM)
-        self.assertEquals(True, emptyGloss.psmatch(Gloss(u'b',set([]),'',())))
-        self.assertEquals(True, emptyGloss.psmatch(Gloss(u'',set(['v']),'',())))
-        self.assertEquals(True, Gloss(u'',set(['n','adj']),'',()).psmatch(Gloss(u'b',set([]),'',())))
-        self.assertEquals(True, Gloss(u'',set(['n']),'',()).psmatch(Gloss(u'b',set(['n']),'',())))
-        self.assertEquals(True, Gloss(u'',set(['n']),'',()).psmatch(Gloss(u'b',set(['n','adj']),'',())))
-        self.assertEquals(True, Gloss(u'',set(['n','adj']),'',()).psmatch(Gloss(u'b',set(['n']),'',())))
-        self.assertEquals(True, Gloss(u'',set(['n','adj']),'',()).psmatch(Gloss(u'',set(['n','adj']),'',())))
-        self.assertEquals(False, Gloss(u'',set(['n']),'',()).psmatch(Gloss(u'',set(['v']),'',())))
-        self.assertEquals(False, Gloss(u'',set(['n','adj']),'',()).psmatch(Gloss(u'',set(['v']),'',())))
-        self.assertEquals(False, Gloss(u'',set(['n','adj']),'',()).psmatch(Gloss(u'',set(['v']),'',())))
+        self.assertEquals(True, emptyGloss.psmatch(Gloss(u'b',tuple([]),'',())))
+        self.assertEquals(True, emptyGloss.psmatch(Gloss(u'',tuple(['v']),'',())))
+        self.assertEquals(True, Gloss(u'',tuple(['n','adj']),'',()).psmatch(Gloss(u'b',tuple([]),'',())))
+        self.assertEquals(True, Gloss(u'',tuple(['n']),'',()).psmatch(Gloss(u'b',tuple(['n']),'',())))
+        self.assertEquals(True, Gloss(u'',tuple(['n']),'',()).psmatch(Gloss(u'b',tuple(['n','adj']),'',())))
+        self.assertEquals(True, Gloss(u'',tuple(['n','adj']),'',()).psmatch(Gloss(u'b',tuple(['n']),'',())))
+        self.assertEquals(True, Gloss(u'',tuple(['n','adj']),'',()).psmatch(Gloss(u'',tuple(['n','adj']),'',())))
+        self.assertEquals(False, Gloss(u'',tuple(['n']),'',()).psmatch(Gloss(u'',tuple(['v']),'',())))
+        self.assertEquals(False, Gloss(u'',tuple(['n','adj']),'',()).psmatch(Gloss(u'',tuple(['v']),'',())))
+        self.assertEquals(False, Gloss(u'',tuple(['n','adj']),'',()).psmatch(Gloss(u'',tuple(['v']),'',())))
 
     def test_gloss_morphmatch(self):
         self.assertEquals(True, emptyGloss.morphmatch(emptyGloss))
@@ -303,42 +304,42 @@ class TestObjects(unittest.TestCase):
         # synopsis: FORM.matches(PATTERN)
         #NB: empty pattern matches any gloss
         self.assertEquals(True, emptyGloss.matches(emptyGloss))
-        self.assertEquals(True, Gloss(u'a',set(['ps']),'gloss',()).matches(emptyGloss))
+        self.assertEquals(True, Gloss(u'a',tuple(['ps']),'gloss',()).matches(emptyGloss))
         self.assertEquals(True, self.gam.matches(emptyGloss))
-        self.assertEquals(True, Gloss(u'a',set(['ps']),'gloss',()).matches(Gloss(u'',set([]),'gloss',())))
-        self.assertEquals(True, Gloss(u'a',set(['n','adj']),'gloss',()).matches(Gloss(u'a',set(['n']),'',())))
-        self.assertEquals(True, Gloss(u'a',set(['n','adj']),'',()).matches(Gloss(u'a',set(['n']),'',())))
-        self.assertEquals(False, emptyGloss.matches(Gloss(u'a',set([]),'',())))
-        self.assertEquals(False, Gloss(u'a',set(['ps']),'',()).matches(Gloss(u'',set([]),'gloss',())))
-        self.assertEquals(False, Gloss(u'a',set(['ps']),'gloss',()).matches(Gloss(u'b',set(['ps']),'gloss',())))
-        self.assertEquals(False, Gloss(u'a',set(['n','adj']),'gloss',()).matches(Gloss(u'b',set(['n']),'',())))
-        self.assertEquals(False, Gloss(u'a',set(['n','adj']),'gloss',()).matches(Gloss(u'b',set(['v']),'',())))
-        self.assertEquals(False, Gloss(u'sira',set(['n']),'gloss',()).matches(Gloss(u'',set(['v']),'',())))
-        self.assertEquals(False, Gloss(u'w',set([]),'',()).matches(Gloss(u'w',set(['mrph']),'PL',())))
+        self.assertEquals(True, Gloss(u'a',tuple(['ps']),'gloss',()).matches(Gloss(u'',tuple([]),'gloss',())))
+        self.assertEquals(True, Gloss(u'a',tuple(['n','adj']),'gloss',()).matches(Gloss(u'a',tuple(['n']),'',())))
+        self.assertEquals(True, Gloss(u'a',tuple(['n','adj']),'',()).matches(Gloss(u'a',tuple(['n']),'',())))
+        self.assertEquals(False, emptyGloss.matches(Gloss(u'a',tuple([]),'',())))
+        self.assertEquals(False, Gloss(u'a',tuple(['ps']),'',()).matches(Gloss(u'',tuple([]),'gloss',())))
+        self.assertEquals(False, Gloss(u'a',tuple(['ps']),'gloss',()).matches(Gloss(u'b',tuple(['ps']),'gloss',())))
+        self.assertEquals(False, Gloss(u'a',tuple(['n','adj']),'gloss',()).matches(Gloss(u'b',tuple(['n']),'',())))
+        self.assertEquals(False, Gloss(u'a',tuple(['n','adj']),'gloss',()).matches(Gloss(u'b',tuple(['v']),'',())))
+        self.assertEquals(False, Gloss(u'sira',tuple(['n']),'gloss',()).matches(Gloss(u'',tuple(['v']),'',())))
+        self.assertEquals(False, Gloss(u'w',tuple([]),'',()).matches(Gloss(u'w',tuple(['mrph']),'PL',())))
         # test regex capabilities
-        self.assertEquals(True, Gloss(u'a',set(['n']),'gloss',()).matches(self.gre))
-        self.assertEquals(True, Gloss(u'b',set(['n']),'ge',()).matches(self.gre))
+        self.assertEquals(True, Gloss(u'a',tuple(['n']),'gloss',()).matches(self.gre))
+        self.assertEquals(True, Gloss(u'b',tuple(['n']),'ge',()).matches(self.gre))
         self.assertEquals(False, emptyGloss.matches(self.gre))
 
     def test_gloss_union(self):
         # test gloss union (typical use: union with pattern data)
         # NB: empty gloss always returns empty union
         self.assertEquals(None, emptyGloss.union(emptyGloss))
-        self.assertEquals(u'á:ps:gloss', unicode(Gloss(u'a',set([]),'',()).union(Gloss(u'á',set(['ps']),'gloss',()))))
-        self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a',set(['ps']),'gloss',()).union(emptyGloss)))
-        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',set(['n','adj']),'gloss',()).union(Gloss(u'a',set(['n']),'',()))))
-        self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a',set(['ps']),'',()).union(Gloss(u'',set([]),'gloss',()))))
-        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',set(['n','adj']),'',()).union(Gloss(u'',set(['n']),'gloss',()))))
-        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',set([]),'',()).union(Gloss(u'',set(['n']),'gloss',()))))
-        self.assertEquals(u'None', unicode(emptyGloss.union(Gloss(u'a',set([]),'',()))))
-        self.assertEquals(u'b:n:gloss', unicode(Gloss(u'a',set(['n','adj']),'gloss',()).union(Gloss(u'b',set(['n']),'',()))))
-        self.assertEquals(u'None', unicode(Gloss(u'a',set(['n','adj']),'gloss',()).union(Gloss(u'b',set(['v']),'',()))))
+        self.assertEquals(u'á:ps:gloss', unicode(Gloss(u'a',tuple([]),'',()).union(Gloss(u'á',tuple(['ps']),'gloss',()))))
+        self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a',tuple(['ps']),'gloss',()).union(emptyGloss)))
+        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'a',tuple(['n']),'',()))))
+        self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a',tuple(['ps']),'',()).union(Gloss(u'',tuple([]),'gloss',()))))
+        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',tuple(['n','adj']),'',()).union(Gloss(u'',tuple(['n']),'gloss',()))))
+        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',tuple([]),'',()).union(Gloss(u'',tuple(['n']),'gloss',()))))
+        self.assertEquals(u'None', unicode(emptyGloss.union(Gloss(u'a',tuple([]),'',()))))
+        self.assertEquals(u'b:n:gloss', unicode(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'b',tuple(['n']),'',()))))
+        self.assertEquals(u'None', unicode(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'b',tuple(['v']),'',()))))
         self.assertEquals(u'ab:n:gloss, [a:n:gloss, b:mrph:ge]', unicode(self.gam.union(self.ga)))
         self.assertEquals(u'ab:n:gloss, [a:n:gloss, b:mrph:ge]', unicode(self.gam.union(self.m)))
         # test morphemes union by pattern
-        self.assertEquals(u'ab::, [a::1, b::2]', unicode(Gloss('ab',set([]),'', (Gloss('a',set([]),'',()), Gloss('b',set([]),'',()))).union(Gloss('',set([]),'', (Gloss('',set([]),'2',()), Gloss('',set([]),'1',()))), pattern=(1,0))))
+        self.assertEquals(u'ab::, [a::1, b::2]', unicode(Gloss('ab',tuple([]),'', (Gloss('a',tuple([]),'',()), Gloss('b',tuple([]),'',()))).union(Gloss('',tuple([]),'', (Gloss('',tuple([]),'2',()), Gloss('',tuple([]),'1',()))), pattern=(1,0))))
         # test regex capabilities
-        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',set(['n']),'gloss',()).union(self.gre)))
+        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',tuple(['n']),'gloss',()).union(self.gre)))
 
     def test_gloss_html(self):
         # text Gloss coercing to html
