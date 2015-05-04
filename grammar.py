@@ -107,7 +107,7 @@ def str_tokenize(string):
     return [x for x in tok(string) if x.type not in useless]
 
 def stringgloss_parser():
-    ps = pslabel + maybe(many(op_('/') + pslabel)) >> flatten_list >> maketuple
+    ps = pslabel + maybe(many(op_('/') + pslabel)) >> flatten_list >> tuple
     lemma = name + op_(':') + ( maybe(ps) >> denonetuple ) + op_(':') + maybe(name) 
     fullgloss = forward_decl()
     glosslist = skip(space) + op_('[') + fullgloss + maybe( many( skip(space) + fullgloss ) ) + op_(']') >> flatten_list >> filternone >> tuple
