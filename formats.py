@@ -55,6 +55,11 @@ class GlossToken(object):
         else:
             return (self.type, self.value)
 
+    def setGlosslist(self, glosslist):
+        self.glosslist = glosslist
+        self.value = self.token, self.stage, self.glosslist
+
+
 class BaseReader(object):
     def data(self):
         return (self.metadata, self.para)

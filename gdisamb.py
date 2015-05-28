@@ -93,7 +93,7 @@ class FileParser(object):
                     outgloss.append(glosstoken)
                 else:
                     if glosstoken.type == 'w':
-                        glosstoken.glosslist = selectlist
+                        glosstoken.setGlosslist(selectlist)
                     outgloss.append(glosstoken)
             out[-1].append((sent[0], outgloss))
         fwriter = formats.HtmlWriter((self.metadata, out), filename)
