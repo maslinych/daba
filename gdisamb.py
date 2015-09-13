@@ -657,9 +657,10 @@ class TokenEditButton(wx.Panel):
         return self.token
 
 
-class SentenceAnnotation(wx.Window):
+class SentenceAnnotation(wx.ScrolledWindow):
     def __init__(self, parent, sentglosses, sentselect, vertical=True, *args, **kwargs):
-        wx.Window.__init__(self, parent, *args, **kwargs)
+        wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
+        self.SetScrollRate(20, 20)
         self.vertical = vertical
         self.children = []
 
@@ -717,18 +718,18 @@ class SentPanel(wx.ScrolledWindow):
         self.sentfont.SetPointSize(self.sentfont.GetPointSize() + 2)
 
         # create navigation buttons
-        prevbutton = wx.Button(self, -1, '<')
+        prevbutton = wx.Button(self, wx.ID_ANY, '<')
         prevbutton.Bind(wx.EVT_BUTTON, self.PrevSentence)
-        nextbutton = wx.Button(self, -1, '>')
+        nextbutton = wx.Button(self, wx.ID_ANY, '>')
         nextbutton.Bind(wx.EVT_BUTTON, self.NextSentence)
-        savebutton = wx.Button(self, -1, 'Save results')
+        savebutton = wx.Button(self, wx.ID_ANY, 'Save results')
         savebutton.Bind(wx.EVT_BUTTON, self.OnSaveResults)
-        navsizer = wx.BoxSizer(wx.HORIZONTAL)
-        navsizer.Add(prevbutton, 0)
-        navsizer.Add(nextbutton, 0)
-        navsizer.Add(savebutton, 0, wx.ALIGN_RIGHT)
-        self.Sizer.Add(navsizer, 0, wx.EXPAND)
+        self.navsizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.navsizer.Add(prevbutton, 0)
+        self.navsizer.Add(nextbutton, 0)
+        self.navsizer.Add(savebutton, 0, wx.ALIGN_RIGHT)
         self.sentsizer = wx.BoxSizer(wx.VERTICAL)
+        self.Sizer.Add(self.navsizer)
         self.Sizer.Add(self.sentsizer, 0, wx.EXPAND)
         self.SetSizer(self.Sizer)
         self.Layout()
@@ -741,11 +742,11 @@ class SentPanel(wx.ScrolledWindow):
             self.sentsizer.Remove(self.annotlist)
             self.annotlist.Destroy()
         self.snum = snum
-        self.sentsource = wx.StaticText(self, -1, self.senttext.replace('\n', ' '))
+        self.sentsource = wx.StaticText(self, wx.ID_ANY, self.senttext.replace('\n', ' '))
         self.sentsource.SetFont(self.sentfont)
         self.sentsource.SetForegroundColour('Navy')
-        sentwidth = self.GetClientSize().GetWidth()-5
-        self.sentsource.Wrap(sentwidth)
+        #sentwidth = self.GetClientSize().GetWidth()-5
+        #self.sentsource.Wrap(sentwidth)
         self.sentsizer.Add(self.sentsource, 1, wx.EXPAND)
         self.annotlist = SentenceAnnotation(self, self.tokenlist, self.selectlist, vertical=self.vertical)
         self.Sizer.Add(self.annotlist, 1, wx.EXPAND)
@@ -846,19 +847,17 @@ class MainFrame(wx.Frame):
         self.fileopened = False
 
     def InitUI(self):
-        self.splitter = wx.SplitterWindow(self)
-        self.filepanel = FilePanel(self.splitter)
-        self.sentpanel = SentPanel(self.splitter, vertical=self.config.vertical)
-        self.splitter.SplitVertically(self.sentpanel, self.filepanel)
-        self.splitter.SetSashGravity(0.95)
-        self.splitter.SetMinimumPaneSize(20)
-        self.splitter.SetSashSize(5)
-        self.Sizer.Add(self.splitter, 1, wx.EXPAND)
+        self.notebook = wx.Notebook(self)
+        self.filepanel = FilePanel(self.notebook)
+        self.sentpanel = SentPanel(self.notebook, vertical=self.config.vertical)
+        self.notebook.AddPage(self.sentpanel, "Disambiguate")
+        self.notebook.AddPage(self.filepanel, "Source")
+        self.Sizer.Add(self.notebook, 1, wx.EXPAND)
         self.Layout()
 
     def CleanUI(self):
         self.SetTitle("no file")
-        self.splitter.Destroy()
+        self.notebook.Destroy()
 
     def UpdateUI(self):
         self.Freeze()
