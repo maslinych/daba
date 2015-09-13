@@ -857,6 +857,7 @@ class MainFrame(wx.Frame):
         self.Layout()
 
     def CleanUI(self):
+        self.SetTitle("no file")
         self.splitter.Destroy()
 
     def UpdateUI(self):
@@ -973,10 +974,12 @@ class MainFrame(wx.Frame):
             if dlg.ShowModal() == wx.ID_OK:
                 self.infile = dlg.GetPath()
                 self.dirname = os.path.dirname(self.infile)
+                self.filename = os.path.basename(self.infile)
                 logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
                 self.logger = EditLogger(logfile)
                 self.processor.read_file(self.infile)
                 self.InitUI()
+                self.SetTitle(self.filename)
                 self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
                 self.sentpanel.ShowSent(self.processor.glosses[0], 0)
                 self.fileopened = True
