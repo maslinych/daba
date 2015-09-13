@@ -44,12 +44,11 @@ class FilePanel(wx.Panel):
     def __init__(self, parent, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.parent = parent
-
         self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY)
         Sizer = wx.BoxSizer(wx.VERTICAL)
         Sizer.Add(self.control, 1, wx.EXPAND)
         self.SetSizer(Sizer)
-        self.SetAutoLayout(1)
+        self.SetAutoLayout(True)
 
 class DictionaryItem(wx.Panel):
     def __init__(self, parent, dic, b_id, *args, **kwargs):
@@ -150,7 +149,7 @@ class ConverterLister(wx.Panel):
         self.converters = OrthographyConverter.get_plugins().keys()
         converterbox = wx.StaticBox(self, -1, "Available Orthographic Converters")
         self.csizer = wx.StaticBoxSizer(converterbox, wx.VERTICAL)
-        self.converterlist = wx.CheckListBox(self, -1, choices=self.converters)
+        self.converterlist = wx.CheckListBox(self, wx.ID_ANY, choices=self.converters)
         self.converterlist.SetCheckedStrings(self.selection)
         self.Bind(wx.EVT_CHECKLISTBOX, self.OnSelection, self.converterlist)
         self.csizer.Add(self.converterlist, 0, wx.TOP|wx.LEFT, 10)
@@ -175,7 +174,7 @@ class ResourcePanel(wx.Panel):
         Sizer.Add(self.convlist, 1, wx.EXPAND)
 
         self.SetSizer(Sizer)
-        self.SetAutoLayout(1)
+        self.SetAutoLayout(True)
         
 class MainFrame(wx.Frame):
     'Main frame'
@@ -208,7 +207,7 @@ class MainFrame(wx.Frame):
         Sizer.Add(self.filepanel, 2, wx.EXPAND)
         Sizer.Add(self.resourcepanel, 1, wx.EXPAND)
         self.SetSizer(Sizer)
-        self.SetAutoLayout(1)
+        self.SetAutoLayout(True)
         self.Fit()
 
     def InitValues(self):
