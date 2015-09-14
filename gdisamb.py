@@ -31,6 +31,9 @@ import grammar
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
 
+
+## UTILITY functions and no-interface classes
+
 normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
 
 def get_basename(fname):
@@ -118,6 +121,69 @@ class EditLogger(object):
 
     def OnExit(self):
         self.fileobj.close()
+
+
+class SearchTool(object):
+    def __init__(self, processor):
+        self.processor = processor
+        self.history = []
+        self.matches = []
+        self.position = 0
+        self.ignorecase = True
+
+    @property
+    def nmatches(self):
+        return len(self.matches)
+
+    def _searcher(self, searchstr, searchtype):
+        self.searchstr = searchstr
+        self.history.append(self.searchstr)
+        if self.ignorecase:
+            searchstr = searchstr.lower()
+        for snum, sent in enumerate(self.processor.glosses):
+            if searchtype == 'word part':
+                for wnum, word in enumerate(sent[2]):
+                    try:
+                        if self.searchstr in word.token:
+                            match = (snum, wnum)
+                            self.matches.append(match)
+                    # FIXME: should not happen if all words are proper GlossTokens
+                    except (AttributeError):
+                        print word
+            elif searchtype == 'sentence part':
+                if self.searchstr in sent[0]:
+                    # FIXME: return start of sencence match instead of correct place
+                    match = (snum, 0)
+                    self.matches.append(match)
+        return self.matches
+        
+    def find(self, searchstr):
+        self.matches = []
+        self.position = 0
+        if ' ' in searchstr:
+            searchtype = 'sentence part'
+        else:
+            searchtype = 'word part'
+        matches = self._searcher(searchstr, searchtype)
+        if matches:
+            return matches[0]
+        else:
+            return None
+
+    def findNext(self):
+        if self.matches:
+            self.position += 1
+            return self.matches[self.position]
+        else:
+            return None
+
+    def findPrev(self):
+        if self.matches:
+            self.position -= 1
+            return self.matches[self.position]
+        else:
+            return None
+
 
 ## CONFIG
 
@@ -610,19 +676,15 @@ class SearchDialog(wx.Dialog):
         wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
 
         sizer = wx.BoxSizer(wx.VERTICAL)
-        self.searchfield = NormalizedTextCtrl(self, -1, searchstr)
-        sizer.Add(wx.StaticText(self, -1, "Search for word or part of word:"))
+        self.searchfield = NormalizedTextCtrl(self, wx.ID_ANY, searchstr)
+        sizer.Add(wx.StaticText(self, wx.ID_ANY, "Search for word or sentence part:"))
         sizer.Add(self.searchfield)
-        self.typefield = wx.RadioBox(self, -1, "Search type", wx.DefaultPosition, wx.DefaultSize, ['word part', 'sentence part'], 1)
-        sizer.Add(self.typefield)
         sizer.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.TOP | wx.BOTTOM, 10)
         self.SetSizer(sizer)
 
     def GetSearchString(self):
         return self.searchfield.GetValue()
 
-    def GetSearchType(self):
-        return self.typefield.GetStringSelection()
 
 class NotFoundDialog(wx.Dialog):
     def __init__(self, parent, id, title, searchstr, *args, **kwargs):
@@ -724,10 +786,16 @@ class SentPanel(wx.ScrolledWindow):
         nextbutton.Bind(wx.EVT_BUTTON, self.NextSentence)
         savebutton = wx.Button(self, wx.ID_ANY, 'Save results')
         savebutton.Bind(wx.EVT_BUTTON, self.OnSaveResults)
+        self.searchbutton = wx.SearchCtrl(self, size=(200,-1), style=wx.TE_PROCESS_ENTER)
+        self.findprevbutton = wx.Button(self, wx.ID_ANY, '<Prev')
+        self.findnextbutton = wx.Button(self, wx.ID_ANY, 'Next>')
         self.navsizer = wx.BoxSizer(wx.HORIZONTAL)
         self.navsizer.Add(prevbutton, 0)
         self.navsizer.Add(nextbutton, 0)
         self.navsizer.Add(savebutton, 0, wx.ALIGN_RIGHT)
+        self.navsizer.Add(self.searchbutton, 0, wx.EXPAND)
+        self.navsizer.Add(self.findprevbutton, 0)
+        self.navsizer.Add(self.findnextbutton, 0)
         self.sentsizer = wx.BoxSizer(wx.VERTICAL)
         self.Sizer.Add(self.navsizer)
         self.Sizer.Add(self.sentsizer, 0, wx.EXPAND)
@@ -739,7 +807,7 @@ class SentPanel(wx.ScrolledWindow):
         if self.isshown:
             self.sentsizer.Remove(self.sentsource)
             self.sentsource.Destroy()
-            self.sentsizer.Remove(self.annotlist)
+            self.Sizer.Remove(self.annotlist)
             self.annotlist.Destroy()
         self.snum = snum
         self.sentsource = wx.StaticText(self, wx.ID_ANY, self.senttext.replace('\n', ' '))
@@ -797,7 +865,7 @@ class MainFrame(wx.Frame):
         menuClose = filemenu.Append(wx.ID_CLOSE,"C&lose","Close current file")
         self.Bind(wx.EVT_MENU,self.OnClose, menuClose)
         menuSearch = filemenu.Append(wx.ID_FIND,"F&ind","Find text")
-        self.Bind(wx.EVT_MENU, self.OnSearch, menuSearch)
+        self.Bind(wx.EVT_MENU, self.OnMenuSearch, menuSearch)
         menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
         self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
         menuBar = wx.MenuBar()
@@ -842,8 +910,8 @@ class MainFrame(wx.Frame):
         self.infile = None
         self.outfile = None
         self.processor = FileParser()
+        self.searcher = SearchTool(self.processor)
         self.logger = None
-        self.searchstr = ""
         self.fileopened = False
 
     def InitUI(self):
@@ -854,6 +922,11 @@ class MainFrame(wx.Frame):
         self.notebook.AddPage(self.filepanel, "Source")
         self.Sizer.Add(self.notebook, 1, wx.EXPAND)
         self.Layout()
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnButtonSearch, self.sentpanel.searchbutton)
+        self.Bind(wx.EVT_SEARCHCTRL_SEARCH_BTN, self.OnButtonSearch, self.sentpanel.searchbutton)
+        self.Bind(wx.EVT_BUTTON, self.OnFindPrev, self.sentpanel.findprevbutton)
+        self.Bind(wx.EVT_BUTTON, self.OnFindNext, self.sentpanel.findnextbutton)
+
 
     def CleanUI(self):
         self.SetTitle("no file")
@@ -907,38 +980,42 @@ class MainFrame(wx.Frame):
         else:
             print "No undo information"
 
-    def OnSearch(self,e):
-        dlg = SearchDialog(self, -1, "Search word", self.searchstr)
+    def OnMenuSearch(self,e):
+        dlg = SearchDialog(self, wx.ID_ANY, "Search word or sentence part", "")
         if (dlg.ShowModal() == wx.ID_OK):
-            self.searchstr = dlg.GetSearchString()
-            searchtype = dlg.GetSearchType()
+            searchstr = dlg.GetSearchString()
+            self.DoSearch(searchstr)
 
-        if not self.searchstr:
+    def OnButtonSearch(self,e):
+        searchstr = self.sentpanel.searchbutton.GetValue()
+        self.DoSearch(searchstr)
+
+    def DoSearch(self, searchstr):
+        if not searchstr:
             return
-        for snum, sent in enumerate(self.processor.glosses):
-            if snum > self.sentpanel.snum:
-                if searchtype == 'word part':
-                    for word in sent[2]:
-                        try:
-                            if self.searchstr in word.token:
-                                self.sentpanel.ShowSent(sent, snum)
-                                break
-                        except (AttributeError):
-                            print word
-                    else:
-                        continue
+        firstmatch = self.searcher.find(searchstr)
+        self.ShowSearchResult(firstmatch)
 
-                elif searchtype == 'sentence part':
-                    if self.searchstr in sent[0]:
-                        self.sentpanel.ShowSent(sent, snum)
-                    else:
-                        continue
-
-                break
-
-        else:
-            notf = NotFoundDialog(self, -1, "Not found", self.searchstr)
+    def ShowSearchResult(self, match):
+        if match is None:
+            notf = NotFoundDialog(self, wx.ID_ANY, "Not found", searchstr)
             notf.ShowModal()
+        else:
+            snum, wnum = match
+            # FIXME: wnum is ignored until we could recenter panel on the given word
+            if snum != self.sentpanel.snum:
+                self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
+            else:
+                foundhere = wx.MessageDialog(self, "Found in this sentence!", "Search result", wx.OK)
+                foundhere.ShowModal()
+
+    def OnFindPrev(self, e):
+        match = self.searcher.findPrev()
+        self.ShowSearchResult(match)
+
+    def OnFindNext(self, e):
+        match = self.searcher.findNext()
+        self.ShowSearchResult(match)
 
     def OnClose(self,e):
         if self.fileopened:
