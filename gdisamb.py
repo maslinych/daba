@@ -185,24 +185,6 @@ class SearchTool(object):
             return None
 
 
-## CONFIG
-
-class DabaConfig(object):
-    def __init__(self):
-        self._cfgdata = wx.Config('gdisamb')
-        self.font = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
-        if self._cfgdata.Exists('font'):
-            self.font.SetNativeFontInfoUserDesc(self._cfgdata.Read('font'))
-        if self._cfgdata.Exists('vertical'):
-            self.vertical = self._cfgdata.ReadBool('vertical')
-        else:
-            self.vertical = True
-
-    def save(self, key=None):
-        self._cfgdata.Write('font', self.font.GetNativeFontInfoUserDesc())
-        self._cfgdata.WriteBool('vertical', self.vertical)
-
-
 ## WIDGETS
 
 class SentText(wx.StaticText):
@@ -855,9 +837,31 @@ class MainFrame(wx.Frame):
     def __init__(self, parent, *args, **kwargs):
         wx.Frame.__init__(self, parent, *args, **kwargs)
 
+        # constants, no need to reinit on opening next file
+        self.config = wx.Config("gdisamb", style=wx.CONFIG_USE_LOCAL_FILE)
+        self.dirname = os.curdir
+        self.dictfile = 'localdict.txt'
+        self.InitValues()
+
         filemenu= wx.Menu()
+        recent = wx.Menu()
         menuOpen = filemenu.Append(wx.ID_OPEN,"O&pen"," Open text file")
-        self.Bind(wx.EVT_MENU, self.OnOpen, menuOpen)
+        self.Bind(wx.EVT_MENU, self.OnMenuOpen, menuOpen)
+        filemenu.AppendMenu(wx.ID_ANY, "Open &recent", recent)
+        self.filehistory = wx.FileHistory(maxFiles=9, idBase=wx.ID_FILE1)
+        self.filehistory.Load(self.config)
+        self.filehistory.UseMenu(recent)
+        self.filehistory.AddFilesToMenu()
+        self.Bind(wx.EVT_MENU_RANGE, self.OnFileHistory, id=wx.ID_FILE1, id2=wx.ID_FILE9)
+
+        # FIXME: move fonts to InitUI?
+        self.mainfont = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+        savedfont = self.config.Read("fonts/main")
+        if savedfont:
+            self.mainfont.SetNativeFontInfoUserDesc(savedfont)
+            self.SetFont(self.mainfont)
+
+        # FIXME: move menus to InitUI?
         menuSave = filemenu.Append(wx.ID_SAVE,"S&ave"," Save an xhtml file")
         self.Bind(wx.EVT_MENU, self.OnSave, menuSave)
         menuSaveAs = filemenu.Append(wx.ID_SAVEAS,"S&ave as"," Save an xhtml file")
@@ -888,13 +892,6 @@ class MainFrame(wx.Frame):
         menuBar.Append(debugmenu,"&Debug") 
 
 
-        # constants, no need to reinit on opening next file
-        self.dirname = os.curdir
-        self.dictfile = 'localdict.txt'
-        self.config = DabaConfig()
-        self.SetFont(self.config.font)
-        self.InitValues()
-
 
         #FIXME: loading localdict right on start, should give user possibility to choose
         if os.path.exists(self.dictfile):
@@ -917,7 +914,7 @@ class MainFrame(wx.Frame):
     def InitUI(self):
         self.notebook = wx.Notebook(self)
         self.filepanel = FilePanel(self.notebook)
-        self.sentpanel = SentPanel(self.notebook, vertical=self.config.vertical)
+        self.sentpanel = SentPanel(self.notebook, vertical=self.config.Read("display/vertical"))
         self.notebook.AddPage(self.sentpanel, "Disambiguate")
         self.notebook.AddPage(self.filepanel, "Source")
         self.Sizer.Add(self.notebook, 1, wx.EXPAND)
@@ -947,21 +944,22 @@ class MainFrame(wx.Frame):
         self.Thaw()
 
     def OnVerticalMode(self,e):
-        self.config.vertical = not self.config.vertical
-        self.config.save()
+        self.config.WriteBool("display/vertical", not self.config.ReadBool("display/vertical"))
+        self.config.Flush()
         if self.fileopened:
             self.UpdateUI()
 
     def OnSelectFont(self,e):
         fontdata = wx.FontData()
-        fontdata.SetInitialFont(self.config.font)
+        fontdata.SetInitialFont(self.mainfont)
 
         dlg = wx.FontDialog(self, fontdata)
         if dlg.ShowModal() == wx.ID_OK:
-            fontdata = dlg.GetFontData()
-            self.config.font = fontdata.GetChosenFont()
-            self.config.save()
-            self.SetFont(self.config.font)
+            self.mainfont = dlg.GetFontData().GetChosenFont()
+            # FIXME: move to UpdateUI?
+            self.SetFont(self.mainfont)
+            self.config.Write("fonts/main", self.mainfont.GetNativeFontInfoUserDesc())
+            self.config.Flush()
             if self.fileopened:
                 self.UpdateUI()
         dlg.Destroy()
@@ -1041,32 +1039,45 @@ class MainFrame(wx.Frame):
         dlg.ShowModal()
         dlg.Destroy()
 
-    def OnOpen(self,e):
-        """ Open a file"""
+    def OnMenuOpen(self,e):
         if self.fileopened:
             self.FileOpenedError(e)
         else:
             dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
             if dlg.ShowModal() == wx.ID_OK:
-                self.infile = dlg.GetPath()
-                self.dirname = os.path.dirname(self.infile)
-                self.filename = os.path.basename(self.infile)
-                logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
-                self.logger = EditLogger(logfile)
-                self.processor.read_file(self.infile)
-                self.InitUI()
-                self.SetTitle(self.filename)
-                self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
-                self.sentpanel.ShowSent(self.processor.glosses[0], 0)
-                self.fileopened = True
-                self.Layout()
-            dlg.Destroy()
+                self.OnOpen(dlg.GetPath())
+                dlg.Destroy()
+
+    def OnFileHistory(self,e):
+        if self.fileopened:
+            self.FileOpenedError(e)
+        else:
+            filenum = e.GetId() - wx.ID_FILE1
+            self.OnOpen(self.filehistory.GetHistoryFile(filenum))
+
+    def OnOpen(self,filename):
+        """ Open a file"""
+        self.infile = filename
+        print self.infile
+        self.filehistory.AddFileToHistory(self.infile)
+        self.filehistory.Save(self.config)
+        self.dirname = os.path.dirname(self.infile)
+        self.filename = os.path.basename(self.infile)
+        logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
+        self.logger = EditLogger(logfile)
+        self.processor.read_file(self.infile)
+        self.InitUI()
+        self.SetTitle(self.filename)
+        self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
+        self.sentpanel.ShowSent(self.processor.glosses[0], 0)
+        self.fileopened = True
+        self.Layout()
 
     def SaveFiles(self,e):
         if self.localdict:
             formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict',ver='0').write()
         self.processor.write(self.outfile)
-
+        self.config.Flush()
 
     def OnSave(self,e):
         if not self.fileopened:
