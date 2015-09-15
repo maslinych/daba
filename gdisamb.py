@@ -792,6 +792,7 @@ class SentPanel(wx.ScrolledWindow):
             self.Sizer.Remove(self.annotlist)
             self.annotlist.Destroy()
         self.snum = snum
+        self.GetTopLevelParent().SaveFilePos(snum)
         self.sentsource = wx.StaticText(self, wx.ID_ANY, self.senttext.replace('\n', ' '))
         self.sentsource.SetFont(self.sentfont)
         self.sentsource.SetForegroundColour('Navy')
@@ -1015,6 +1016,15 @@ class MainFrame(wx.Frame):
         match = self.searcher.findNext()
         self.ShowSearchResult(match)
 
+    def SaveFilePos(self, snum):
+        if self.fileopened:
+            self.config.WriteInt(self.infile, snum)
+            self.config.Flush()
+
+    def GetFilePos(self, filename):
+        snum = self.config.ReadInt(filename, 0)
+        return snum
+
     def OnClose(self,e):
         if self.fileopened:
             if self.processor.dirty:
@@ -1058,7 +1068,6 @@ class MainFrame(wx.Frame):
     def DoOpen(self,filename):
         """ Open a file"""
         self.infile = filename
-        print self.infile
         self.filehistory.AddFileToHistory(self.infile)
         self.filehistory.Save(self.config)
         self.dirname = os.path.dirname(self.infile)
@@ -1071,7 +1080,8 @@ class MainFrame(wx.Frame):
         self.InitUI()
         self.SetTitle(self.filename)
         self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
-        self.sentpanel.ShowSent(self.processor.glosses[0], 0)
+        snum = self.GetFilePos(self.infile)
+        self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
         self.fileopened = True
         self.Layout()
 
