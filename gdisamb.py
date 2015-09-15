@@ -839,7 +839,7 @@ class MainFrame(wx.Frame):
 
         # constants, no need to reinit on opening next file
         self.config = wx.Config("gdisamb", style=wx.CONFIG_USE_LOCAL_FILE)
-        self.dirname = os.curdir
+        self.dirname = self.config.Read("state/curdir", os.curdir)
         self.dictfile = 'localdict.txt'
         self.InitValues()
 
@@ -1062,6 +1062,8 @@ class MainFrame(wx.Frame):
         self.filehistory.AddFileToHistory(self.infile)
         self.filehistory.Save(self.config)
         self.dirname = os.path.dirname(self.infile)
+        self.config.Write("state/curdir", self.dirname)
+        self.config.Flush()
         self.filename = os.path.basename(self.infile)
         logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
         self.logger = EditLogger(logfile)
