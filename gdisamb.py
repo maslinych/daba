@@ -137,12 +137,17 @@ class SearchTool(object):
     def nmatches(self):
         return len(self.matches)
 
-    def _searcher(self, searchstr, searchtype):
+    def _searcher(self, searchstr, searchtype, startsent):
+        self.position = 0
+        self.matches = []
         self.searchstr = searchstr
         self.history.append(self.searchstr)
         if self.ignorecase:
             searchstr = searchstr.lower()
-        for snum, sent in enumerate(self.processor.glosses):
+            glosses = list(enumerate(self.processor.glosses))
+        if startsent:
+            glosses = glosses[startsent:] + glosses[:startsent]
+        for snum, sent in glosses:
             if searchtype == 'word part':
                 for wnum, word in enumerate(sent[2]):
                     try:
@@ -159,32 +164,34 @@ class SearchTool(object):
                     self.matches.append(match)
         return self.matches
         
-    def find(self, searchstr):
-        self.matches = []
-        self.position = 0
+    def find(self, searchstr, startsent=0):
         if ' ' in searchstr:
             searchtype = 'sentence part'
         else:
             searchtype = 'word part'
-        matches = self._searcher(searchstr, searchtype)
+        matches = self._searcher(searchstr, searchtype, startsent)
         if matches:
             return matches[0]
         else:
-            return None
+            return ()
 
     def findNext(self):
         if self.matches:
             self.position += 1
+            if self.position >= len(self.matches):
+                self.position -= len(self.matches)
             return self.matches[self.position]
         else:
-            return None
+            return ()
 
     def findPrev(self):
         if self.matches:
             self.position -= 1
+            if self.position < 0:
+                self.position = len(self.matches) + self.position
             return self.matches[self.position]
         else:
-            return None
+            return ()
 
 
 ## WIDGETS
@@ -1009,12 +1016,13 @@ class MainFrame(wx.Frame):
     def DoSearch(self, searchstr):
         if not searchstr:
             return
-        firstmatch = self.searcher.find(searchstr)
+        # search forward by default
+        firstmatch = self.searcher.find(searchstr, startsent=self.sentpanel.snum)
         self.ShowSearchResult(firstmatch)
 
     def ShowSearchResult(self, match):
-        if match is None:
-            notf = NotFoundDialog(self, wx.ID_ANY, "Not found", searchstr)
+        if self.searcher.searchstr and not match:
+            notf = NotFoundDialog(self, wx.ID_ANY, "Not found", self.searcher.searchstr)
             notf.ShowModal()
         else:
             snum, wnum = match
