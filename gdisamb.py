@@ -83,6 +83,8 @@ class FileParser(object):
             for snum,sent in enumerate(par):
                 # tuple(sent_text, selectlist, glosslist, index)
                 self.glosses.append((sent[0], [[] for i in sent[1]], sent[1], (pnum,snum)))
+                self.numsent = freader.numsent
+                self.numwords = freader.numwords
 
     def write(self, filename):
         out = [[]]
@@ -758,10 +760,15 @@ class SentPanel(wx.ScrolledWindow):
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
         self.savedstate = None
         self.isshown = False
+        self.snum = 0
+        self.numsent = self.GetTopLevelParent().processor.numsent
         self.sentfont = self.GetFont()
         self.sentfont.SetPointSize(self.sentfont.GetPointSize() + 2)
+        self.sentcolor = 'Navy'
 
         # create navigation buttons
+        self.sentnumbutton = wx.SpinCtrl(self, wx.ID_ANY, "", (10,20))
+        self.sentnumbutton.SetRange(1, self.numsent)
         prevbutton = wx.Button(self, wx.ID_ANY, '<')
         prevbutton.Bind(wx.EVT_BUTTON, self.PrevSentence)
         nextbutton = wx.Button(self, wx.ID_ANY, '>')
@@ -772,13 +779,22 @@ class SentPanel(wx.ScrolledWindow):
         self.findprevbutton = wx.Button(self, wx.ID_ANY, '<Prev')
         self.findnextbutton = wx.Button(self, wx.ID_ANY, 'Next>')
         self.navsizer = wx.BoxSizer(wx.HORIZONTAL)
+        sentenceno = wx.StaticText(self, wx.ID_ANY, "Sentence No")
+        sentenceno.SetFont(self.sentfont)
+        sentenceno.SetForegroundColour(self.sentcolor)
+        self.navsizer.Add(sentenceno, 0)
+        self.navsizer.Add(self.sentnumbutton)
+        sentof = wx.StaticText(self, wx.ID_ANY, " of {}  ".format(self.numsent))
+        sentof.SetFont(self.sentfont)
+        sentof.SetForegroundColour(self.sentcolor)
+        self.navsizer.Add(sentof, 0)
         self.navsizer.Add(prevbutton, 0)
         self.navsizer.Add(nextbutton, 0)
         self.navsizer.Add(savebutton, 0, wx.ALIGN_RIGHT)
         self.navsizer.Add(self.searchbutton, 0, wx.EXPAND)
         self.navsizer.Add(self.findprevbutton, 0)
         self.navsizer.Add(self.findnextbutton, 0)
-        self.sentsizer = wx.BoxSizer(wx.VERTICAL)
+        self.sentsizer = wx.BoxSizer(wx.HORIZONTAL)
         self.Sizer.Add(self.navsizer)
         self.Sizer.Add(self.sentsizer, 0, wx.EXPAND)
         self.SetSizer(self.Sizer)
@@ -792,10 +808,11 @@ class SentPanel(wx.ScrolledWindow):
             self.Sizer.Remove(self.annotlist)
             self.annotlist.Destroy()
         self.snum = snum
+        self.sentnumbutton.SetValue(snum+1)
         self.GetTopLevelParent().SaveFilePos(snum)
         self.sentsource = wx.StaticText(self, wx.ID_ANY, self.senttext.replace('\n', ' '))
         self.sentsource.SetFont(self.sentfont)
-        self.sentsource.SetForegroundColour('Navy')
+        self.sentsource.SetForegroundColour(self.sentcolor)
         #sentwidth = self.GetClientSize().GetWidth()-5
         #self.sentsource.Wrap(sentwidth)
         self.sentsizer.Add(self.sentsource, 1, wx.EXPAND)
@@ -924,7 +941,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_SEARCHCTRL_SEARCH_BTN, self.OnButtonSearch, self.sentpanel.searchbutton)
         self.Bind(wx.EVT_BUTTON, self.OnFindPrev, self.sentpanel.findprevbutton)
         self.Bind(wx.EVT_BUTTON, self.OnFindNext, self.sentpanel.findnextbutton)
-
+        self.Bind(wx.EVT_SPINCTRL, self.OnGotoSentence, self.sentpanel.sentnumbutton)
 
     def CleanUI(self):
         self.SetTitle("no file")
@@ -1015,6 +1032,11 @@ class MainFrame(wx.Frame):
     def OnFindNext(self, e):
         match = self.searcher.findNext()
         self.ShowSearchResult(match)
+
+    def OnGotoSentence(self, e):
+        self.sentpanel.OnSaveResults(e)
+        snum = self.sentpanel.sentnumbutton.GetValue() - 1
+        self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
 
     def SaveFilePos(self, snum):
         if self.fileopened:
