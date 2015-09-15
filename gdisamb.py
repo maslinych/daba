@@ -1045,7 +1045,7 @@ class MainFrame(wx.Frame):
         else:
             dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
             if dlg.ShowModal() == wx.ID_OK:
-                self.OnOpen(dlg.GetPath())
+                self.DoOpen(dlg.GetPath())
                 dlg.Destroy()
 
     def OnFileHistory(self,e):
@@ -1053,9 +1053,9 @@ class MainFrame(wx.Frame):
             self.FileOpenedError(e)
         else:
             filenum = e.GetId() - wx.ID_FILE1
-            self.OnOpen(self.filehistory.GetHistoryFile(filenum))
+            self.DoOpen(self.filehistory.GetHistoryFile(filenum))
 
-    def OnOpen(self,filename):
+    def DoOpen(self,filename):
         """ Open a file"""
         self.infile = filename
         print self.infile
