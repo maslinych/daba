@@ -801,6 +801,9 @@ class SentPanel(wx.ScrolledWindow):
         self.navsizer.Add(self.searchbutton, 0, wx.EXPAND)
         self.navsizer.Add(self.findprevbutton, 0)
         self.navsizer.Add(self.findnextbutton, 0)
+        copybutton = wx.Button(self, wx.ID_COPY)
+        copybutton.Bind(wx.EVT_BUTTON, self.OnCopyToClipboard)
+        self.navsizer.Add(copybutton)
         self.sentsizer = wx.BoxSizer(wx.HORIZONTAL)
         self.Sizer.Add(self.navsizer)
         self.Sizer.Add(self.sentsizer, 0, wx.EXPAND)
@@ -856,6 +859,14 @@ class SentPanel(wx.ScrolledWindow):
             tokenlist.append(selector.GetToken())
         self.GetTopLevelParent().processor.glosses[self.snum] = tuple([self.senttext, self.selectlist, tokenlist, self.sentindex])
 
+    def OnCopyToClipboard(self, event):
+        if self.senttext:
+            clipdata = wx.TextDataObject()
+            clipdata.SetText(self.senttext)
+            if not wx.TheClipboard.IsOpened():
+                wx.TheClipboard.Open()
+                wx.TheClipboard.SetData(clipdata)
+                wx.TheClipboard.Close()
 
 class MainFrame(wx.Frame):
     'Main frame'
