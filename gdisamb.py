@@ -951,7 +951,7 @@ class MainFrame(wx.Frame):
     def InitUI(self):
         self.notebook = wx.Notebook(self)
         self.filepanel = FilePanel(self.notebook)
-        self.sentpanel = SentPanel(self.notebook, vertical=self.config.Read("display/vertical"))
+        self.sentpanel = SentPanel(self.notebook, vertical=self.config.ReadBool("display/vertical"))
         self.notebook.AddPage(self.sentpanel, "Disambiguate")
         self.notebook.AddPage(self.filepanel, "Source")
         self.Sizer.Add(self.notebook, 1, wx.EXPAND)
