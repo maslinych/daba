@@ -132,6 +132,7 @@ class SearchTool(object):
         self.matches = []
         self.position = 0
         self.ignorecase = True
+        self.searchstr = ""
 
     @property
     def nmatches(self):
@@ -1032,7 +1033,9 @@ class MainFrame(wx.Frame):
         self.ShowSearchResult(firstmatch)
 
     def ShowSearchResult(self, match):
-        if self.searcher.searchstr and not match:
+        if not self.searcher.searchstr:
+            return
+        if not match:
             notf = NotFoundDialog(self, wx.ID_ANY, "Not found", self.searcher.searchstr)
             notf.ShowModal()
         else:
