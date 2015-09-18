@@ -775,7 +775,7 @@ class SentPanel(wx.ScrolledWindow):
         self.sentcolor = 'Navy'
 
         # create navigation buttons
-        self.sentnumbutton = wx.SpinCtrl(self, wx.ID_ANY, "", (10,20))
+        self.sentnumbutton = wx.SpinCtrl(self, wx.ID_ANY, "", (10,20), style=wx.TE_PROCESS_ENTER)
         self.sentnumbutton.SetRange(1, self.numsent)
         prevbutton = wx.Button(self, wx.ID_ANY, '<')
         prevbutton.Bind(wx.EVT_BUTTON, self.PrevSentence)
@@ -961,6 +961,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.OnFindPrev, self.sentpanel.findprevbutton)
         self.Bind(wx.EVT_BUTTON, self.OnFindNext, self.sentpanel.findnextbutton)
         self.Bind(wx.EVT_SPINCTRL, self.OnGotoSentence, self.sentpanel.sentnumbutton)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnGotoSentence, self.sentpanel.sentnumbutton)
 
     def CleanUI(self):
         self.SetTitle("no file")
@@ -1044,8 +1045,9 @@ class MainFrame(wx.Frame):
             if snum != self.sentpanel.snum:
                 self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
             else:
-                foundhere = wx.MessageDialog(self, "Found in this sentence!", "Search result", wx.OK)
-                foundhere.ShowModal()
+                if len(self.searcher.matches) == 1:
+                    foundhere = wx.MessageDialog(self, "Found in this sentence only!", "Search result", wx.OK)
+                    foundhere.ShowModal()
 
     def OnFindPrev(self, e):
         match = self.searcher.findPrev()
