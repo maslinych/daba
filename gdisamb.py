@@ -159,10 +159,8 @@ class SearchTool(object):
                     except (AttributeError):
                         print word
             elif searchtype == 'sentence part':
-                if self.searchstr in sent[0]:
-                    # FIXME: return start of sencence match instead of correct place
-                    match = (snum, 0)
-                    self.matches.append(match)
+                for matchobj in re.finditer(self.searchstr, sent[0]):
+                    self.matches.append((snum, matchobj))
         return self.matches
         
     def find(self, searchstr, startsent=0):
@@ -1040,7 +1038,7 @@ class MainFrame(wx.Frame):
             notf = NotFoundDialog(self, wx.ID_ANY, "Not found", self.searcher.searchstr)
             notf.ShowModal()
         else:
-            snum, wnum = match
+            snum, pos = match
             # FIXME: wnum is ignored until we could recenter panel on the given word
             if snum != self.sentpanel.snum:
                 self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
