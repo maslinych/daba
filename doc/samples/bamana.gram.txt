@@ -54,7 +54,7 @@ pattern :n/adj/dtm/prn/ptcp/n.prop: [ {|w}:: ] | :n/adj/dtm/prn/ptcp/n.prop: [:n
 section participles
 pattern :v/ptcp: [ {|bali}:: ] | :ptcp: [ :v: :mrph:PTCP.PRIV]
 pattern :v/ptcp: [ {|ta}:: ] | :ptcp: [ :v: :mrph:PTCP.POT]
-pattern :v/ptcp: [ {|tɔ}:: ] | :ptcp: [ :v: :mrph:PTCP.PROG]
+pattern :v/ptcp: [ {|tɔ}:: ] | :ptcp: [ :v: :mrph:CONV.PROG]
 pattern :v/ptcp: [ {@nasal-v@|nen}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 pattern :v/ptcp: [ {@nasal-syl@|nen}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 pattern :v/ptcp: [ {@nonnasal-v@|len}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
