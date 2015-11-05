@@ -20,17 +20,23 @@ import wx
 import wx.stc
 import wx.lib.scrolledpanel as scrolled
 import wx.combo
+import wx.lib.newevent
 from wx.lib.stattext import GenStaticText
 import os
 import formats
 import datetime
 import codecs
 import unicodedata
+import platform
 import xml.etree.cElementTree as e
 from ntgloss import Gloss, emptyGloss
 import grammar
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
+
+## EVENTS 
+
+GlossSelectorEvent, EVT_GLOSS_SELECTOR_UPDATED = wx.lib.newevent.NewCommandEvent()
 
 
 ## UTILITY functions and no-interface classes
@@ -408,8 +414,8 @@ class GlossEditButton(wx.Panel):
                 1: 'Black',
                 2: 'Navy',
                 3: 'Blue',
-                -1: 'Red',
-                0: 'Green'
+                4: 'Red',
+                5: 'Green'
                 }
         
     def OnEditGloss(self, event):
@@ -442,13 +448,15 @@ class GlossEditButton(wx.Panel):
 
 
 class GlossSelector(wx.Panel):
-    def __init__(self, parent, index, glosstoken, selectlist, vertical=True, *args, **kwargs):
+    def __init__(self, parent, index, glosstoken, selectlist, charspan, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         try:
             self.toktype, (self.form, self.stage, self.glosslist) = glosstoken.as_tuple()
+            self.token = glosstoken.token
         except ValueError:
             print glosstoken
         self.selectlist = selectlist
+        self.charspan = charspan
         self.vertical = vertical
         self.mbutton = None
         self.parent = parent
@@ -471,7 +479,7 @@ class GlossSelector(wx.Panel):
             self.statecode = 2
         elif ''.join(self.glosslist[0].ps) in ['', None, '<?>'] and self.glosslist[0].gloss in ['', None, '<?>'] and not self.glosslist[0].morphemes:
             self.gloss = Gloss(self.glosslist[0].form, (), '', ())
-            self.statecode = -1
+            self.statecode = 4
         else:
             self.gloss = self.glosslist[0]
             self.statecode = 1
@@ -509,8 +517,12 @@ class GlossSelector(wx.Panel):
         self.mbutton.OnStateChange(self.statecode, self.gloss)
         self.SetSizer(self.sizer)
         self.Layout()
-        self.parent.Layout()
-        self.parent.Refresh()
+        evt = GlossSelectorEvent(self.GetId())
+        evt.SetEventObject(self)
+        wx.PostEvent(self.GetEventHandler(), evt)
+        #self.parent.Layout()
+        #self.parent.Refresh()
+        #print "UPDATE:", self.form, self.charspan, self.statecode
 
     def OnEdition(self, gloss):
         oldgloss = self.gloss
@@ -521,7 +533,7 @@ class GlossSelector(wx.Panel):
             self.selectlist = [gloss] + selectedbuttons
         else:
             self.selectlist = [gloss]
-        self.statecode = 0
+        self.statecode = 5
         self.UpdateState(self.statecode, self.gloss)
         self.logger.LogEdit(oldgloss, self.gloss)
 
@@ -711,7 +723,7 @@ class TokenEditButton(wx.Panel):
 
 
 class SentenceAnnotation(wx.ScrolledWindow):
-    def __init__(self, parent, sentglosses, sentselect, vertical=True, *args, **kwargs):
+    def __init__(self, parent, senttext, sentglosses, sentselect, vertical=True, *args, **kwargs):
         wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
         self.SetScrollRate(20, 20)
         self.vertical = vertical
@@ -721,16 +733,25 @@ class SentenceAnnotation(wx.ScrolledWindow):
             self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
         else:
             self.Sizer = wx.BoxSizer(wx.VERTICAL) 
+        startchar = 0
+        charlength = 0
+        #print senttext
         for (index, (glosstoken,selectlist)) in enumerate(zip(sentglosses,sentselect)):
-            try:
-                if glosstoken.type == 'w':
-                    abox = GlossSelector(self, index, glosstoken, selectlist, vertical=self.vertical)
-                else:
-                    abox = TokenEditButton(self, index, glosstoken, selectlist)
-                self.children.append(abox)
-                self.Sizer.Add(abox)
-            except AttributeError:
-                print glosstoken
+            charlength = len(glosstoken.token)
+            tokenindex = senttext[startchar:].find(glosstoken.token)+startchar
+            if tokenindex == -1:
+                #FIXME: handle missing tokens properly
+                print "NOT FOUND IN THE SENTENCE:", glosstoken.token
+                tokenindex = startchar
+            charspan = (tokenindex, charlength)
+            startchar = tokenindex+charlength
+            if glosstoken.type == 'w':
+                abox = GlossSelector(self, index, glosstoken, selectlist, charspan=charspan, vertical=self.vertical)
+            else:
+                abox = TokenEditButton(self, index, glosstoken, selectlist)
+            #print "TOK", glosstoken.token, charspan
+            self.children.append(abox)
+            self.Sizer.Add(abox)
 
         self.SetSizer(self.Sizer)
         self.Layout()
@@ -739,7 +760,60 @@ class SentenceAnnotation(wx.ScrolledWindow):
 class SentenceText(wx.stc.StyledTextCtrl):
     def __init__(self, parent, text, *args, **kwargs):
         wx.stc.StyledTextCtrl.__init__(self, parent, *args, **kwargs)
+        self.encoder = codecs.getencoder("utf-8")
+        # defining styles
+        pb = 16
+        if platform.system() == 'Windows':
+            face = 'Arial'
+        else:
+            face = 'Helvetica'
+        self.style_default = 0
+        self.style_unambiguous = 1
+        self.style_ambiguous = 2
+        self.style_uncertain = 3
+        self.style_unparsed = 4
+        self.style_manual = 5
+
+        self.StyleSetSpec(wx.stc.STC_STYLE_DEFAULT, "size:%d,face:%s,back:#FFFFFF,fore:#1A4780" % (pb, face))
+        self.StyleClearAll()
+        self.StyleSetSpec(self.style_unambiguous, "size:%d,face:%s,bold,back:#FFFFFF,fore:#1A4780" % (pb, face))
+        self.StyleSetSpec(self.style_ambiguous, "size:%d,face:%s,back:#cccccc,fore:#1A4780" % (pb, face))
+        self.StyleSetSpec(self.style_uncertain, "size:%d,face:%s,back:#dda0dd,fore:#1A4780" % (pb, face))
+        self.StyleSetSpec(self.style_unparsed, "size:%d,face:%s,back:#fc6c85,fore:#1A4780" % (pb, face))
+        self.StyleSetSpec(self.style_manual, "size:%d,face:%s,back:#0bda51,fore:#1A4780" % (pb, face))
+        self.SetSizer(wx.BoxSizer(wx.VERTICAL))
+        self.SetSentence(text)
+        self.Layout()
+
         # FIXME: finish it
+        self.Bind(wx.EVT_LEFT_DCLICK, self.OnDoubleClick)
+
+    def calcByteLen(self, text):
+        return len(self.encoder(text)[0])
+
+    def calcBytePos (self, text, pos):
+        return len(self.encoder(text[:pos])[0])
+
+    def SetSentence(self, text):
+        self.text = text
+        self.SetText(self.text)
+        self.SetReadOnly(True)
+        self.StartStyling(0, 0xff)
+        self.SetStyling(self.calcByteLen(self.text), 0)
+        
+    def OnSelectorUpdate(self, evt):
+        btn = evt.GetEventObject()
+        startchar, charlength = btn.charspan
+        bytepos = self.calcBytePos(self.text, startchar)
+        bytelen = self.calcByteLen(btn.token)
+        self.StartStyling(bytepos, 0xff)
+        self.SetStyling(bytelen, btn.statecode)
+        self.GotoPos(startchar+charlength)
+        self.Layout()
+
+    def OnDoubleClick(self, evt):
+        #print self.GetCurrentPos()
+        evt.Skip()
 
     def Highlight(self, start, end):
         pass
@@ -782,6 +856,9 @@ class SentPanel(wx.ScrolledWindow):
         self.sentfont.SetPointSize(self.sentfont.GetPointSize() + 2)
         self.sentcolor = 'Navy'
 
+        # bind disambiguation events
+        self.Bind(EVT_GLOSS_SELECTOR_UPDATED, self.OnSelectorUpdate)
+
         # create navigation buttons
         self.sentnumbutton = wx.SpinCtrl(self, wx.ID_ANY, "", (10,20), style=wx.TE_PROCESS_ENTER)
         self.sentnumbutton.SetRange(1, self.numsent)
@@ -821,6 +898,7 @@ class SentPanel(wx.ScrolledWindow):
 
     def ShowSent(self, senttuple, snum):
         self.senttext, self.selectlist, self.tokenlist, self.sentindex = senttuple
+        self.senttext = self.senttext.strip()
         if self.isshown:
             self.sentsizer.Remove(self.sentsource)
             self.sentsource.Destroy()
@@ -829,13 +907,9 @@ class SentPanel(wx.ScrolledWindow):
         self.snum = snum
         self.sentnumbutton.SetValue(snum+1)
         self.GetTopLevelParent().SaveFilePos(snum)
-        self.sentsource = wx.stc.StyledTextCtrl(self, wx.ID_ANY)
-        self.sentsource.SetText(self.senttext)
-        self.sentsource.SetReadOnly(True)
-        #self.sentsource.SetFont(self.sentfont)
-        #self.sentsource.SetForegroundColour(self.sentcolor)
+        self.sentsource = SentenceText(self, self.senttext)
         self.sentsizer.Add(self.sentsource, 1, wx.EXPAND)
-        self.annotlist = SentenceAnnotation(self, self.tokenlist, self.selectlist, vertical=self.vertical)
+        self.annotlist = SentenceAnnotation(self, self.senttext, self.tokenlist, self.selectlist, vertical=self.vertical)
         self.Sizer.Add(self.annotlist, 1, wx.EXPAND)
         self.Layout()
         self.isshown = True
@@ -876,6 +950,9 @@ class SentPanel(wx.ScrolledWindow):
                 wx.TheClipboard.Open()
                 wx.TheClipboard.SetData(clipdata)
                 wx.TheClipboard.Close()
+
+    def OnSelectorUpdate(self, event):
+        self.sentsource.OnSelectorUpdate(event)
 
 class MainFrame(wx.Frame):
     'Main frame'
