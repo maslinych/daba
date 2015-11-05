@@ -17,6 +17,7 @@
 #
 
 import wx
+import wx.stc
 import wx.lib.scrolledpanel as scrolled
 import wx.combo
 from wx.lib.stattext import GenStaticText
@@ -735,6 +736,15 @@ class SentenceAnnotation(wx.ScrolledWindow):
         self.Layout()
 
 
+class SentenceText(wx.stc.StyledTextCtrl):
+    def __init__(self, parent, text, *args, **kwargs):
+        wx.stc.StyledTextCtrl.__init__(self, parent, *args, **kwargs)
+        # FIXME: finish it
+
+    def Highlight(self, start, end):
+        pass
+
+
 ## PANELS
 
 class FilePanel(wx.ScrolledWindow):
@@ -819,11 +829,11 @@ class SentPanel(wx.ScrolledWindow):
         self.snum = snum
         self.sentnumbutton.SetValue(snum+1)
         self.GetTopLevelParent().SaveFilePos(snum)
-        self.sentsource = wx.StaticText(self, wx.ID_ANY, self.senttext.replace('\n', ' '))
-        self.sentsource.SetFont(self.sentfont)
-        self.sentsource.SetForegroundColour(self.sentcolor)
-        #sentwidth = self.GetClientSize().GetWidth()-5
-        #self.sentsource.Wrap(sentwidth)
+        self.sentsource = wx.stc.StyledTextCtrl(self, wx.ID_ANY)
+        self.sentsource.SetText(self.senttext)
+        self.sentsource.SetReadOnly(True)
+        #self.sentsource.SetFont(self.sentfont)
+        #self.sentsource.SetForegroundColour(self.sentcolor)
         self.sentsizer.Add(self.sentsource, 1, wx.EXPAND)
         self.annotlist = SentenceAnnotation(self, self.tokenlist, self.selectlist, vertical=self.vertical)
         self.Sizer.Add(self.annotlist, 1, wx.EXPAND)
