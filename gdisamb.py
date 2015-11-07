@@ -841,11 +841,10 @@ class FilePanel(wx.ScrolledWindow):
         self.Layout()
 
 
-class SentPanel(wx.ScrolledWindow):
+class SentPanel(wx.Panel):
     'Manual disambiguation panel'
     def __init__(self, parent, vertical=True, *args, **kwargs):
-        wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
-        self.SetScrollRate(20, 20)
+        wx.Panel.__init__(self, parent, *args, **kwargs)
         self.vertical = vertical
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
         self.savedstate = None
