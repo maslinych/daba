@@ -39,7 +39,7 @@ from intervaltree import Interval, IntervalTree
 
 GlossSelectorEvent, EVT_SELECTOR_UPDATED = wx.lib.newevent.NewCommandEvent()
 GlossButtonEvent, EVT_GLOSS_SELECTED = wx.lib.newevent.NewCommandEvent()
-GlossEditButtonEvent, EVT_GLOSS_EDITED = wx.lib.newevent.NewCommandEvent()
+GlossEditEvent, EVT_GLOSS_EDITED = wx.lib.newevent.NewCommandEvent()
 ShowSelectorEvent, EVT_SHOW_SELECTOR = wx.lib.newevent.NewCommandEvent()
 SaveResultsEvent, EVT_SAVE_RESULTS = wx.lib.newevent.NewCommandEvent()
 
