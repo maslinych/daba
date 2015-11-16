@@ -36,8 +36,8 @@ from funcparserlib.parser import NoParseError
 
 ## EVENTS 
 
-GlossSelectorEvent, EVT_GLOSS_SELECTOR_UPDATED = wx.lib.newevent.NewCommandEvent()
-
+GlossSelectorEvent, EVT_GLOSS_SELECTED = wx.lib.newevent.NewCommandEvent()
+SaveResultsEvent, EVT_SAVE_RESULTS = wx.lib.newevent.NewCommandEvent()
 
 ## UTILITY functions and no-interface classes
 
@@ -225,7 +225,6 @@ class GlossButton(wx.Panel):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.selected = False
         self.children = []
-        self.parent = parent
         self.gloss = gloss
         self.disabled = disabled
 
@@ -251,21 +250,26 @@ class GlossButton(wx.Panel):
         self.SetSizer(box)
 
     def OnToggled(self, event):
+        """Button pressed by the user"""
+        evt = GlossSelectorEvent(self.GetId())
+        evt.SetEventObject(self)
+        wx.PostEvent(self.GetEventHandler(), evt)
+        self.DoToggle()
+
+    def DoToggle(self):
+        """programmatically push button"""
         self.selected = not self.selected
-        self.parent.OnSelection(self.gloss)
         if self.selected:
             self.main.SetForegroundColour("DarkGreen")
         else:
             self.main.SetForegroundColour("Black")
+        self.ToggleChildren()
+ 
+    def ToggleChildren(self):
         for child in self.children:
             if bool(child.main.GetValue()) != self.selected:
                 child.main.SetValue(self.selected)
-                child.OnToggled(event)
-
-    def OnSelection(self, gloss):
-        #FIXME: HACK for recursive (morpheme) buttons, should instead 
-        # do proper referencing to parent GlossSelector widget
-        pass
+                child.DoToggle()
 
 
 class GlossInputDialog(wx.Dialog):
@@ -448,15 +452,14 @@ class GlossEditButton(wx.Panel):
 
 
 class GlossSelector(wx.Panel):
-    def __init__(self, parent, index, glosstoken, selectlist, charspan, vertical=True, *args, **kwargs):
+    def __init__(self, parent, index, glosstoken, selectlist, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         try:
             self.toktype, (self.form, self.stage, self.glosslist) = glosstoken.as_tuple()
-            self.token = glosstoken.token
+            self.token = glosstoken
         except ValueError:
             print glosstoken
         self.selectlist = selectlist
-        self.charspan = charspan
         self.vertical = vertical
         self.mbutton = None
         self.parent = parent
@@ -466,6 +469,7 @@ class GlossSelector(wx.Panel):
         self.logger = self.GetTopLevelParent().logger
 
         self.Bind(wx.EVT_CONTEXT_MENU, self.OnContextMenu)
+        self.Bind(EVT_GLOSS_SELECTED, self.OnGlossSelected)
 
         if self.vertical:
             self.sizer = wx.BoxSizer(wx.VERTICAL)
@@ -498,7 +502,7 @@ class GlossSelector(wx.Panel):
                 for button in self.children:
                     if button.gloss == gloss:
                         button.main.SetValue(True)
-                        button.OnToggled(None)
+                        button.DoToggle()
                 else:
                     self.OnSelection(gloss)
 
@@ -517,9 +521,6 @@ class GlossSelector(wx.Panel):
         self.mbutton.OnStateChange(self.statecode, self.gloss)
         self.SetSizer(self.sizer)
         self.Layout()
-        evt = GlossSelectorEvent(self.GetId())
-        evt.SetEventObject(self)
-        wx.PostEvent(self.GetEventHandler(), evt)
         #self.parent.Layout()
         #self.parent.Refresh()
         #print "UPDATE:", self.form, self.charspan, self.statecode
@@ -537,6 +538,13 @@ class GlossSelector(wx.Panel):
         self.UpdateState(self.statecode, self.gloss)
         self.logger.LogEdit(oldgloss, self.gloss)
 
+    def OnGlossSelected(self, evt):
+        """called when user pressed one of the gloss buttons (FIXME: gloss edits)"""
+        gloss = evt.GetEventObject().gloss
+        self.OnSelection(gloss)
+        evt.SetEventObject(self)
+        evt.Skip()
+
     def OnSelection(self, gloss):
         if self.children:
             selected = [button.gloss for button in self.children if button.selected]
@@ -550,7 +558,7 @@ class GlossSelector(wx.Panel):
                 self.mbutton.gloss = self.selectlist[0]
                 self.stage = 'gdisamb.3'
             elif len(self.selectlist) == 1:
-                self.statecode = 0
+                self.statecode = 5
                 self.gloss = self.selectlist[0]
                 self.mbutton.gloss = self.selectlist[0]
                 self.stage = 'gdisamb.0'
@@ -564,9 +572,12 @@ class GlossSelector(wx.Panel):
             self.gloss = gloss
             self.glosslist = [gloss]
             self.selectlist = [gloss]
-            self.statecode = 0
+            self.statecode = 5
             self.stage = 'gdisamb.-1'
         self.UpdateState(self.statecode, self.gloss)
+        #evt = GlossSelectorEvent(self.GetId())
+        #evt.SetEventObject(self)
+        #wx.PostEvent(self.GetEventHandler(), evt)
 
     def GetToken(self):
         return formats.GlossToken((self.toktype, (self.form, self.stage, self.glosslist)))
@@ -597,13 +608,14 @@ class GlossSelector(wx.Panel):
         glosses = self.GetTopLevelParent().processor.glosses
         sentpanel = self.GetTopLevelParent().sentpanel
         tokens = glosses[sentpanel.snum][2]
-        if self.index == 0:
+        snum, toknum = self.index
+        if toknum == 0:
             joinbw.Enable(False)
-        elif not tokens[self.index-1].type == 'w':
+        elif not tokens[toknum-1].type == 'w':
             joinbw.Enable(False)
-        if self.index == len(tokens)-1:
+        if toknum == len(tokens)-1:
             joinfw.Enable(False)
-        elif not tokens[self.index+1].type == 'w':
+        elif not tokens[toknum+1].type == 'w':
             joinfw.Enable(False)
 
         self.PopupMenu(menu)
@@ -701,6 +713,7 @@ class NotFoundDialog(wx.Dialog):
 class TokenEditButton(wx.Panel):
     def __init__(self, parent, index, token, selectlist, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
+        self.statecode = 0
         self.index = index
         self.selectlist = selectlist
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -716,49 +729,15 @@ class TokenEditButton(wx.Panel):
             self.token = dlg.GetToken()
             self.button.SetLabel(self.token.token)
             self.selectlist = [self.token.as_tuple()]
+            self.statecode = 5
         dlg.Destroy()
 
     def GetToken(self):
         return self.token
 
 
-class SentenceAnnotation(wx.ScrolledWindow):
-    def __init__(self, parent, senttext, sentglosses, sentselect, vertical=True, *args, **kwargs):
-        wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
-        self.SetScrollRate(20, 20)
-        self.vertical = vertical
-        self.children = []
-
-        if vertical:
-            self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
-        else:
-            self.Sizer = wx.BoxSizer(wx.VERTICAL) 
-        startchar = 0
-        charlength = 0
-        #print senttext
-        for (index, (glosstoken,selectlist)) in enumerate(zip(sentglosses,sentselect)):
-            charlength = len(glosstoken.token)
-            tokenindex = senttext[startchar:].find(glosstoken.token)+startchar
-            if tokenindex == -1:
-                #FIXME: handle missing tokens properly
-                print "NOT FOUND IN THE SENTENCE:", glosstoken.token
-                tokenindex = startchar
-            charspan = (tokenindex, charlength)
-            startchar = tokenindex+charlength
-            if glosstoken.type == 'w':
-                abox = GlossSelector(self, index, glosstoken, selectlist, charspan=charspan, vertical=self.vertical)
-            else:
-                abox = TokenEditButton(self, index, glosstoken, selectlist)
-            #print "TOK", glosstoken.token, charspan
-            self.children.append(abox)
-            self.Sizer.Add(abox)
-
-        self.SetSizer(self.Sizer)
-        self.Layout()
-
-
 class SentenceText(wx.stc.StyledTextCtrl):
-    def __init__(self, parent, text, *args, **kwargs):
+    def __init__(self, parent, *args, **kwargs):
         wx.stc.StyledTextCtrl.__init__(self, parent, *args, **kwargs)
         self.encoder = codecs.getencoder("utf-8")
         # defining styles
@@ -782,11 +761,10 @@ class SentenceText(wx.stc.StyledTextCtrl):
         self.StyleSetSpec(self.style_unparsed, "size:%d,face:%s,back:#fc6c85,fore:#1A4780" % (pb, face))
         self.StyleSetSpec(self.style_manual, "size:%d,face:%s,back:#0bda51,fore:#1A4780" % (pb, face))
         self.SetSizer(wx.BoxSizer(wx.VERTICAL))
-        self.SetSentence(text)
         self.Layout()
 
         # FIXME: finish it
-        self.Bind(wx.EVT_LEFT_DCLICK, self.OnDoubleClick)
+        self.Bind(wx.EVT_LEFT_DOWN, self.OnClick)
 
     def calcByteLen(self, text):
         return len(self.encoder(text)[0])
@@ -794,24 +772,60 @@ class SentenceText(wx.stc.StyledTextCtrl):
     def calcBytePos (self, text, pos):
         return len(self.encoder(text[:pos])[0])
 
-    def SetSentence(self, text):
+    def calcCharSpans(self, tokenbuttons):
+        self.charspans = []
+        startchar = 0
+        charlength = 0
+        for btn in tokenbuttons:
+            token = btn.token.token
+            charlength = len(token)
+            tokenindex = self.text[startchar:].find(token)+startchar
+            if tokenindex == -1:
+                #FIXME: handle missing tokens properly
+                print "NOT FOUND IN THE SENTENCE:", token
+                tokenindex = startchar
+            charspan = (tokenindex, charlength)
+            startchar = tokenindex+charlength
+            self.charspans.append(charspan)
+        return self.charspans
+
+    def SetSentence(self, text, tokenbuttons):
         self.text = text
+        self.calcCharSpans(tokenbuttons)
         self.SetText(self.text)
         self.SetReadOnly(True)
         self.StartStyling(0, 0xff)
         self.SetStyling(self.calcByteLen(self.text), 0)
+        self.DoColorSentence(tokenbuttons)
+
+    def ClearSentence(self):
+        self.SetReadOnly(False)
+        self.ClearAll()
         
-    def OnSelectorUpdate(self, evt):
-        btn = evt.GetEventObject()
-        startchar, charlength = btn.charspan
+    def DoColorToken(self, btn):
+        snum, toknum = btn.index
+        token = btn.token.token
+        try:
+            startchar, charlength = self.charspans[toknum]
+        except (IndexError):
+            print toknum, token
         bytepos = self.calcBytePos(self.text, startchar)
-        bytelen = self.calcByteLen(btn.token)
+        bytelen = self.calcByteLen(token)
         self.StartStyling(bytepos, 0xff)
         self.SetStyling(bytelen, btn.statecode)
-        self.GotoPos(startchar+charlength)
+        #self.GotoPos(bytepos+bytelen)
         self.Layout()
 
-    def OnDoubleClick(self, evt):
+    def DoColorSentence(self, tokenbuttons):
+        for btn in tokenbuttons:
+            self.DoColorToken(btn)
+
+    def OnSelectorUpdate(self, evt):
+        btn = evt.GetEventObject()
+        self.DoColorToken(btn)
+        evt.Skip()
+
+    def OnClick(self, evt):
         #print self.GetCurrentPos()
         evt.Skip()
 
@@ -846,7 +860,6 @@ class SentPanel(wx.Panel):
     def __init__(self, parent, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.vertical = vertical
-        self.Sizer = wx.BoxSizer(wx.VERTICAL)
         self.savedstate = None
         self.isshown = False
         self.snum = 0
@@ -856,9 +869,10 @@ class SentPanel(wx.Panel):
         self.sentcolor = 'Navy'
 
         # bind disambiguation events
-        self.Bind(EVT_GLOSS_SELECTOR_UPDATED, self.OnSelectorUpdate)
+        self.Bind(EVT_GLOSS_SELECTED, self.OnSelectorUpdate)
 
         # create navigation buttons
+        self.Sizer = wx.BoxSizer(wx.VERTICAL)
         self.sentnumbutton = wx.SpinCtrl(self, wx.ID_ANY, "", (10,20), style=wx.TE_PROCESS_ENTER)
         self.sentnumbutton.SetRange(1, self.numsent)
         prevbutton = wx.Button(self, wx.ID_ANY, '<')
@@ -889,26 +903,43 @@ class SentPanel(wx.Panel):
         copybutton = wx.Button(self, wx.ID_COPY)
         copybutton.Bind(wx.EVT_BUTTON, self.OnCopyToClipboard)
         self.navsizer.Add(copybutton)
-        self.sentsizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.sentsource = SentenceText(self)
         self.Sizer.Add(self.navsizer)
-        self.Sizer.Add(self.sentsizer, 0, wx.EXPAND)
+        self.Sizer.Add(self.sentsource, 0, wx.EXPAND)
         self.SetSizer(self.Sizer)
         self.Layout()
+
+    def CreateGlossButtons(self):
+        self.tokenbuttons = []
+        self.annotlist = wx.ScrolledWindow(self, wx.ID_ANY)
+        self.annotlist.SetScrollRate(20, 20)
+        if self.vertical:
+            annotsizer = wx.BoxSizer(wx.HORIZONTAL)
+        else:
+            annotsizer = wx.BoxSizer(wx.VERTICAL) 
+        for (toknum, (token,selectlist)) in enumerate(zip(self.tokenlist,self.selectlist)):
+            if token.type == 'w':
+                abox = GlossSelector(self.annotlist, (self.snum, toknum), token, selectlist, vertical=self.vertical)
+            else:
+                abox = TokenEditButton(self.annotlist, (self.snum, toknum), token, selectlist, vertical=self.vertical)
+            self.tokenbuttons.append(abox)
+            annotsizer.Add(abox)
+        self.annotlist.SetSizer(annotsizer)
+        self.annotlist.Layout()
+        return self.annotlist
 
     def ShowSent(self, senttuple, snum):
         self.senttext, self.selectlist, self.tokenlist, self.sentindex = senttuple
         self.senttext = self.senttext.strip()
         if self.isshown:
-            self.sentsizer.Remove(self.sentsource)
-            self.sentsource.Destroy()
+            self.sentsource.ClearSentence()
             self.Sizer.Remove(self.annotlist)
             self.annotlist.Destroy()
         self.snum = snum
         self.sentnumbutton.SetValue(snum+1)
         self.GetTopLevelParent().SaveFilePos(snum)
-        self.sentsource = SentenceText(self, self.senttext)
-        self.sentsizer.Add(self.sentsource, 1, wx.EXPAND)
-        self.annotlist = SentenceAnnotation(self, self.senttext, self.tokenlist, self.selectlist, vertical=self.vertical)
+        self.CreateGlossButtons()
+        self.sentsource.SetSentence(self.senttext, self.tokenbuttons)
         self.Sizer.Add(self.annotlist, 1, wx.EXPAND)
         self.Layout()
         self.isshown = True
@@ -932,16 +963,10 @@ class SentPanel(wx.Panel):
         self.GetTopLevelParent().Layout()
 
     def OnSaveResults(self, event):
-        tokenlist = []
-        self.selectlist = []
-        for selector in self.annotlist.children:
-            if selector.selectlist:
-                self.GetTopLevelParent().processor.dirty = True
-            self.selectlist.append(selector.selectlist)
-            tokenlist.append(selector.GetToken())
-        self.GetTopLevelParent().processor.glosses[self.snum] = tuple([self.senttext, self.selectlist, tokenlist, self.sentindex])
+        evt = SaveResultsEvent(self.GetId())
+        wx.PostEvent(self.GetEventHandler(), evt)
 
-    def OnCopyToClipboard(self, event):
+    def OnCopyToClipboard(self, evt):
         if self.senttext:
             clipdata = wx.TextDataObject()
             clipdata.SetText(self.senttext)
@@ -950,8 +975,9 @@ class SentPanel(wx.Panel):
                 wx.TheClipboard.SetData(clipdata)
                 wx.TheClipboard.Close()
 
-    def OnSelectorUpdate(self, event):
-        self.sentsource.OnSelectorUpdate(event)
+    def OnSelectorUpdate(self, evt):
+        self.sentsource.OnSelectorUpdate(evt)
+        evt.Skip()
 
 class MainFrame(wx.Frame):
     'Main frame'
@@ -1012,7 +1038,9 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnWidgetInspector, menuInspector)
         menuBar.Append(debugmenu,"&Debug") 
 
-
+        # Custom events
+        self.Bind(EVT_GLOSS_SELECTED, self.OnSelectorUpdate)
+        self.Bind(EVT_SAVE_RESULTS, self.OnSaveResults)
 
         #FIXME: loading localdict right on start, should give user possibility to choose
         if os.path.exists(self.dictfile):
@@ -1089,6 +1117,19 @@ class MainFrame(wx.Frame):
     def OnWidgetInspector(self, e):
         import wx.lib.inspection
         wx.lib.inspection.InspectionTool().Show()
+
+    def OnSelectorUpdate(self, e):
+        selector = e.GetEventObject()
+        if selector.selectlist:
+            self.processor.dirty = True
+        token = selector.GetToken()
+        snum, toknum = selector.index
+        self.processor.glosses[snum][1][toknum] = selector.selectlist
+        self.processor.glosses[snum][2][toknum] = token
+        print "UPDATING TOKEN", token.as_tuple()
+
+    def OnSaveResults(self,e):
+        print "Call to save results"
 
     def OnUndoTokens(self,e):
         savedstate = self.sentpanel.savedstate
