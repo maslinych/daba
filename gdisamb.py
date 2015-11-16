@@ -36,7 +36,9 @@ from funcparserlib.parser import NoParseError
 
 ## EVENTS 
 
-GlossSelectorEvent, EVT_GLOSS_SELECTED = wx.lib.newevent.NewCommandEvent()
+GlossSelectorEvent, EVT_SELECTOR_UPDATED = wx.lib.newevent.NewCommandEvent()
+GlossButtonEvent, EVT_GLOSS_SELECTED = wx.lib.newevent.NewCommandEvent()
+GlossEditButtonEvent, EVT_GLOSS_EDITED = wx.lib.newevent.NewCommandEvent()
 SaveResultsEvent, EVT_SAVE_RESULTS = wx.lib.newevent.NewCommandEvent()
 
 ## UTILITY functions and no-interface classes
@@ -251,7 +253,7 @@ class GlossButton(wx.Panel):
 
     def OnToggled(self, event):
         """Button pressed by the user"""
-        evt = GlossSelectorEvent(self.GetId())
+        evt = GlossButtonEvent(self.GetId())
         evt.SetEventObject(self)
         wx.PostEvent(self.GetEventHandler(), evt)
         self.DoToggle()
@@ -441,8 +443,6 @@ class GlossEditButton(wx.Panel):
         glossstring = makeGlossString(gloss, morphemes=True)
         self.button.SetLabel(glossstring)
         self.Layout()
-        self.parent.Layout()
-        self.parent.parent.Layout()
         try:
             self.button.SetForegroundColour(self.statecolours[statecode])
             self.state = statecode
@@ -519,11 +519,6 @@ class GlossSelector(wx.Panel):
         if not self.mbutton:
             self.mbutton = GlossEditButton(self, self.gloss)
         self.mbutton.OnStateChange(self.statecode, self.gloss)
-        self.SetSizer(self.sizer)
-        self.Layout()
-        #self.parent.Layout()
-        #self.parent.Refresh()
-        #print "UPDATE:", self.form, self.charspan, self.statecode
 
     def OnEdition(self, gloss):
         oldgloss = self.gloss
@@ -536,14 +531,20 @@ class GlossSelector(wx.Panel):
             self.selectlist = [gloss]
         self.statecode = 5
         self.UpdateState(self.statecode, self.gloss)
+        self.OnSelectorUpdated()
         self.logger.LogEdit(oldgloss, self.gloss)
 
     def OnGlossSelected(self, evt):
         """called when user pressed one of the gloss buttons (FIXME: gloss edits)"""
         gloss = evt.GetEventObject().gloss
         self.OnSelection(gloss)
+        self.OnSelectorUpdated()
+
+    def OnSelectorUpdated(self):
+        evt = GlossSelectorEvent(self.GetId())
         evt.SetEventObject(self)
-        evt.Skip()
+        wx.PostEvent(self.GetEventHandler(), evt)
+        self.Layout()
 
     def OnSelection(self, gloss):
         if self.children:
@@ -869,7 +870,7 @@ class SentPanel(wx.Panel):
         self.sentcolor = 'Navy'
 
         # bind disambiguation events
-        self.Bind(EVT_GLOSS_SELECTED, self.OnSelectorUpdate)
+        self.Bind(EVT_SELECTOR_UPDATED, self.OnSelectorUpdate)
 
         # create navigation buttons
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
@@ -977,6 +978,7 @@ class SentPanel(wx.Panel):
 
     def OnSelectorUpdate(self, evt):
         self.sentsource.OnSelectorUpdate(evt)
+        self.Layout()
         evt.Skip()
 
 class MainFrame(wx.Frame):
@@ -1039,7 +1041,7 @@ class MainFrame(wx.Frame):
         menuBar.Append(debugmenu,"&Debug") 
 
         # Custom events
-        self.Bind(EVT_GLOSS_SELECTED, self.OnSelectorUpdate)
+        self.Bind(EVT_SELECTOR_UPDATED, self.OnSelectorUpdate)
         self.Bind(EVT_SAVE_RESULTS, self.OnSaveResults)
 
         #FIXME: loading localdict right on start, should give user possibility to choose
@@ -1126,7 +1128,7 @@ class MainFrame(wx.Frame):
         snum, toknum = selector.index
         self.processor.glosses[snum][1][toknum] = selector.selectlist
         self.processor.glosses[snum][2][toknum] = token
-        print "UPDATING TOKEN", token.as_tuple()
+        print "UPDATING TOKEN", token.as_tuple(), "SELECTED:", selector.selectlist
 
     def OnSaveResults(self,e):
         print "Call to save results"
