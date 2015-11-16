@@ -33,13 +33,16 @@ from ntgloss import Gloss, emptyGloss
 import grammar
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
+from intervaltree import Interval, IntervalTree
 
 ## EVENTS 
 
 GlossSelectorEvent, EVT_SELECTOR_UPDATED = wx.lib.newevent.NewCommandEvent()
 GlossButtonEvent, EVT_GLOSS_SELECTED = wx.lib.newevent.NewCommandEvent()
 GlossEditButtonEvent, EVT_GLOSS_EDITED = wx.lib.newevent.NewCommandEvent()
+ShowSelectorEvent, EVT_SHOW_SELECTOR = wx.lib.newevent.NewCommandEvent()
 SaveResultsEvent, EVT_SAVE_RESULTS = wx.lib.newevent.NewCommandEvent()
+
 
 ## UTILITY functions and no-interface classes
 
@@ -576,9 +579,6 @@ class GlossSelector(wx.Panel):
             self.statecode = 5
             self.stage = 'gdisamb.-1'
         self.UpdateState(self.statecode, self.gloss)
-        #evt = GlossSelectorEvent(self.GetId())
-        #evt.SetEventObject(self)
-        #wx.PostEvent(self.GetEventHandler(), evt)
 
     def GetToken(self):
         return formats.GlossToken((self.toktype, (self.form, self.stage, self.glosslist)))
@@ -741,6 +741,7 @@ class SentenceText(wx.stc.StyledTextCtrl):
     def __init__(self, parent, *args, **kwargs):
         wx.stc.StyledTextCtrl.__init__(self, parent, *args, **kwargs)
         self.encoder = codecs.getencoder("utf-8")
+        self.decoder = codecs.getdecoder("utf-8")
         # defining styles
         pb = 16
         if platform.system() == 'Windows':
@@ -765,13 +766,22 @@ class SentenceText(wx.stc.StyledTextCtrl):
         self.Layout()
 
         # FIXME: finish it
-        self.Bind(wx.EVT_LEFT_DOWN, self.OnClick)
+        self.Bind(wx.EVT_LEFT_UP, self.OnClick)
+        self.Bind(wx.EVT_KEY_DOWN, self.OnKeyPressed)
 
     def calcByteLen(self, text):
         return len(self.encoder(text)[0])
 
     def calcBytePos (self, text, pos):
         return len(self.encoder(text[:pos])[0])
+
+    def calcCharPos(self, bytepos):
+        if bytepos == 0:
+            return 0
+        try:
+            return len(self.decoder(self.encoder(self.text)[0][:bytepos])[0])
+        except (UnicodeDecodeError):
+            self.calcCharPos(self.text, bytepos-1)
 
     def calcCharSpans(self, tokenbuttons):
         self.charspans = []
@@ -788,7 +798,22 @@ class SentenceText(wx.stc.StyledTextCtrl):
             charspan = (tokenindex, charlength)
             startchar = tokenindex+charlength
             self.charspans.append(charspan)
+        self.calcButtonIntervals(tokenbuttons, self.charspans)
         return self.charspans
+
+    def calcButtonIntervals(self, tokenbuttons, charspans):
+        self.intervals = IntervalTree()
+        for btn, span in zip(tokenbuttons, charspans):
+            start, length = span
+            self.intervals[start:start+length] = btn
+
+    def getButtonHere(self, pos):
+        if pos == 0:
+            return sorted(self.intervals)[0][2]
+        try:
+            return sorted(self.intervals[pos])[0][2]
+        except (IndexError):
+            return self.getButtonHere(pos-1)
 
     def SetSentence(self, text, tokenbuttons):
         self.text = text
@@ -827,8 +852,19 @@ class SentenceText(wx.stc.StyledTextCtrl):
         evt.Skip()
 
     def OnClick(self, evt):
-        #print self.GetCurrentPos()
+        bytepos = self.GetCurrentPos()
+        charpos = self.calcCharPos(bytepos)
+        btn = self.getButtonHere(charpos)
+        btnevt = ShowSelectorEvent(btn.GetId())
+        btnevt.SetEventObject(btn)
+        wx.PostEvent(btn.GetEventHandler(), btnevt)
         evt.Skip()
+
+    def OnKeyPressed(self, evt):
+        if evt.GetKeyCode() == wx.stc.STC_KEY_RETURN:
+            self.OnClick(evt)
+        evt.Skip()
+
 
     def Highlight(self, start, end):
         pass
@@ -871,6 +907,7 @@ class SentPanel(wx.Panel):
 
         # bind disambiguation events
         self.Bind(EVT_SELECTOR_UPDATED, self.OnSelectorUpdate)
+        self.Bind(EVT_SHOW_SELECTOR, self.OnShowSelector)
 
         # create navigation buttons
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
@@ -912,7 +949,7 @@ class SentPanel(wx.Panel):
 
     def CreateGlossButtons(self):
         self.tokenbuttons = []
-        self.annotlist = wx.ScrolledWindow(self, wx.ID_ANY)
+        self.annotlist = wx.lib.scrolledpanel.ScrolledPanel(self, wx.ID_ANY)
         self.annotlist.SetScrollRate(20, 20)
         if self.vertical:
             annotsizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -980,6 +1017,10 @@ class SentPanel(wx.Panel):
         self.sentsource.OnSelectorUpdate(evt)
         self.Layout()
         evt.Skip()
+
+    def OnShowSelector(self, evt):
+        btn = evt.GetEventObject()
+        self.annotlist.ScrollChildIntoView(btn)
 
 class MainFrame(wx.Frame):
     'Main frame'
