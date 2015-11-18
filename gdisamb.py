@@ -29,6 +29,7 @@ import codecs
 import unicodedata
 import platform
 import xml.etree.cElementTree as e
+from collections import defaultdict
 from ntgloss import Gloss, emptyGloss
 import grammar
 from funcparserlib.lexer import LexerError
@@ -40,8 +41,10 @@ from intervaltree import Interval, IntervalTree
 GlossSelectorEvent, EVT_SELECTOR_UPDATED = wx.lib.newevent.NewCommandEvent()
 GlossButtonEvent, EVT_GLOSS_SELECTED = wx.lib.newevent.NewCommandEvent()
 GlossEditEvent, EVT_GLOSS_EDITED = wx.lib.newevent.NewCommandEvent()
+TokenSplitEvent, EVT_TOKEN_SPLIT = wx.lib.newevent.NewCommandEvent()
 ShowSelectorEvent, EVT_SHOW_SELECTOR = wx.lib.newevent.NewCommandEvent()
 SaveResultsEvent, EVT_SAVE_RESULTS = wx.lib.newevent.NewCommandEvent()
+
 
 
 ## UTILITY functions and no-interface classes
@@ -469,7 +472,6 @@ class GlossSelector(wx.Panel):
         self.children = []
         self.parserstage = self.stage
         self.index = index
-        self.logger = self.GetTopLevelParent().logger
 
         self.Bind(wx.EVT_CONTEXT_MENU, self.OnContextMenu)
         self.Bind(EVT_GLOSS_SELECTED, self.OnGlossSelected)
@@ -535,7 +537,6 @@ class GlossSelector(wx.Panel):
         self.statecode = 5
         self.UpdateState(self.statecode, self.gloss)
         self.OnSelectorUpdated()
-        self.logger.LogEdit(oldgloss, self.gloss)
 
     def OnGlossSelected(self, evt):
         """called when user pressed one of the gloss buttons (FIXME: gloss edits)"""
@@ -638,33 +639,22 @@ class GlossSelector(wx.Panel):
         sentstate[2][first] = newtoken
         del sentstate[2][second]
         sentpanel.ShowSent(sentstate, sentpanel.snum)
-        self.logger.LogJoin((firsttoken.token,nexttoken.token), newform)
 
     def OnJoinForward(self, evt):
-        self.JoinTwo(self.index, self.index+1)
+        snum, toknum = self.index
+        self.JoinTwo(toknum, toknum+1)
 
     def OnJoinBackward(self, evt):
-        self.JoinTwo(self.index-1, self.index)
+        snum, toknum = self.index
+        self.JoinTwo(toknum-1, toknum)
 
     def OnSplitToken(self, evt):
         dlg = TokenSplitDialog(self,self.form)
         if dlg.ShowModal() == wx.ID_OK:
             result = dlg.GetResult()
             if len(result) > 1:
-                glosses = self.GetTopLevelParent().processor.glosses
-                sentpanel = self.GetTopLevelParent().sentpanel
-                sentstate = glosses[sentpanel.snum]
-                sentpanel.savedstate = tuple([sentstate[0], [i[:] for i in sentstate[1]], sentstate[2][:], sentstate[3]])
-
-                del sentstate[1][self.index]
-                del sentstate[2][self.index]
-                shift = 0
-                for token in result:
-                    sentstate[1].insert(self.index+shift, [])
-                    sentstate[2].insert(self.index+shift, formats.GlossToken(('w', (token, '-1', [Gloss(token, (), '', ())]))))
-                    shift = shift+1
-                sentpanel.ShowSent(sentstate, sentpanel.snum)
-                self.logger.LogSplit(self.form, result)
+                evt = TokenSplitEvent(self.GetId(), index=self.index, result=result)
+                wx.PostEvent(self.GetEventHandler(), evt)
 
     def OnChangeTokenType(self, evt):
         pass
@@ -825,6 +815,8 @@ class SentenceText(wx.stc.StyledTextCtrl):
         self.DoColorSentence(tokenbuttons)
 
     def ClearSentence(self):
+        self.charspans = []
+        self.intervals = IntervalTree()
         self.SetReadOnly(False)
         self.ClearAll()
         
@@ -948,7 +940,7 @@ class SentPanel(wx.Panel):
         self.Layout()
 
     def CreateGlossButtons(self):
-        self.tokenbuttons = []
+        tokenbuttons = []
         self.annotlist = wx.lib.scrolledpanel.ScrolledPanel(self, wx.ID_ANY)
         self.annotlist.SetScrollRate(20, 20)
         if self.vertical:
@@ -960,11 +952,11 @@ class SentPanel(wx.Panel):
                 abox = GlossSelector(self.annotlist, (self.snum, toknum), token, selectlist, vertical=self.vertical)
             else:
                 abox = TokenEditButton(self.annotlist, (self.snum, toknum), token, selectlist, vertical=self.vertical)
-            self.tokenbuttons.append(abox)
+            tokenbuttons.append(abox)
             annotsizer.Add(abox)
         self.annotlist.SetSizer(annotsizer)
         self.annotlist.Layout()
-        return self.annotlist
+        return tokenbuttons
 
     def ShowSent(self, senttuple, snum):
         self.senttext, self.selectlist, self.tokenlist, self.sentindex = senttuple
@@ -976,8 +968,8 @@ class SentPanel(wx.Panel):
         self.snum = snum
         self.sentnumbutton.SetValue(snum+1)
         self.GetTopLevelParent().SaveFilePos(snum)
-        self.CreateGlossButtons()
-        self.sentsource.SetSentence(self.senttext, self.tokenbuttons)
+        tokenbuttons = self.CreateGlossButtons()
+        self.sentsource.SetSentence(self.senttext, tokenbuttons)
         self.Sizer.Add(self.annotlist, 1, wx.EXPAND)
         self.Layout()
         self.isshown = True
@@ -1084,6 +1076,7 @@ class MainFrame(wx.Frame):
         # Custom events
         self.Bind(EVT_SELECTOR_UPDATED, self.OnSelectorUpdate)
         self.Bind(EVT_SAVE_RESULTS, self.OnSaveResults)
+        self.Bind(EVT_TOKEN_SPLIT, self.OnTokenSplit)
 
         #FIXME: loading localdict right on start, should give user possibility to choose
         if os.path.exists(self.dictfile):
@@ -1102,6 +1095,7 @@ class MainFrame(wx.Frame):
         self.searcher = SearchTool(self.processor)
         self.logger = None
         self.fileopened = False
+        self.undolist = defaultdict(list)
 
     def InitUI(self):
         self.notebook = wx.Notebook(self)
@@ -1174,13 +1168,25 @@ class MainFrame(wx.Frame):
     def OnSaveResults(self,e):
         print "Call to save results"
 
+    def OnTokenSplit(self, evt):
+        snum, toknum = evt.index
+        sentstate = self.processor.glosses[snum]
+        self.undolist[snum].append(sentstate)
+        del self.processor.glosses[snum][1][toknum]
+        del self.processor.glosses[snum][2][toknum]
+        shift = 0
+        for token in evt.result:
+            self.processor.glosses[snum][1].insert(toknum+shift, [])
+            self.processor.glosses[snum][2].insert(toknum+shift, formats.GlossToken(('w', (token, '-1', [Gloss(token, (), '', ())]))))
+            shift = shift+1
+        self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
+
     def OnUndoTokens(self,e):
-        savedstate = self.sentpanel.savedstate
-        if savedstate:
-            snum = self.sentpanel.snum
+        snum = self.sentpanel.snum
+        if self.undolist[snum]:
+            savedstate = self.undolist[snum].pop()
             self.processor.glosses[snum] = savedstate
             self.sentpanel.ShowSent(savedstate, snum)
-            savedstate = None
         else:
             print "No undo information"
 
