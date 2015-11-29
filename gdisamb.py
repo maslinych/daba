@@ -29,7 +29,7 @@ import codecs
 import unicodedata
 import platform
 import xml.etree.cElementTree as e
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from ntgloss import Gloss, emptyGloss
 import grammar
 from funcparserlib.lexer import LexerError
@@ -42,6 +42,7 @@ GlossSelectorEvent, EVT_SELECTOR_UPDATED = wx.lib.newevent.NewCommandEvent()
 GlossButtonEvent, EVT_GLOSS_SELECTED = wx.lib.newevent.NewCommandEvent()
 GlossEditEvent, EVT_GLOSS_EDITED = wx.lib.newevent.NewCommandEvent()
 TokenSplitEvent, EVT_TOKEN_SPLIT = wx.lib.newevent.NewCommandEvent()
+TokenJoinEvent, EVT_TOKEN_JOIN = wx.lib.newevent.NewCommandEvent()
 ShowSelectorEvent, EVT_SHOW_SELECTOR = wx.lib.newevent.NewCommandEvent()
 SaveResultsEvent, EVT_SAVE_RESULTS = wx.lib.newevent.NewCommandEvent()
 
@@ -50,6 +51,7 @@ SaveResultsEvent, EVT_SAVE_RESULTS = wx.lib.newevent.NewCommandEvent()
 ## UTILITY functions and no-interface classes
 
 normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
+TokenEdit = namedtuple('TokenEdit', 'operation start end toklist')
 
 def get_basename(fname):
     basename = os.path.splitext(fname)[0]
@@ -221,11 +223,10 @@ class SentText(wx.StaticText):
             self.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
         elif event.LeftDown():
             self.GetTopLevelParent().sentpanel.OnSaveResults(event)
-            self.GetTopLevelParent().sentpanel.ShowSent(self.GetTopLevelParent().processor.glosses[self.num], self.num)
+            self.GetTopLevelParent().ShowSent(self.num)
             self.GetTopLevelParent().Layout()
 
         event.Skip()
-
 
 
 class GlossButton(wx.Panel):
@@ -623,38 +624,25 @@ class GlossSelector(wx.Panel):
         self.PopupMenu(menu)
         menu.Destroy()
 
-    def JoinTwo(self, first, second):
-        glosses = self.GetTopLevelParent().processor.glosses
-        sentpanel = self.GetTopLevelParent().sentpanel
-        sentstate = glosses[sentpanel.snum]
-        sentpanel.savedstate = tuple([sentstate[0], [i[:] for i in sentstate[1]], sentstate[2][:], sentstate[3]])
-
-        firsttoken = glosses[sentpanel.snum][2][first]
-        nexttoken = glosses[sentpanel.snum][2][second]
-        #FIXME: will break on non-word tokens
-        newform = firsttoken.token + nexttoken.token
-        newtoken = formats.GlossToken(('w', (newform, '-1', [Gloss(newform, (),'',())])))
-        sentstate[1][first] = []
-        del sentstate[1][second]
-        sentstate[2][first] = newtoken
-        del sentstate[2][second]
-        sentpanel.ShowSent(sentstate, sentpanel.snum)
-
     def OnJoinForward(self, evt):
         snum, toknum = self.index
-        self.JoinTwo(toknum, toknum+1)
+        self.OnJoinTwo(snum, toknum, toknum+1)
 
     def OnJoinBackward(self, evt):
         snum, toknum = self.index
-        self.JoinTwo(toknum-1, toknum)
+        self.OnJoinTwo(snum, toknum-1, toknum)
+
+    def OnJoinTwo(self, snum, first, second):
+        joinevent = TokenJoinEvent(self.GetId(), snum=snum, first=first, second=second)
+        wx.PostEvent(self.GetEventHandler(), joinevent)
 
     def OnSplitToken(self, evt):
         dlg = TokenSplitDialog(self,self.form)
         if dlg.ShowModal() == wx.ID_OK:
             result = dlg.GetResult()
             if len(result) > 1:
-                evt = TokenSplitEvent(self.GetId(), index=self.index, result=result)
-                wx.PostEvent(self.GetEventHandler(), evt)
+                splitevent = TokenSplitEvent(self.GetId(), index=self.index, result=result)
+                wx.PostEvent(self.GetEventHandler(), splitevent)
 
     def OnChangeTokenType(self, evt):
         pass
@@ -1014,6 +1002,7 @@ class SentPanel(wx.Panel):
         btn = evt.GetEventObject()
         self.annotlist.ScrollChildIntoView(btn)
 
+
 class MainFrame(wx.Frame):
     'Main frame'
     def __init__(self, parent, *args, **kwargs):
@@ -1060,9 +1049,10 @@ class MainFrame(wx.Frame):
         
         settingsmenu = wx.Menu()
         menuVertical = settingsmenu.Append(wx.ID_ANY, "V&ertical", " Toggle horizontal/vertical display mode")
-        menuUndoTokens = settingsmenu.Append(wx.ID_ANY, "U&ndo join/split tokens", "Undo join/split tokens")
+        self.menuUndoTokens = settingsmenu.Append(wx.ID_ANY, "U&ndo join/split tokens", "Undo join/split tokens")
+        self.menuUndoTokens.Enable(False)
         self.Bind(wx.EVT_MENU, self.OnVerticalMode, menuVertical)
-        self.Bind(wx.EVT_MENU, self.OnUndoTokens, menuUndoTokens)
+        self.Bind(wx.EVT_MENU, self.OnUndoTokens, self.menuUndoTokens)
         menuFont = settingsmenu.Append(wx.ID_ANY, "Select F&ont", "Select font")
         self.Bind(wx.EVT_MENU, self.OnSelectFont, menuFont)
         menuBar.Append(settingsmenu,"&Settings") 
@@ -1075,8 +1065,9 @@ class MainFrame(wx.Frame):
 
         # Custom events
         self.Bind(EVT_SELECTOR_UPDATED, self.OnSelectorUpdate)
-        self.Bind(EVT_SAVE_RESULTS, self.OnSaveResults)
+        self.Bind(EVT_SAVE_RESULTS, self.OnSave)
         self.Bind(EVT_TOKEN_SPLIT, self.OnTokenSplit)
+        self.Bind(EVT_TOKEN_JOIN, self.OnTokenJoin)
 
         #FIXME: loading localdict right on start, should give user possibility to choose
         if os.path.exists(self.dictfile):
@@ -1126,7 +1117,7 @@ class MainFrame(wx.Frame):
         self.InitUI()
         if not snum is None:
             self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
-            self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
+            self.ShowSent(snum)
         self.Layout()
         self.Thaw()
 
@@ -1163,15 +1154,17 @@ class MainFrame(wx.Frame):
         snum, toknum = selector.index
         self.processor.glosses[snum][1][toknum] = selector.selectlist
         self.processor.glosses[snum][2][toknum] = token
-        print "UPDATING TOKEN", token.as_tuple(), "SELECTED:", selector.selectlist
 
-    def OnSaveResults(self,e):
-        print "Call to save results"
+    def ShowSent(self, snum):
+        if self.undolist[snum]:
+            self.menuUndoTokens.Enable(True)
+        self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
 
     def OnTokenSplit(self, evt):
         snum, toknum = evt.index
-        sentstate = self.processor.glosses[snum]
-        self.undolist[snum].append(sentstate)
+        savedtoken = self.processor.glosses[snum][2][toknum]
+        edit = TokenEdit('split', toknum, toknum+len(evt.result), [savedtoken])
+        self.undolist[snum].append(edit)
         del self.processor.glosses[snum][1][toknum]
         del self.processor.glosses[snum][2][toknum]
         shift = 0
@@ -1179,16 +1172,37 @@ class MainFrame(wx.Frame):
             self.processor.glosses[snum][1].insert(toknum+shift, [])
             self.processor.glosses[snum][2].insert(toknum+shift, formats.GlossToken(('w', (token, '-1', [Gloss(token, (), '', ())]))))
             shift = shift+1
-        self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
+        self.ShowSent(snum)
+
+    def OnTokenJoin(self, evt):
+        snum = evt.snum
+        first = evt.first
+        second = evt.second
+        savedtokens = self.processor.glosses[snum][2][first:second+1]
+        edit = TokenEdit('join', first, second, savedtokens)
+        self.undolist[snum].append(edit)
+        firsttoken = self.processor.glosses[snum][2][first]
+        nexttoken = self.processor.glosses[snum][2][second]
+        #FIXME: will break on non-word tokens
+        newform = firsttoken.token + nexttoken.token
+        newtoken = formats.GlossToken(('w', (newform, '-1', [Gloss(newform, (),'',())])))
+        self.processor.glosses[snum][1][first] = []
+        del self.processor.glosses[snum][1][second]
+        self.processor.glosses[snum][2][first] = newtoken
+        del self.processor.glosses[snum][2][second]
+        self.ShowSent(snum)
 
     def OnUndoTokens(self,e):
         snum = self.sentpanel.snum
         if self.undolist[snum]:
             savedstate = self.undolist[snum].pop()
-            self.processor.glosses[snum] = savedstate
-            self.sentpanel.ShowSent(savedstate, snum)
-        else:
-            print "No undo information"
+            if savedstate.operation == 'split':
+                self.processor.glosses[snum][2][savedstate.start:savedstate.end+1] = savedstate.toklist
+            elif savedstate.operation == 'join':
+                self.processor.glosses[snum][2][savedstate.start:savedstate.end] = savedstate.toklist
+            else:
+                print "Unimplemented undo operation!"
+            self.ShowSent(snum)
 
     def OnMenuSearch(self,e):
         dlg = SearchDialog(self, wx.ID_ANY, "Search word or sentence part", "")
@@ -1217,7 +1231,7 @@ class MainFrame(wx.Frame):
             snum, pos = match
             # FIXME: wnum is ignored until we could recenter panel on the given word
             if snum != self.sentpanel.snum:
-                self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
+                self.ShowSent(snum)
             else:
                 if len(self.searcher.matches) == 1:
                     foundhere = wx.MessageDialog(self, "Found in this sentence only!", "Search result", wx.OK)
@@ -1234,7 +1248,7 @@ class MainFrame(wx.Frame):
     def OnGotoSentence(self, e):
         self.sentpanel.OnSaveResults(e)
         snum = self.sentpanel.sentnumbutton.GetValue() - 1
-        self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
+        self.ShowSent(snum)
 
     def SaveFilePos(self, snum):
         if self.fileopened:
@@ -1301,11 +1315,11 @@ class MainFrame(wx.Frame):
         self.SetTitle(self.filename)
         self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
         snum = self.GetFilePos(self.infile)
-        self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
+        self.ShowSent(snum)
         self.fileopened = True
         self.Layout()
 
-    def SaveFiles(self,e):
+    def SaveFiles(self):
         if self.localdict:
             formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict',ver='0').write()
         self.processor.write(self.outfile)
@@ -1318,7 +1332,7 @@ class MainFrame(wx.Frame):
             if not self.outfile:
                 self.OnSaveAs(e)
             else:
-                self.SaveFiles(e)
+                self.SaveFiles()
 
     def OnSaveAs(self,e):
         if not self.fileopened:
@@ -1331,7 +1345,7 @@ class MainFrame(wx.Frame):
                 self.outfile = dlg.GetPath()
                 if not os.path.splitext(self.outfile)[1] == '.html' :
                     self.outfile = ''.join([self.outfile, os.path.extsep, 'html'])
-                self.SaveFiles(e)
+                self.SaveFiles()
             dlg.Destroy()
 
 
