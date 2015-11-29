@@ -49,6 +49,9 @@ class GlossToken(object):
     def __unicode__(self):
         return u' '.join(self.type, self.token)
 
+    def __repr__(self):
+        return ' '.join([self.type, repr(self.token), repr(self.value)])
+
     def as_tuple(self):
         if self.type == 'w':
             return (self.type, (self.token, self.stage, self.glosslist))
