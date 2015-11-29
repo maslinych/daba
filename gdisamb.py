@@ -955,7 +955,6 @@ class SentPanel(wx.Panel):
             self.annotlist.Destroy()
         self.snum = snum
         self.sentnumbutton.SetValue(snum+1)
-        self.GetTopLevelParent().SaveFilePos(snum)
         tokenbuttons = self.CreateGlossButtons()
         self.sentsource.SetSentence(self.senttext, tokenbuttons)
         self.Sizer.Add(self.annotlist, 1, wx.EXPAND)
@@ -968,17 +967,15 @@ class SentPanel(wx.Panel):
             prevsent = self.snum-1
         else:
             prevsent = len(self.GetTopLevelParent().processor.glosses)-1
-        self.ShowSent(self.GetTopLevelParent().processor.glosses[prevsent], prevsent)
-        self.GetTopLevelParent().Layout()
+        self.GetTopLevelParent().ShowSent(prevsent)
 
     def NextSentence(self, event):
         self.OnSaveResults(event)
         nextsent = self.snum+1
         try:
-            self.ShowSent(self.GetTopLevelParent().processor.glosses[nextsent],nextsent)
+            self.GetTopLevelParent().ShowSent(nextsent)
         except IndexError:
-            self.ShowSent(self.GetTopLevelParent().processor.glosses[0], 0)
-        self.GetTopLevelParent().Layout()
+            self.GetTopLevelParent().ShowSent(0)
 
     def OnSaveResults(self, event):
         evt = SaveResultsEvent(self.GetId())
@@ -1158,6 +1155,7 @@ class MainFrame(wx.Frame):
     def ShowSent(self, snum):
         if self.undolist[snum]:
             self.menuUndoTokens.Enable(True)
+        self.SaveFilePos(snum)
         self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
 
     def OnTokenSplit(self, evt):
