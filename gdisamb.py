@@ -783,7 +783,7 @@ class SentenceText(wx.stc.StyledTextCtrl):
         self.intervals = IntervalTree()
         for btn, span in zip(tokenbuttons, charspans):
             start, length = span
-            self.intervals[start:start+length] = btn
+            self.intervals[start:start+length] = btn.GetId()
 
     def getButtonHere(self, pos):
         if pos == 0:
@@ -834,10 +834,9 @@ class SentenceText(wx.stc.StyledTextCtrl):
     def OnClick(self, evt):
         bytepos = self.GetCurrentPos()
         charpos = self.calcCharPos(bytepos)
-        btn = self.getButtonHere(charpos)
-        btnevt = ShowSelectorEvent(btn.GetId())
-        btnevt.SetEventObject(btn)
-        wx.PostEvent(btn.GetEventHandler(), btnevt)
+        btn_id = self.getButtonHere(charpos)
+        btnevt = ShowSelectorEvent(btn_id)
+        wx.PostEvent(self.GetEventHandler(), btnevt)
         evt.Skip()
 
     def OnKeyPressed(self, evt):
@@ -996,7 +995,8 @@ class SentPanel(wx.Panel):
         evt.Skip()
 
     def OnShowSelector(self, evt):
-        btn = evt.GetEventObject()
+        btn_id = evt.GetId()
+        btn = self.annotlist.FindWindowById(btn_id)
         self.annotlist.ScrollChildIntoView(btn)
 
 
