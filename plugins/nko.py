@@ -13,7 +13,7 @@ class NkoToLatin(OrthographyConverter):
 
     def convert(self, token):
         """
-        Main conversion method
+        Main NKO>latin conversion method
         """
         
         if re.search("[a-zA-Z]", token):
@@ -22,7 +22,7 @@ class NkoToLatin(OrthographyConverter):
 
         w = token
         if debug:
-            print "NKO", w.encode("utf-8")
+            print "NKO", w.encode("utf-8"), 
     ### FOREIGN sounds with diacritics:
         w = w.replace(u'\u07d6\u07ed', ur"z")
         w = w.replace(u'\u07db\u07ed', ur"S")   ### SH
@@ -209,5 +209,63 @@ class NkoToLatin(OrthographyConverter):
         w = re.sub(ur'^i\u0301`$', ur'i\u0301', w)
         
         if debug:
-            print "LAT", w.encode("utf-8")
+            print "LAT", w.encode("utf-8"),
+        w = self.normalize_tones(w)
+
+        if debug:
+            print "TNL", w.encode("utf-8")
         return [w]
+
+    def normalize_tones(self, word):
+        """Replace surface tones resulting from the plain NKO>latin conversion with deep (lexical) tones"""
+        word = word.replace(u'\u030c', ur'\u0300')
+        if u'N\u0301' in word:
+            Nlow = 0
+        elif u'N\u0300' in word:
+            Nlow = 1
+        else:
+            Nlow = 3
+
+        pieces = word.split(u'N\u0301')
+        outword = []
+        for piece in pieces:
+            piece = re.sub(u'(?P<t>[\u0300\u0301])', u'\g<t>|', piece)
+            piece = re.sub(u'(?P<v>[aeiouɛɔ])(?P<t>[\u0300\u0301])\|(?P=v)', u'\g<v>\g<t>\g<v>|', piece)
+
+            syllables = piece.split('|')
+            if u'\u0300' in syllables[0]:
+                lowtone = 1
+            else:
+                lowtone = 0
+
+            index = 0
+            if lowtone == 1:
+                for syl in syllables[1:]:
+                    index += 1
+                    syllables[index] = re.sub(u'[\u0300\u0301]', u'', syl)
+            else:
+                for syl in syllables[1:]:
+                    index += 1
+                    if lowtone == 0 and u'\u0301' in syl:
+                        syllables[index] = syl.replace(u'\u0301', u'')
+                    elif lowtone == 0 and u'\u0300' in syl:
+                        lowtone = 2
+                    elif lowtone == 2:
+                        syllables[index] = re.sub(u'[\u0301\u0300]', u'', syl)
+            outword.append(u''.join(syllables))
+
+        if Nlow == 0:
+            Njoiner = u'N\u0301'
+        elif Nlow == 1:
+            Njoiner = u'N\u0300'
+        else:
+            Njoiner = u'N'
+
+        finalword = Njoiner.join(outword)
+        finalword = re.sub(u'N\u0301ta\u0301(`?)', u'Ntan\1', finalword)
+        return finalword
+
+
+
+
+
