@@ -1,6 +1,6 @@
 PROJECT=daba
 VERSION := $(shell git describe --abbrev=4)
-WINFILES = newmorph.py orthography.py grammar.py formats.py ntgloss.py gparser.pyw mparser.py gdisamb.pyw plugins/*.py metaprint.py wordparser.py dabased.py ad-hoc/daba2vert.py meta.py __init__.py meta.cfg TextCtrlAutoComplete.py intervaltree/*.py
+WINFILES = newmorph.py orthography.py grammar.py formats.py ntgloss.py gparser.pyw mparser.py gdisamb.pyw plugins/*.py metaprint.py wordparser.py dabased.py ad-hoc/daba2vert.py meta.py __init__.py meta.cfg TextCtrlAutoComplete.py intervaltree/*.py sortedcontainers/*.py
 RESOURCES = run/
 FUNCPARSERLIB = /usr/lib/python2.7/site-packages/funcparserlib
 PYTRIE = pytrie.py
