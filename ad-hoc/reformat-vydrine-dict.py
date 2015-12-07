@@ -32,12 +32,6 @@ def is_headword_border(field):
     if field.tag == 'va' and ';' in field.value:
         return True
 
-def contains_maninka(record):
-    if field.tag == 'di' and field.value:
-        if dialect_is_maninka(field.value):
-            return True
-    return False
-
 def headword_is_maninka(record):
     dialects = []
     for field in record:
@@ -85,13 +79,18 @@ def split_affixed_records(record):
     head = []
     affix = []
     lx = ''
+    ps = ''
     inhead = True
     for field in record:
         if field.tag == 'lx':
             lx = field.value[:field.value.find(u' ')]
+        if field.tag == 'ps' and not ps:
+            ps = field.value
         if field.tag == 'af':
             inhead = False
             if affix:
+                if 'ps' not in [f.tag for f in affix]:
+                    affix.append(Field('ps', ps))
                 output.append(affix)
                 affix = []
             if head:
@@ -107,6 +106,8 @@ def split_affixed_records(record):
     if head:
         output.append(head)
     if affix:
+        if 'ps' not in [f.tag for f in affix]:
+            affix.append(Field('ps', ps))
         output.append(affix)
     return output
 
@@ -148,8 +149,7 @@ def cut_bamana_variants(record):
                 if dialect_is_maninka(field.value):
                     output.extend(variants)
                 variants = []
-            else:
-                output.append(field)
+            output.append(field)
         else:
             if variants:
                 output.extend(variants)
@@ -176,7 +176,7 @@ def cut_bamana_senses(record):
             sense.append(field)
         else:
             output.append(field)
-        if field.tag == 'di' and not dialect_is_maninka(field.value):
+        if field.tag == 'di' and not dialect_is_maninka(field.value) and insense:
             sense_is_bamana = True
     if sense and not sense_is_bamana:
         output.extend(sense)
@@ -193,12 +193,42 @@ def is_obscure_record(record):
 def split_variants(record):
     output = []
     for field in record:
-        if field.tag == 'va':
+        if field.tag in ['va', 'lx']:
             varlist = filter(None, re.split(u'[,;] ', field.value))
-            variants = [Field('va', var) for var in varlist]
+            if field.tag == 'va':
+                variants = [Field('va', var) for var in varlist]
+            else:
+                variants = []
+                variants.append(Field('lx', varlist[0]))
+                for var in varlist[1:]:
+                    variants.append(Field('va', var))
             output.extend(variants)
         else:
             output.append(field)
+    return output
+
+def replace_bamana_lx(record):
+    output = []
+    lxhead = []
+    inlx = True
+    replace = False
+    for field in record:
+        if field.tag == 'va':
+            inlx = False
+            if replace:
+                output.append(Field('lx', field.value))
+                continue
+            else:
+                output.extend(lxhead)
+        if inlx:
+            if field.tag == 'di':
+                if field.value.strip() and not dialect_is_maninka(field.value):
+                    replace = True
+            lxhead.append(field)
+        else:
+            output.append(field)
+    if lxhead and inlx:
+        return lxhead
     return output
 
 def retonalize_value(value):
@@ -269,6 +299,7 @@ for record in preprocessed:
         record = split_variants(record)
         record = retonalize_record(record)
         record = rename_gloss_fields(record)
+        record = replace_bamana_lx(record)
         if not is_obscure_record(record):
             serialize_record(record)
 
