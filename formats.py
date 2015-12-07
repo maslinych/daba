@@ -592,6 +592,8 @@ class DictReader(object):
                     ps = ()
                     ge = ''
                     key = None
+                    seengf = False
+                    seenge = False
 
                 elif line.startswith('\\'):
                     tag, space, value = line[1:].partition(' ')
@@ -608,8 +610,13 @@ class DictReader(object):
                             ps = tuple(value.split('/'))
                         else:
                             ps = ()
-                    elif tag in ['gf', 'ge'] and not ge:
+                    elif tag in ['gf'] and not seengf:
                         ge = value
+                        seengf = True
+                    elif tag in ['ge'] and not seenge:
+                        if not seengf:
+                            ge = value
+                            seenge = True
                     elif tag in ['gv']:
                         if polisemy:
                             self._polisemy[key][ge].append(value)
