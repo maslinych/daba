@@ -45,7 +45,7 @@ def headword_is_maninka(record):
         return True
 
 def is_sense_border(field):
-    return field.tag in ['ms', 'msn']
+    return field.tag in ['ms', 'msn', 'msv']
 
 def strip_sense_number(record):
     output = []
@@ -83,7 +83,10 @@ def split_affixed_records(record):
     inhead = True
     for field in record:
         if field.tag == 'lx':
-            lx = field.value[:field.value.find(u' ')]
+            if u' ' in field.value:
+                lx = field.value[:field.value.find(u' ')]
+            else:
+                lx = field.value
         if field.tag == 'ps' and not ps:
             ps = field.value
         if field.tag == 'af':
@@ -127,35 +130,41 @@ def rename_gloss_fields(record):
     return output
 
 def cut_examples(record):
-    filtered_record = []
+    output = []
     inex = False
-    for index, field in enumerate(record):
-        if record[index].tag in ['ex', 'idi']:
+    for field in record:
+        if field.tag in ['ex', 'idi', 'vad']:
             inex = True
-        elif field.tag == 'di' and inex:
+            continue
+        if inex:
             inex = False
-        else:
-            filtered_record.append(field)
-    return filtered_record
+            if field.tag == 'di':
+                continue
+        output.append(field)
+    return output
 
 def cut_bamana_variants(record):
     output = []
     variants = []
+    afterva = False
     for field in record:
         if field.tag == 'va':
             variants.append(field)
-        elif field.tag == 'di':
-            if variants:
-                if dialect_is_maninka(field.value):
+            afterva = True
+        elif field.tag == 'di' and afterva:
+            if dialect_is_maninka(field.value):
+                if variants:
                     output.extend(variants)
-                variants = []
-            output.append(field)
+                    variants = []
+                output.append(field)
+            else:
+                if variants:
+                    variants = []
         else:
             if variants:
                 output.extend(variants)
                 variants = []
-            else:
-                output.append(field)
+            output.append(field)
     return output
 
 def cut_bamana_senses(record):
@@ -193,7 +202,7 @@ def is_obscure_record(record):
 def split_variants(record):
     output = []
     for field in record:
-        if field.tag in ['va', 'lx']:
+        if field.tag in ['va', 'lx'] and not value_is_empty(field.value):
             varlist = filter(None, re.split(u'[,;] ', field.value))
             if field.tag == 'va':
                 variants = [Field('va', var) for var in varlist]
@@ -213,13 +222,23 @@ def replace_bamana_lx(record):
     inlx = True
     replace = False
     for field in record:
-        if field.tag == 'va':
-            inlx = False
-            if replace:
-                output.append(Field('lx', field.value))
-                continue
-            else:
+        if is_headword_border(field) or is_sense_border(field):
+            if inlx:
+                inlx = False
                 output.extend(lxhead)
+                lxhead = []
+        if field.tag == 'va':
+            if inlx:
+                inlx = False
+                if replace:
+                    output.append(Field('lx', field.value))
+                    lxhead = []
+                    continue
+                else:
+                    #output.extend(lxhead)
+                    lxhead.append(field)
+#            else:
+#                output.append(field)
         if inlx:
             if field.tag == 'di':
                 if field.value.strip() and not dialect_is_maninka(field.value):
@@ -227,8 +246,8 @@ def replace_bamana_lx(record):
             lxhead.append(field)
         else:
             output.append(field)
-    if lxhead and inlx:
-        return lxhead
+    if lxhead:
+        output = lxhead + output
     return output
 
 def retonalize_value(value):
@@ -252,10 +271,26 @@ def retonalize_record(record):
             output.append(field)
     return output
 
+def value_is_empty(value):
+    stripped = value.strip()
+    if not stripped:
+        return True
+    if stripped.isspace():
+        return True
+    return False
+
+def cut_empty_fields(record):
+    output = []
+    for field in record:
+        if not value_is_empty(field.value):
+            output.append(field)
+    return output
+
 def cleanup_record(record):
     output = []
+    record = cut_empty_fields(record)
     record = cut_examples(record)
-    preserve = ['lx', 'nk', 'va', 'ps', 'ms', 'msp', 'dfr', 'dfe', 'dff', 'di', 'af', 'rfr', 'rfe']
+    preserve = ['lx', 'nk', 'va', 'ps', 'ms', 'msp', 'dfr', 'dfe', 'dff', 'di', 'af', 'rfr', 'rfe', 'vl', 'sn', 'sme', 'smf', 'smr', 'msv', 'itm', 'syn', 'qsyn', 'ethr', 'ethe', 'ethf', 'use', 'usr', 'egr', 'ege', 'egf']
     for field in record:
         if field.tag in preserve:
             output.append(field)
@@ -284,8 +319,16 @@ with open(sys.argv[1]) as f:
 preprocessed = []
 for record in records:
     if not is_ref(record):
+#        serialize_record(record)
         record = cleanup_record(record)
+#        serialize_record(record)
+        record = split_variants(record)
+#        print "BEFORE"
+#        serialize_record(record)
+        record = replace_bamana_lx(record)
+#        serialize_record(record)
         record = strip_sense_number(record)
+#        serialize_record(record)
         senses = split_polisemous_records(record)
         for sense in senses:
             affixes = split_affixed_records(sense)
@@ -294,12 +337,17 @@ for record in records:
 
 for record in preprocessed:
     if headword_is_maninka(record):
+#        print "RECORDS"
+#        serialize_record(record)
         record = cut_bamana_variants(record)
+#        serialize_record(record)
         record = cut_bamana_senses(record)
+#        serialize_record(record)
         record = split_variants(record)
+#        serialize_record(record)
         record = retonalize_record(record)
+#        serialize_record(record)
         record = rename_gloss_fields(record)
-        record = replace_bamana_lx(record)
         if not is_obscure_record(record):
             serialize_record(record)
 
