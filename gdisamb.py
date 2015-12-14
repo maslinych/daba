@@ -28,6 +28,7 @@ import datetime
 import codecs
 import unicodedata
 import platform
+import itertools
 import xml.etree.cElementTree as e
 from collections import defaultdict, namedtuple
 from ntgloss import Gloss, emptyGloss
@@ -461,14 +462,15 @@ class GlossEditButton(wx.Panel):
 class GlossSelector(wx.Panel):
     def __init__(self, parent, index, glosstoken, selectlist, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
+        self.token = glosstoken
         try:
             self.toktype, (self.form, self.stage, self.glosslist) = glosstoken.as_tuple()
-            self.token = glosstoken
+            print "WORD TOK", glosstoken.as_tuple()
         except ValueError:
-            print glosstoken
+            self.toktype, self.form = glosstoken.as_tuple()
+            print "NONWORD TOK", glosstoken
         self.selectlist = selectlist
         self.vertical = vertical
-        self.mbutton = None
         self.parent = parent
         self.children = []
         self.parserstage = self.stage
@@ -477,26 +479,20 @@ class GlossSelector(wx.Panel):
         self.Bind(wx.EVT_CONTEXT_MENU, self.OnContextMenu)
         self.Bind(EVT_GLOSS_SELECTED, self.OnGlossSelected)
 
+        self.gloss = self.CalculateGloss()
+        self.statecode = self.CalculateState()
+
+        self.tbutton = TokenEditButton(self, self.index, self.toktype, self.form)
+        self.mbutton = GlossEditButton(self, self.gloss)
+        
+        self.UpdateState(self.statecode, self.gloss)
+        
         if self.vertical:
             self.sizer = wx.BoxSizer(wx.VERTICAL)
         else:
             self.sizer = wx.BoxSizer(wx.HORIZONTAL) 
-
-
-        #FIXME: should I keep token string and use it here in spite of glosslist's first form?
-        if len(self.glosslist) > 1:
-            self.gloss = Gloss(self.form, (), '', ())
-            self.statecode = 2
-        elif ''.join(self.glosslist[0].ps) in ['', None, '<?>'] and self.glosslist[0].gloss in ['', None, '<?>'] and not self.glosslist[0].morphemes:
-            self.gloss = Gloss(self.glosslist[0].form, (), '', ())
-            self.statecode = 4
-        else:
-            self.gloss = self.glosslist[0]
-            self.statecode = 1
-        
-        self.UpdateState(self.statecode, self.gloss)
-
         self.sizerflags = (wx.EXPAND | wx.TOP | wx.BOTTOM, 4)
+        self.sizer.Add(self.tbutton, 0, *self.sizerflags)
         self.sizer.Add(self.mbutton, 0, *self.sizerflags)
         self.SetSizer(self.sizer)
         self.Layout()
@@ -512,6 +508,38 @@ class GlossSelector(wx.Panel):
                 else:
                     self.OnSelection(gloss)
 
+    def CalculateGloss(self):
+        """Setup a gloss to show as current selection"""
+        glist = self.selectlist or self.glosslist
+        form = '/'.join(set([v.form for v in glist]))
+        if len(form) > 1:
+            form = form[0]
+        ps = tuple(set(itertools.chain(*[v.ps for v in glist if v.ps])))
+        glosses = []
+        for variant in glist:
+            if variant.gloss:
+                glosses.append(variant.gloss)
+            else:
+                if variant.morphemes:
+                    glosses.append(u'.'.join([g.gloss for g in variant.morphemes]))
+        if glosses:
+            if len(glosses) > 1:
+                glosses = glosses[:1] + ['...']
+            gloss = u'/'.join(glosses)
+        else:
+            gloss = ''
+        return Gloss(form, ps, gloss, ())
+
+    def CalculateState(self):
+        """Calculate current state code (self.state)"""
+        if len(self.glosslist) > 1:
+            statecode = 2
+        elif ''.join(self.glosslist[0].ps) in ['', None, '<?>'] and self.glosslist[0].gloss in ['', None, '<?>'] and not self.glosslist[0].morphemes:
+            statecode = 4
+        else:
+            statecode = 1
+        return statecode
+
     def AddButtons(self, glosslist):
         if len(self.glosslist) > 1:
             for gloss in glosslist:
@@ -522,8 +550,6 @@ class GlossSelector(wx.Panel):
             self.Layout()
 
     def UpdateState(self, statecode, gloss):
-        if not self.mbutton:
-            self.mbutton = GlossEditButton(self, self.gloss)
         self.mbutton.OnStateChange(self.statecode, self.gloss)
 
     def OnEdition(self, gloss):
@@ -649,21 +675,21 @@ class GlossSelector(wx.Panel):
 
 
 class TokenInputDialog(wx.Dialog):
-    def __init__(self, parent, id, title, glosstoken, *args, **kwargs):
+    def __init__(self, parent, id, title, tokentype, tokenstr, *args, **kwargs):
         wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
-        self.typedict = dict([("Comment", "Comment"), ("Punctuation", "c"), ("Markup", "Tag")])
+        self.typedict = dict([("Comment", "Comment"), ("Punctuation", "c"), ("Markup", "Tag"), ("Word", "w")])
 
         sizer = wx.BoxSizer(wx.VERTICAL)
-        self.tokenfield = NormalizedTextCtrl(self, -1, glosstoken.token)
+        self.tokenfield = NormalizedTextCtrl(self, wx.ID_ANY, tokenstr)
         sizer.Add(self.tokenfield)
-        self.typefield = wx.RadioBox(self, -1, "Token type", wx.DefaultPosition, wx.DefaultSize, self.typedict.keys(), 1)
-        self.typefield.SetStringSelection(dict((v,k) for k,v in self.typedict.items())[glosstoken.type])
+        self.typefield = wx.RadioBox(self, wx.ID_ANY, "Token type", wx.DefaultPosition, wx.DefaultSize, self.typedict.keys(), 1)
+        self.typefield.SetStringSelection(dict((v,k) for k,v in self.typedict.items())[tokentype])
         sizer.Add(self.typefield)
         sizer.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.TOP | wx.BOTTOM, 10)
         self.SetSizer(sizer)
 
     def GetToken(self):
-        return formats.GlossToken((self.typedict[self.typefield.GetStringSelection()], self.tokenfield.GetValue()))
+        return (self.typedict[self.typefield.GetStringSelection()], self.tokenfield.GetValue())
 
 class SearchDialog(wx.Dialog):
     def __init__(self, parent, id, title, searchstr, *args, **kwargs):
@@ -689,30 +715,29 @@ class NotFoundDialog(wx.Dialog):
         sizer.Add(self.CreateButtonSizer(wx.OK), 0, wx.TOP | wx.BOTTOM, 10)
         self.SetSizer(sizer)
 
+
 class TokenEditButton(wx.Panel):
-    def __init__(self, parent, index, token, selectlist, vertical=True, *args, **kwargs):
+    def __init__(self, parent, index, tokentype, tokenstr, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
-        self.statecode = 0
         self.index = index
-        self.selectlist = selectlist
+        self.tokenstr = tokenstr
+        self.tokentype = tokentype
+        self.button = wx.Button(self, wx.ID_ANY, self.tokenstr, style=wx.NO_BORDER)
         sizer = wx.BoxSizer(wx.VERTICAL)
-        self.token = token
-        self.button = wx.Button(self, -1, self.token.token, style=wx.NO_BORDER)
         sizer.Add(self.button,0)
         self.SetSizer(sizer)
         self.button.Bind(wx.EVT_BUTTON, self.OnEditToken)
 
     def OnEditToken(self, event):
-        dlg = TokenInputDialog(self, -1, 'Edit token', self.token)
+        dlg = TokenInputDialog(self, wx.ID_ANY, 'Edit token', self.tokentype, self.tokenstr)
         if (dlg.ShowModal() == wx.ID_OK):
-            self.token = dlg.GetToken()
-            self.button.SetLabel(self.token.token)
-            self.selectlist = [self.token.as_tuple()]
-            self.statecode = 5
+            # FIXME: don't forget to notify parent objects
+            self.tokentype, self.tokenstr = dlg.GetToken()
+            self.button.SetLabel(self.tokenstr)
         dlg.Destroy()
 
     def GetToken(self):
-        return self.token
+        return (self.tokentype, self.tokenstr)
 
 
 class SentenceText(wx.stc.StyledTextCtrl):
@@ -843,8 +868,7 @@ class SentenceText(wx.stc.StyledTextCtrl):
         if evt.GetKeyCode() == wx.stc.STC_KEY_RETURN:
             self.OnClick(evt)
         evt.Skip()
-
-
+    
     def Highlight(self, start, end):
         pass
 
@@ -935,10 +959,7 @@ class SentPanel(wx.Panel):
         else:
             annotsizer = wx.BoxSizer(wx.VERTICAL) 
         for (toknum, (token,selectlist)) in enumerate(zip(self.tokenlist,self.selectlist)):
-            if token.type == 'w':
-                abox = GlossSelector(self.annotlist, (self.snum, toknum), token, selectlist, vertical=self.vertical)
-            else:
-                abox = TokenEditButton(self.annotlist, (self.snum, toknum), token, selectlist, vertical=self.vertical)
+            abox = GlossSelector(self.annotlist, (self.snum, toknum), token, selectlist, vertical=self.vertical)
             tokenbuttons.append(abox)
             annotsizer.Add(abox)
         self.annotlist.SetSizer(annotsizer)
