@@ -467,6 +467,8 @@ class GlossSelector(wx.Panel):
             self.toktype, (self.form, self.stage, self.glosslist) = glosstoken.as_tuple()
         except ValueError:
             self.toktype, self.form = glosstoken.as_tuple()
+            self.stage = ''
+            self.glosslist = [Gloss(self.form, (self.toktype,), '', ())]
         self.selectlist = selectlist
         self.vertical = vertical
         self.parent = parent
