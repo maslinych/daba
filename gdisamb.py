@@ -465,10 +465,8 @@ class GlossSelector(wx.Panel):
         self.token = glosstoken
         try:
             self.toktype, (self.form, self.stage, self.glosslist) = glosstoken.as_tuple()
-            print "WORD TOK", glosstoken.as_tuple()
         except ValueError:
             self.toktype, self.form = glosstoken.as_tuple()
-            print "NONWORD TOK", glosstoken
         self.selectlist = selectlist
         self.vertical = vertical
         self.parent = parent
@@ -511,9 +509,7 @@ class GlossSelector(wx.Panel):
     def CalculateGloss(self):
         """Setup a gloss to show as current selection"""
         glist = self.selectlist or self.glosslist
-        form = '/'.join(set([v.form for v in glist]))
-        if len(form) > 1:
-            form = form[0]
+        form = [v.form for v in glist][0]
         ps = tuple(set(itertools.chain(*[v.ps for v in glist if v.ps])))
         glosses = []
         for variant in glist:
@@ -1194,6 +1190,9 @@ class MainFrame(wx.Frame):
         self.ShowSent(snum)
 
     def OnTokenJoin(self, evt):
+        wx.CallAfter(self.DoTokenJoin, evt)
+
+    def DoTokenJoin(self, evt):
         snum = evt.snum
         first = evt.first
         second = evt.second
