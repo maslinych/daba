@@ -44,6 +44,8 @@ GlossButtonEvent, EVT_GLOSS_SELECTED = wx.lib.newevent.NewCommandEvent()
 GlossEditEvent, EVT_GLOSS_EDITED = wx.lib.newevent.NewCommandEvent()
 TokenSplitEvent, EVT_TOKEN_SPLIT = wx.lib.newevent.NewCommandEvent()
 TokenJoinEvent, EVT_TOKEN_JOIN = wx.lib.newevent.NewCommandEvent()
+TokenEditEvent, EVT_TOKEN_EDIT = wx.lib.newevent.NewCommandEvent()
+SentenceEditEvent, EVT_SENT_EDIT = wx.lib.newevent.NewCommandEvent()
 ShowSelectorEvent, EVT_SHOW_SELECTOR = wx.lib.newevent.NewCommandEvent()
 SaveResultsEvent, EVT_SAVE_RESULTS = wx.lib.newevent.NewCommandEvent()
 
@@ -463,10 +465,11 @@ class GlossSelector(wx.Panel):
     def __init__(self, parent, index, glosstoken, selectlist, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.token = glosstoken
-        try:
-            self.toktype, (self.form, self.stage, self.glosslist) = glosstoken.as_tuple()
-        except ValueError:
-            self.toktype, self.form = glosstoken.as_tuple()
+        self.toktype, tokvalue = glosstoken.as_tuple()
+        if self.toktype == 'w':
+            self.form, self.stage, self.glosslist = tokvalue
+        else:
+            self.form = tokvalue
             self.stage = ''
             self.glosslist = [Gloss(self.form, (self.toktype,), '', ())]
         self.selectlist = selectlist
@@ -729,9 +732,10 @@ class TokenEditButton(wx.Panel):
     def OnEditToken(self, event):
         dlg = TokenInputDialog(self, wx.ID_ANY, 'Edit token', self.tokentype, self.tokenstr)
         if (dlg.ShowModal() == wx.ID_OK):
-            # FIXME: don't forget to notify parent objects
             self.tokentype, self.tokenstr = dlg.GetToken()
             self.button.SetLabel(self.tokenstr)
+            editevent = TokenEditEvent(self.GetId(), index = self.index, toktype=self.tokentype, token=self.tokenstr)
+            wx.PostEvent(self.GetEventHandler(), editevent)
         dlg.Destroy()
 
     def GetToken(self):
@@ -766,7 +770,6 @@ class SentenceText(wx.stc.StyledTextCtrl):
         self.SetSizer(wx.BoxSizer(wx.VERTICAL))
         self.Layout()
 
-        # FIXME: finish it
         self.Bind(wx.EVT_LEFT_UP, self.OnClick)
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyPressed)
 
@@ -791,11 +794,16 @@ class SentenceText(wx.stc.StyledTextCtrl):
         for btn in tokenbuttons:
             token = btn.token.token
             charlength = len(token)
-            tokenindex = self.text[startchar:].find(token)+startchar
+            tokenindex = self.text[startchar:].find(token)
             if tokenindex == -1:
                 #FIXME: handle missing tokens properly
-                print "NOT FOUND IN THE SENTENCE:", token
                 tokenindex = startchar
+                charlength = 0
+                notfound = wx.MessageDialog(self, u'Token not found in the source sentence: ' + token, 'Token not found', wx.OK)
+                notfound.ShowModal()
+                notfound.Destroy()
+            else:
+                tokenindex += startchar
             charspan = (tokenindex, charlength)
             startchar = tokenindex+charlength
             self.charspans.append(charspan)
@@ -806,6 +814,9 @@ class SentenceText(wx.stc.StyledTextCtrl):
         self.intervals = IntervalTree()
         for btn, span in zip(tokenbuttons, charspans):
             start, length = span
+            if length == 0:
+                #FIXME: need to find better solution for the missing tokens
+                length = 1
             self.intervals[start:start+length] = btn.GetId()
 
     def getButtonHere(self, pos):
@@ -867,6 +878,35 @@ class SentenceText(wx.stc.StyledTextCtrl):
             self.OnClick(evt)
         evt.Skip()
     
+    def OnTokenSplit(self, evt):
+        snum, toknum = evt.index
+        startchar, charlength = self.charspans[toknum]
+        newtokens = u' '.join(evt.result)
+        self.UpdateText(startchar, startchar+charlength, newtokens, snum)
+        evt.Skip()
+
+    def OnTokenJoin(self, evt):
+        snum = evt.snum
+        startfirst, lenfirst = self.charspans[evt.first]
+        startsecond, lensecond = self.charspans[evt.second]
+        first = self.text[startfirst:startfirst+lenfirst]
+        second = self.text[startsecond:startsecond+lensecond]
+        self.UpdateText(startfirst, startsecond+lensecond, u''.join((first, second)), snum)
+        evt.Skip()
+
+    def OnTokenEdit(self, evt):
+        snum, toknum = evt.index
+        startchar, charlength = self.charspans[toknum]
+        senttoken = self.text[startchar:startchar+charlength]
+        if not senttoken == evt.token:
+            self.UpdateText(startchar, startchar+charlength, evt.token, snum)
+        evt.Skip()
+
+    def UpdateText(self, start, end, newtext, snum):
+        self.text = ''.join([self.text[:start], newtext, self.text[end:]])
+        sentevent = SentenceEditEvent(self.GetId(), snum=snum, sent=self.text)
+        wx.PostEvent(self.GetEventHandler(), sentevent)
+
     def Highlight(self, start, end):
         pass
 
@@ -906,10 +946,6 @@ class SentPanel(wx.Panel):
         self.sentfont.SetPointSize(self.sentfont.GetPointSize() + 2)
         self.sentcolor = 'Navy'
 
-        # bind disambiguation events
-        self.Bind(EVT_SELECTOR_UPDATED, self.OnSelectorUpdate)
-        self.Bind(EVT_SHOW_SELECTOR, self.OnShowSelector)
-
         # create navigation buttons
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
         self.sentnumbutton = wx.SpinCtrl(self, wx.ID_ANY, "", (10,20), style=wx.TE_PROCESS_ENTER)
@@ -947,6 +983,14 @@ class SentPanel(wx.Panel):
         self.Sizer.Add(self.sentsource, 0, wx.EXPAND)
         self.SetSizer(self.Sizer)
         self.Layout()
+
+        # bind custom events
+        self.Bind(EVT_SELECTOR_UPDATED, self.OnSelectorUpdate)
+        self.Bind(EVT_SHOW_SELECTOR, self.OnShowSelector)
+        self.Bind(EVT_TOKEN_EDIT, self.sentsource.OnTokenEdit)
+        self.Bind(EVT_TOKEN_JOIN, self.sentsource.OnTokenJoin)
+        self.Bind(EVT_TOKEN_SPLIT, self.sentsource.OnTokenSplit)
+
 
     def CreateGlossButtons(self):
         tokenbuttons = []
@@ -1084,6 +1128,8 @@ class MainFrame(wx.Frame):
         self.Bind(EVT_SAVE_RESULTS, self.OnSave)
         self.Bind(EVT_TOKEN_SPLIT, self.OnTokenSplit)
         self.Bind(EVT_TOKEN_JOIN, self.OnTokenJoin)
+        self.Bind(EVT_TOKEN_EDIT, self.OnTokenEdit)
+        self.Bind(EVT_SENT_EDIT, self.OnSentenceEdit)
 
         #FIXME: loading localdict right on start, should give user possibility to choose
         if os.path.exists(self.dictfile):
@@ -1189,12 +1235,10 @@ class MainFrame(wx.Frame):
             self.processor.glosses[snum][1].insert(toknum+shift, [])
             self.processor.glosses[snum][2].insert(toknum+shift, formats.GlossToken(('w', (token, '-1', [Gloss(token, (), '', ())]))))
             shift = shift+1
-        self.ShowSent(snum)
+        self.processor.dirty = True
+        wx.CallAfter(self.ShowSent, snum)
 
     def OnTokenJoin(self, evt):
-        wx.CallAfter(self.DoTokenJoin, evt)
-
-    def DoTokenJoin(self, evt):
         snum = evt.snum
         first = evt.first
         second = evt.second
@@ -1210,7 +1254,28 @@ class MainFrame(wx.Frame):
         del self.processor.glosses[snum][1][second]
         self.processor.glosses[snum][2][first] = newtoken
         del self.processor.glosses[snum][2][second]
-        self.ShowSent(snum)
+        self.processor.dirty = True
+        wx.CallAfter(self.ShowSent, snum)
+
+    def OnTokenEdit(self, evt):
+        snum, toknum = evt.index
+        savedtoken = self.processor.glosses[snum][2][toknum]
+        if evt.toktype == 'w':
+            if savedtoken.type == 'w':
+                newtoken = savedtoken
+                newtoken.token = evt.token
+            else:
+                newtoken = formats.GlossToken(('w', (evt.token, '-1', [Gloss(evt.token, (), '', ())])))
+        else:
+            newtoken = formats.GlossToken((evt.toktype, evt.token))
+        self.processor.glosses[snum][2][toknum] = newtoken
+        self.processor.dirty = True
+        wx.CallAfter(self.ShowSent, snum)
+
+    def OnSentenceEdit(self, evt):
+        savedsent = self.processor.glosses[evt.snum]
+        self.processor.glosses[evt.snum] = (evt.sent,) + savedsent[1:]
+        self.processor.dirty = True
 
     def OnUndoTokens(self,e):
         snum = self.sentpanel.snum
