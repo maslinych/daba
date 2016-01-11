@@ -407,7 +407,7 @@ class TokenSplitDialog(wx.Dialog):
             sizer = self.GetSizer()
             sizer.Detach(self.splittext)
             self.splittext.Show(False)
-            self.splittext = wx.StaticText(self, -1, ' | '.join(self.split))
+            self.splittext = wx.StaticText(self, wx.ID_ANY, ' | '.join(self.split))
             sizer.Insert(2, self.splittext, 0, wx.EXPAND)
             self.Layout()
     
@@ -420,7 +420,7 @@ class GlossEditButton(wx.Panel):
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.gloss = gloss
         self.state = None
-        self.button = wx.Button(self, -1, makeGlossString(gloss, morphemes=True), style=wx.NO_BORDER)
+        self.button = wx.Button(self, wx.ID_ANY, makeGlossString(gloss, morphemes=True), style=wx.NO_BORDER)
         sizer.Add(self.button,0)
 
         self.SetSizer(sizer)
@@ -435,7 +435,7 @@ class GlossEditButton(wx.Panel):
                 }
         
     def OnEditGloss(self, event):
-        dlg = GlossInputDialog(self, -1, 'Insert gloss manually')
+        dlg = GlossInputDialog(self, wx.ID_ANY, 'Insert gloss manually')
         localdict = self.GetTopLevelParent().localdict
         try:
             dlg.SetGloss(localdict[self.gloss.form][0])
@@ -445,8 +445,9 @@ class GlossEditButton(wx.Panel):
         if (dlg.ShowModal() == wx.ID_OK):
             dlg.SaveGloss()
             newgloss = dlg.GetGloss()
-            self.gloss = newgloss
-            self.parent.OnEdition(newgloss)
+            if not newgloss == self.gloss:
+                self.gloss = newgloss
+                self.parent.OnEdition(newgloss)
         dlg.Destroy()
 
     def OnStateChange(self, statecode, gloss):
