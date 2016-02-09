@@ -1,7 +1,8 @@
 # Bamana (Bambara) morphotactic patterns
 
 # macro definitions
-macro   @nasal-syl@     <re>.*([nmɲŋ]..?n?|n)</re>
+macro   @smth-nasal@     <re>.*([nmɲŋ]..?n?|n|[aoeuiɔɛ][́̀̌]?n<)</re>
+macro   @nasal-syl@     <re>.*(v[nmɲŋ]..?n?|n)</re>
 macro   @nasal-v@       <re>.*[aoeuiɔɛ][́̀̌]?n</re>
 macro   @nonnasal-v@    <re>.*[aoeuiɔɛ][́̀̌]?[^n]?</re>
 macro   @glide-syl@     <re>.*[rl]..?</re>
@@ -55,8 +56,7 @@ section participles
 pattern :v/ptcp: [ {|bali}:: ] | :ptcp: [ :v: :mrph:PTCP.PRIV]
 pattern :v/ptcp: [ {|ta}:: ] | :ptcp: [ :v: :mrph:PTCP.POT]
 pattern :v/ptcp: [ {|tɔ}:: ] | :ptcp: [ :v: :mrph:CONV.PROG]
-pattern :v/ptcp: [ {@nasal-v@|nen}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
-pattern :v/ptcp: [ {@nasal-syl@|nen}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
+pattern :v/ptcp: [ {@smth-nasal@|nen}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 pattern :v/ptcp: [ {@nonnasal-v@|len}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 
 # derivative forms we need to consider even if we have them in dictionary
@@ -98,6 +98,7 @@ section num_derivation
 pattern :num: [ {@nasal-v@|na}:: ] | :num: [ :num: :mrph:PRICE]
 pattern :num: [ {@nonnasal-v@|la}:: ] | :num: [ :num: :mrph:PRICE]
 pattern :num: [ {@nasal-v@|nan}:: ] | :num: [ :num: :mrph:ORD]
+pattern :num: [ {<re>[0-9]+</re>|nan}:: ] | :num: [ :num: :mrph:ORD]
 pattern :num: [ {@nonnasal-v@|lan}:: ] | :num: [ :num: :mrph:ORD]
 
 ## reduplication

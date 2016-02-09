@@ -1,6 +1,7 @@
 # Bamana (Bambara) morphotactic patterns
 
 # macro definitions
+macro   @smth-nasal@     <re>.*([nmɲŋ]..?n?|n|[aoeuiɔɛ][́̀̌]?n<)</re>
 macro   @nasal-syl@     <re>.*([nmɲŋ]..?n?|n)</re>
 macro   @nasal-v@       <re>.*[aoeuiɔɛ][́̀̌]?n</re>
 macro   @nonnasal-v@    <re>.*[aoeuiɔɛ][́̀̌]?[^n]?</re>
@@ -54,7 +55,7 @@ section participles
 pattern :v/vq/ptcp: [ {|bali}:: ] | :ptcp: [ :v: :mrph:PTCP.PRIV]
 pattern :v/vq/ptcp: [ {|ta}:: ] | :ptcp: [ :v: :mrph:PTCP.POT]
 pattern :v/vq/ptcp: [ {|tɔ}:: ] | :ptcp: [ :v: :mrph:PTCP.PROG]
-pattern :v/vq/ptcp: [ {@nasal-v@|nen}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
+pattern :v/vq/ptcp: [ {@smth-nasal@|nen}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 pattern :v/vq/ptcp: [ {@nonnasal-v@|len}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 
 # derivative forms we need to consider even if we have them in dictionary

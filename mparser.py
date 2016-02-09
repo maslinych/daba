@@ -41,6 +41,8 @@ class Tokenizer(object):
                 ('Par', (r'(\r?\n){2,}',)),
                 ('NL', (r'[\r\n]',)),
                 ('Space', (r'\s+',re.UNICODE)),
+                ('Word', (ur'[nN]\u00b0', re.UNICODE)),
+                ('Word', (r'\d+nan', re.UNICODE)),
                 ('Cardinal', (r'(\d([-.,:]\d)?)+',re.UNICODE)),
                 #FIXME: hardcoded acute and grave accents plus round apostrophe (shoud not split words)
                 ('Word', (ur'(\w\.){2,}', re.UNICODE)),
