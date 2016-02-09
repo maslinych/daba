@@ -31,6 +31,25 @@ normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
 def ddlist():
     return defaultdict(list)
 
+def gloss_to_html(gloss, spanclass='lemma', variant=False):
+    if variant:
+        spanclass = 'lemma var'
+    w = e.Element('span', {'class': spanclass})
+    
+    w.text = gloss.form
+    if gloss.ps:
+        ps = e.SubElement(w, 'sub', {'class': 'ps'})
+        ps.text = '/'.join(gloss.ps)
+    if gloss.gloss:
+        ge = e.SubElement(w, 'sub', {'class':'gloss'})
+        ge.text = gloss.gloss
+
+            for m in gloss.morphemes:
+                #NB: SIDE EFFECT!
+                w.append(gloss_to_html(m, spanclass='m'))
+            return w
+
+
 class GlossToken(object):
     def __init__(self, toktuple=None):
         if toktuple:
@@ -296,25 +315,6 @@ class HtmlWriter(object):
         body = e.SubElement(root, 'body')
         style = e.SubElement(head, 'style', {'type': 'text/css'})
         style.text = self.stylesheet
-
-        def gloss_to_html(gloss, spanclass='lemma', variant=False):
-            if variant:
-                spanclass = 'lemma var'
-            w = e.Element('span', {'class': spanclass})
-            
-            w.text = gloss.form
-            if gloss.ps:
-                ps = e.SubElement(w, 'sub', {'class': 'ps'})
-                ps.text = '/'.join(gloss.ps)
-            if gloss.gloss:
-                ge = e.SubElement(w, 'sub', {'class':'gloss'})
-                ge.text = gloss.gloss
-
-            for m in gloss.morphemes:
-                #NB: SIDE EFFECT!
-                w.append(gloss_to_html(m, spanclass='m'))
-            return w
-
 
         for para in self.para:
             par = e.Element('p')
