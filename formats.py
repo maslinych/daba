@@ -9,6 +9,7 @@ import codecs
 import unicodedata
 import hashlib
 import xml.etree.cElementTree as e
+import grammar
 from ntgloss import Gloss
 from orthography import detone
 from pytrie import StringTrie as trie
@@ -44,10 +45,17 @@ def gloss_to_html(gloss, spanclass='lemma', variant=False):
         ge = e.SubElement(w, 'sub', {'class':'gloss'})
         ge.text = gloss.gloss
 
-            for m in gloss.morphemes:
-                #NB: SIDE EFFECT!
-                w.append(gloss_to_html(m, spanclass='m'))
-            return w
+    for m in gloss.morphemes:
+        #NB: SIDE EFFECT!
+        w.append(gloss_to_html(m, spanclass='m'))
+    return w
+
+def glosstext_to_html(glosstext, variant=False, **kwargs):
+    """Serialize text representation of a gloss into HTML string"""
+    toks = grammar.str_tokenize(glosstext)
+    gloss = grammar.stringgloss_parser().parse(toks)
+    html = gloss_to_html(gloss, variant=variant)
+    return e.tostring(html, **kwargs)
 
 
 class GlossToken(object):
