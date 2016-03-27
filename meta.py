@@ -180,9 +180,9 @@ class DataPanel(wx.ScrolledWindow):
         self.section = section
         self.builder = GUIBuilder() # FIXME make one instance at the top level
         gridSizer = wx.FlexGridSizer(rows=1,cols=2,hgap=10,vgap=10)
-
-        expandOption = dict(flag=wx.EXPAND)
-        noOptions = dict()
+        gridSizer.AddGrowableCol(1, 1)
+        expandOption = dict(proportion=1, flag=wx.EXPAND)
+        noOptions = dict(proportion=1)
         for wdata in self.config.getSectionConfig(self.section):
             # prepare widget data for future use
             name = wdata.id
@@ -403,7 +403,6 @@ class MetaPanel(wx.Panel):
             self.panelbook = wx.Notebook(self)
             self.sizer.Add(self.panelbook, 1, wx.EXPAND, 0)
         self.addPanel()
-        self.sizer.Fit(self)
         self.Layout()
 
     def addPanel(self, evt=None):
@@ -473,6 +472,14 @@ class MetaPanel(wx.Panel):
                 self.selector.SetChoices(self.db.getList())
 
 
+class MetaNotebook(wx.Notebook):
+    """Notebook widget holding MetaPanels"""
+    def __init__(self, parent, *args, **kwargs):
+        wx.Notebook.__init__(self, parent, *args, **kwargs)
+        Sizer = wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(Sizer)
+        self.Layout()
+
 class FilePanel(wx.Panel):
     'Text fileview panel'
     def __init__(self, parent, *args, **kwargs):
@@ -483,7 +490,7 @@ class FilePanel(wx.Panel):
         Sizer = wx.BoxSizer(wx.VERTICAL)
         Sizer.Add(self.control, 1, wx.EXPAND)
         self.SetSizer(Sizer)
-        self.SetAutoLayout(1)
+        self.Layout()
 
 
 class MainFrame(wx.Frame):
@@ -513,14 +520,14 @@ class MainFrame(wx.Frame):
         menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 
-        splitter = wx.SplitterWindow(self)
+        splitter = wx.SplitterWindow(self, wx.ID_ANY, style=wx.SP_LIVE_UPDATE)
+        splitter.SetMinimumPaneSize(100)
         self.filepanel = FilePanel(splitter)
-        self.notebook = wx.Notebook(splitter)
+        self.notebook = MetaNotebook(splitter)
         if self.config:
             self.draw_metapanels()
 
         splitter.SplitVertically(self.filepanel, self.notebook)
-        splitter.SetMinimumPaneSize(20)
 
         configbutton = wx.FilePickerCtrl(self, -1, wildcard="*.xml", style=wx.FLP_USE_TEXTCTRL | wx.FLP_OPEN | wx.FLP_FILE_MUST_EXIST)
         configbutton.Bind(wx.EVT_FILEPICKER_CHANGED, self.OnConfigSelected)
@@ -546,6 +553,7 @@ class MainFrame(wx.Frame):
             metapanel = MetaPanel(self.notebook, config=self.config, section=secname)
             self.metapanels[secname] = metapanel
             self.notebook.AddPage(metapanel, self.config.getSectionTitle(secname))
+        self.notebook.Layout()
 
     def clear_metapanels(self):
         self.metapanels = {}
