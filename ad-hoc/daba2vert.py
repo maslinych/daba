@@ -80,7 +80,7 @@ def print_token(gt, args, vardict, polidict, get_lemma):
         print u"{0}\t".format(gt.token).encode('utf-8'),
     if gt.type == 'w':
         normalized = gt.glosslist[0].form
-        if args.convert:
+        if args.convert and not args.keepsource:
             token = get_lemma(normalized)
         else:
             token = gt.token
@@ -101,6 +101,8 @@ def print_token(gt, args, vardict, polidict, get_lemma):
                 gls = g.gloss
             else:
                 gls = dedot(g.gloss, '_')
+            if not gls and g.morphemes:
+                gls = '-'.join([m.gloss for m in g.morphemes])
             glosses.append(gls)
             if not args.tonal:
                 if g.morphemes:
@@ -147,7 +149,10 @@ def print_token(gt, args, vardict, polidict, get_lemma):
             fields = [lemmas, tags, glosses, deep]
 
             if args.convert:
-                fields.append([gt.token])
+                if args.keepsource:
+                    fields.append([normalized])
+                else:
+                    fields.append([gt.token])
 
             if not args.tonal:
                 fields.append(tonals)
@@ -191,6 +196,7 @@ def main():
     oparser.add_argument("-v", "--variants", help="Treat all variants in given dictionary as alternative lemmas")
     oparser.add_argument("-p", "--polisemy", action="store_true", help="Show polisemy in a separate field (suggests -v)")
     oparser.add_argument("-c", "--convert", action="store_true", help="Normalize wordform field, move source to the end")
+    oparser.add_argument("-k", "--keepsource", action="store_true", help="Keep source token at the head, to use with --convert")
     oparser.add_argument("-i", "--igt", action="store_true", help="Add morpheme-segmented form/gloss pair suited to copy as IGT examples")
     oparser.add_argument("-d", "--debugfields", action="store_true", help="Add debug fields for Jean-Jacques")
     args = oparser.parse_args()
