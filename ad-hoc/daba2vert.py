@@ -146,6 +146,11 @@ def print_token(gt, args, vardict, polidict, get_lemma):
                     for variant in vardict[g]:
                         lemmas.append(get_lemma(variant))
                 
+            #HACK truncate extra long glosses lists
+            if len(glosses)>10:
+                glosses = glosses[:10]
+                glosses.append('...')
+
             fields = [lemmas, tags, glosses, deep]
 
             if args.convert:
