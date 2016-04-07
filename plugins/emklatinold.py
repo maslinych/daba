@@ -16,12 +16,21 @@ class ManinkaOldtoNew(OrthographyConverter):
         """
         Main conversion method
         """
-        conversion_table = {u'è':[u'ɛ'], u'ö':[u'ɔ'], u'èe':[u'ɛɛ'], u'öö':[u'ɔɔ'], u'ng':[u'ng',u'ŋ'], u'ny':[u'ny',u'ɲ']}
+        conversion_table = {
+                u'è':[u'ɛ'], 
+                u'ö':[u'ɔ'], 
+                u'èe':[u'ɛɛ'], 
+                u'öö':[u'ɔɔ'], 
+                u'ny':[u'ny',u'ɲ'], 
+                u'dy':[u'j'],
+                u'ty':[u'c']
+                }
 
         def graphemes_old(word):
             # split word into maximal length graphemes (old orthography)
             specs = [
-                    ('NG', (r'ng', re.I | re.U)),
+                    ('TY', (r'ty', re.I | re.U)),
+                    ('DY', (r'dy', re.I | re.U)),
                     ('NY', (r'ny', re.I | re.U)),
                     ('EE', (ur'è[eè]', re.I | re.U)),
                     ('OO', (ur'öö', re.I | re.U)),
