@@ -2,7 +2,7 @@
 
 # macro definitions
 macro   @smth-nasal@     <re>.*([nmɲŋ]..?n?|n|[aoeuiɔɛ][́̀̌]?n<)</re>
-macro   @nasal-syl@     <re>.*(v[nmɲŋ]..?n?|n)</re>
+macro   @nasal-syl@     <re>.*([nmɲŋ]..?n?|n)</re>
 macro   @nasal-v@       <re>.*[aoeuiɔɛ][́̀̌]?n</re>
 macro   @nonnasal-v@    <re>.*[aoeuiɔɛ][́̀̌]?[^n]?</re>
 macro   @glide-syl@     <re>.*[rl]..?</re>
@@ -63,7 +63,7 @@ pattern :v/ptcp: [ {@nonnasal-v@|len}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 section common_derivation
 pattern :ptcp/n/adj: [ {|nin}:: ] | :ptcp/n/adj: [:ptcp/n/adj: :mrph:DIM]
 pattern :n/adj/ptcp/v: [ {|ya}:: ] | :n: [:n/adj/ptcp/v: :mrph:ABSTR]
-pattern :ptcp/n/adj: [ {|ba}:: ] | :ptcp/n/adj: [:ptcp/n/adj: :mrph:AUG]
+pattern :ptcp/n/adj: [ {|ba}:: ] | :ptcp/n/adj: [:ptcp/n/adj: :mrph:AUGM]
 
 # common nominal/verbal derivation (locatives)
 section n_v_derivation
@@ -75,6 +75,7 @@ pattern :n/n.prop: [ {@nonnasal-v@|la}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
 section n_derivation
 pattern :n: [ {|ma}:: ] | :n: [ :n: :mrph:COM]
 pattern :adj/n: [ {|ntan}:: ] | :adj/n: [ :n: :mrph:PRIV]
+pattern :adj/n: [ {|bagatɔ}:: ] | :adj/n: [ :n: :mrph:ST]
 
 # verbal/vq derivation
 section v_vq_derivation
@@ -84,8 +85,9 @@ pattern :n: [ {@nasal-v@|nan}:: ] | :n: [ :v: :mrph:INSTR]
 pattern :n: [ {@nonnasal-v@|lan}:: ] | :n: [ :v: :mrph:INSTR]
 pattern :n: [ {@nasal-syl@|ni}:: ] | :n: [ :v: :mrph:NMLZ]
 pattern :n: [ {@nonnasal-syl@|li}:: ] | :n: [ :v: :mrph:NMLZ]
-pattern :n: [ {|baga}:: ] | :n: [ :v: :mrph:AG.OCC ]
-pattern :v: [ {|ɲogon}:: ] | :v: [ :v: :mrph:RECP]
+pattern :n: [ {|baga}:: ] | :n: [ :v: :mrph:AG.OCC]
+pattern :n: [ {|baa}:: ] | :n: [ :v: :mrph:AG.OCC]
+pattern :v: [ {|ɲɔgɔn}:: ] | :v: [ :v: :mrph:RECP]
 pattern :v: [ {|<re>ɲwaa?n</re>}:: ] | :v: [ :v: :mrph:RECP]
 
 # vq derivation
