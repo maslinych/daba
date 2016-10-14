@@ -57,7 +57,7 @@ normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
 TokenEdit = namedtuple('TokenEdit', 'operation start end toklist')
 
 def get_basename(fname):
-    basename = os.path.splitext(fname)[0]
+    basename = os.path.splitext(os.path.basename(fname))[0]
     pars = basename.rfind('.pars')
     if pars > 0:
         return basename[:pars]
