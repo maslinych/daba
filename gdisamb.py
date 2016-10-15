@@ -47,7 +47,8 @@ TokenEditEvent, EVT_TOKEN_EDIT = wx.lib.newevent.NewCommandEvent()
 SentenceEditEvent, EVT_SENT_EDIT = wx.lib.newevent.NewCommandEvent()
 ShowSelectorEvent, EVT_SHOW_SELECTOR = wx.lib.newevent.NewCommandEvent()
 SaveResultsEvent, EVT_SAVE_RESULTS = wx.lib.newevent.NewCommandEvent()
-
+LocaldictLookupEvent, EVT_LOCALDICT_LOOKUP = wx.lib.newevent.NewCommandEvent()
+LocaldictSaveEvent, EVT_LOCALDICT_SAVE = wx.lib.newevent.NewCommandEvent()
 
 
 ## UTILITY functions and no-interface classes
@@ -284,39 +285,33 @@ class GlossButton(wx.Panel):
 
 
 class GlossInputDialog(wx.Dialog):
-    def __init__(self, parent, id, title, *args, **kwargs):
+    def __init__(self, parent, id, title, gloss, *args, **kwargs):
         wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
-        self.as_gloss = emptyGloss
+        self.as_gloss = gloss
         self.morphemes = []
-        self.parent = parent
+        self.save = True
         self.freeze = False
 
         vbox_top = wx.BoxSizer(wx.VERTICAL)
-        vbox_top.Add(wx.StaticText(self, -1, "Gloss string (edit inplace):"))
-        self.glosstext = NormalizedTextCtrl(self, -1)
+        vbox_top.Add(wx.StaticText(self, wx.ID_ANY, "Gloss string (edit inplace):"))
+        glossstring = unicode(self.as_gloss)
+        self.glosstext = wx.ComboBox(self, wx.ID_ANY, glossstring, choices=[glossstring])
         vbox_top.Add(self.glosstext, 1, wx.EXPAND | wx.TOP | wx.BOTTOM, 10)
         self.gbutton = GlossButton(self, self.as_gloss, disabled=True)
         vbox_top.Add(self.gbutton)
         cb = wx.CheckBox(self, -1, "Save to localdict")
+        cb.SetValue(True)
         vbox_top.Add(cb, 0, wx.TOP | wx.BOTTOM, 10)
 
         cb.Bind(wx.EVT_CHECKBOX, self.OnCheckLocaldict)
         self.glosstext.Bind(wx.EVT_TEXT, self.OnEditGlosstext)
+        self.glosstext.Bind(wx.EVT_COMBOBOX, self.OnEditGlosstext)
+        self.glosstext.Bind(wx.EVT_TEXT_ENTER, self.OnEditGlosstext)
 
         vbox_top.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.TOP | wx.BOTTOM, 10)
         self.SetSizer(vbox_top)
         self.Fit()
         self.Layout()
-
-        self.localdict = self.parent.GetTopLevelParent().localdict
-        self.fromlocaldict = False
-        self.save = True
-        cb.SetValue(True)
-
-
-    def SetGloss(self, gloss):
-        self.as_gloss = gloss
-        self.UpdateInterface(gloss)
 
     def FitGlosstextWidth(self):
         gwidth, gheight = self.glosstext.GetTextExtent(self.glosstext.GetValue())
@@ -337,7 +332,12 @@ class GlossInputDialog(wx.Dialog):
         sizer.Insert(2, self.gbutton)
         self.FitGlosstextWidth()
         self.freeze = False
-     
+
+    def ShowLocaldictVariants(self, savedglosses):
+        for gloss in savedglosses:
+            if not gloss == self.as_gloss:
+                self.glosstext.Append(unicode(gloss))
+    
     def SetGlossAttr(self, **kwargs):
         self.as_gloss._replace(**kwargs) 
 
@@ -347,7 +347,7 @@ class GlossInputDialog(wx.Dialog):
     def OnEditGlosstext(self, evt):
         if not self.freeze:
             self.FitGlosstextWidth()
-            glosstext = self.glosstext.GetValue()
+            glosstext = normalizeText(self.glosstext.GetValue())
             oldgloss = self.as_gloss
             try:
                 toks = grammar.str_tokenize(glosstext)
@@ -355,25 +355,13 @@ class GlossInputDialog(wx.Dialog):
                 if not self.as_gloss == oldgloss:
                     self.glosstext.SetBackgroundColour(wx.NullColour)
                     self.UpdateInterface(self.as_gloss)
-                    self.parent.GetTopLevelParent().processor.dirty = True
                 else:
                     self.glosstext.SetBackgroundColour('yellow')
-
             except (LexerError, NoParseError) as e:
                 self.glosstext.SetBackgroundColour('yellow')
 
     def OnCheckLocaldict(self, evt):
         self.save = not self.save
-
-    def SaveGloss(self):
-        #FIXME: homonymous forms will only save last
-        if self.save:
-            gloss = self.GetGloss()
-            if gloss.form in self.localdict:
-                if gloss not in self.localdict[gloss.form]:
-                    self.localdict[gloss.form].insert(0, gloss)
-            else:
-                self.localdict[gloss.form] = gloss
 
 
 class TokenSplitDialog(wx.Dialog):
@@ -413,6 +401,7 @@ class TokenSplitDialog(wx.Dialog):
     def GetResult(self):
         return self.split
 
+
 class GlossEditButton(wx.Panel):
     def __init__(self, parent, gloss, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
@@ -421,10 +410,8 @@ class GlossEditButton(wx.Panel):
         self.state = None
         self.button = wx.Button(self, wx.ID_ANY, makeGlossString(gloss, morphemes=True), style=wx.NO_BORDER)
         sizer.Add(self.button,0)
-
         self.SetSizer(sizer)
         self.button.Bind(wx.EVT_BUTTON, self.OnEditGloss)
-        self.parent = parent #FIXME: find a better way to reference GlossSelector
         self.statecolours = {
                 1: 'Black',
                 2: 'Navy',
@@ -434,19 +421,18 @@ class GlossEditButton(wx.Panel):
                 }
         
     def OnEditGloss(self, event):
-        dlg = GlossInputDialog(self, wx.ID_ANY, 'Insert gloss manually')
-        localdict = self.GetTopLevelParent().localdict
-        try:
-            dlg.SetGloss(localdict[self.gloss.form][0])
-        except KeyError:
-            dlg.SetGloss(self.gloss)
-
+        dlg = GlossInputDialog(self, wx.ID_ANY, 'Insert gloss manually', gloss=self.gloss)
+        evt = LocaldictLookupEvent(self.GetId(), gloss=self.gloss, dlg=dlg)
+        wx.PostEvent(self.GetEventHandler(), evt)
         if (dlg.ShowModal() == wx.ID_OK):
-            dlg.SaveGloss()
             newgloss = dlg.GetGloss()
             if not newgloss == self.gloss:
                 self.gloss = newgloss
-                self.parent.OnEdition(newgloss)
+                evt = GlossEditEvent(self.GetId(), gloss=newgloss)
+                wx.PostEvent(self.GetEventHandler(), evt)
+                if dlg.save:
+                    evt = LocaldictSaveEvent(self.GetId(), gloss=newgloss)
+                    wx.PostEvent(self.GetEventHandler(), evt)
         dlg.Destroy()
 
     def OnStateChange(self, statecode, gloss):
@@ -481,6 +467,7 @@ class GlossSelector(wx.Panel):
 
         self.Bind(wx.EVT_CONTEXT_MENU, self.OnContextMenu)
         self.Bind(EVT_GLOSS_SELECTED, self.OnGlossSelected)
+        self.Bind(EVT_GLOSS_EDITED, self.OnEdition)
 
         self.gloss = self.CalculateGloss()
         self.statecode = self.CalculateState()
@@ -553,8 +540,9 @@ class GlossSelector(wx.Panel):
     def UpdateState(self, statecode, gloss):
         self.mbutton.OnStateChange(self.statecode, self.gloss)
 
-    def OnEdition(self, gloss):
+    def OnEdition(self, evt):
         oldgloss = self.gloss
+        gloss = evt.gloss
         self.gloss = gloss
         self.glosslist = [gloss] + [button.gloss for button in self.children]
         selectedbuttons = [button.gloss for button in self.children if button.selected]
@@ -565,6 +553,7 @@ class GlossSelector(wx.Panel):
         self.statecode = 5
         self.UpdateState(self.statecode, self.gloss)
         self.OnSelectorUpdated()
+        evt.Skip()
 
     def OnGlossSelected(self, evt):
         """called when user pressed one of the gloss buttons (FIXME: gloss edits)"""
@@ -991,7 +980,6 @@ class SentPanel(wx.Panel):
         self.Bind(EVT_TOKEN_JOIN, self.sentsource.OnTokenJoin)
         self.Bind(EVT_TOKEN_SPLIT, self.sentsource.OnTokenSplit)
 
-
     def CreateGlossButtons(self):
         tokenbuttons = []
         self.annotlist = wx.lib.scrolledpanel.ScrolledPanel(self, wx.ID_ANY)
@@ -1131,6 +1119,9 @@ class MainFrame(wx.Frame):
         self.Bind(EVT_TOKEN_JOIN, self.OnTokenJoin)
         self.Bind(EVT_TOKEN_EDIT, self.OnTokenEdit)
         self.Bind(EVT_SENT_EDIT, self.OnSentenceEdit)
+        self.Bind(EVT_LOCALDICT_LOOKUP, self.OnLocaldictLookup)
+        self.Bind(EVT_LOCALDICT_SAVE, self.OnLocaldictSave)
+        self.Bind(EVT_GLOSS_EDITED, self.OnGlossEdited)
 
         self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.SetSizer(self.Sizer)
@@ -1291,6 +1282,28 @@ class MainFrame(wx.Frame):
         self.processor.glosses[evt.snum] = (evt.sent,) + savedsent[1:]
         self.processor.dirty = True
 
+    def OnGlossEdited(self, evt):
+        self.processor.dirty = True
+    
+    def OnLocaldictLookup(self, evt):
+        try:
+            savedglosses = self.localdict[evt.gloss.form]
+            dlg = evt.dlg
+            wx.CallAfter(dlg.ShowLocaldictVariants, savedglosses)
+        except (KeyError):
+            pass
+
+    def OnLocaldictSave(self, evt):
+        gloss = evt.gloss
+        # we do not save words with empty glosses into localdict
+        if not gloss.gloss:
+            return
+        if gloss.form in self.localdict:
+            if gloss not in self.localdict[gloss.form]:
+                self.localdict[gloss.form].insert(0, gloss)
+        else:
+            self.localdict[gloss.form] = gloss
+    
     def OnUndoTokens(self,e):
         snum = self.sentpanel.snum
         if self.undolist[snum]:
