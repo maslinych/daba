@@ -18,9 +18,8 @@
 
 import wx
 import wx.stc
-import wx.lib.scrolledpanel as scrolled
+import wx.lib.scrolledpanel
 import wx.lib.newevent
-from wx.lib.stattext import GenStaticText
 import os
 import formats
 import datetime
@@ -28,13 +27,12 @@ import codecs
 import unicodedata
 import platform
 import itertools
-import xml.etree.cElementTree as e
 from collections import defaultdict, namedtuple
-from ntgloss import Gloss, emptyGloss
+from ntgloss import Gloss
 import grammar
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
-from intervaltree import Interval, IntervalTree
+from intervaltree import IntervalTree
 
 ## EVENTS 
 
