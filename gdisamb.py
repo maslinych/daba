@@ -355,7 +355,7 @@ class GlossInputDialog(wx.Dialog):
                     self.UpdateInterface(self.as_gloss)
                 else:
                     self.glosstext.SetBackgroundColour('yellow')
-            except (LexerError, NoParseError) as e:
+            except (LexerError, NoParseError):
                 self.glosstext.SetBackgroundColour('yellow')
 
     def OnCheckLocaldict(self, evt):
@@ -539,7 +539,6 @@ class GlossSelector(wx.Panel):
         self.mbutton.OnStateChange(self.statecode, self.gloss)
 
     def OnEdition(self, evt):
-        oldgloss = self.gloss
         gloss = evt.gloss
         self.gloss = gloss
         self.glosslist = [gloss] + [button.gloss for button in self.children]
