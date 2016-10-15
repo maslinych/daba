@@ -19,7 +19,6 @@
 import wx
 import wx.stc
 import wx.lib.scrolledpanel as scrolled
-import wx.combo
 import wx.lib.newevent
 from wx.lib.stattext import GenStaticText
 import os
@@ -1072,7 +1071,6 @@ class MainFrame(wx.Frame):
         # constants, no need to reinit on opening next file
         self.config = wx.Config("gdisamb", style=wx.CONFIG_USE_LOCAL_FILE)
         self.dirname = self.config.Read("state/curdir", os.curdir)
-        self.dictfile = 'localdict.txt'
         self.InitValues()
 
         filemenu= wx.Menu()
@@ -1115,9 +1113,11 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnVerticalMode, menuVertical)
         self.Bind(wx.EVT_MENU, self.OnUndoTokens, self.menuUndoTokens)
         menuFont = settingsmenu.Append(wx.ID_ANY, "Select F&ont", "Select font")
+        menuLocaldict = settingsmenu.Append(wx.ID_ANY, "Set &Localdict", "Set Localdict")
         self.Bind(wx.EVT_MENU, self.OnSelectFont, menuFont)
-        menuBar.Append(settingsmenu,"&Settings") 
-        self.SetMenuBar(menuBar)  
+        self.Bind(wx.EVT_MENU, self.OnSetLocaldict, menuLocaldict)
+        menuBar.Append(settingsmenu,"&Settings")
+        self.SetMenuBar(menuBar)
 
         debugmenu = wx.Menu()
         menuInspector = debugmenu.Append(wx.ID_ANY, "Widget I&nspector", "Widget Inspector")
@@ -1132,15 +1132,15 @@ class MainFrame(wx.Frame):
         self.Bind(EVT_TOKEN_EDIT, self.OnTokenEdit)
         self.Bind(EVT_SENT_EDIT, self.OnSentenceEdit)
 
-        #FIXME: loading localdict right on start, should give user possibility to choose
-        if os.path.exists(self.dictfile):
-            self.localdict = formats.DictReader(self.dictfile).get()
-        else:
-            self.localdict = formats.DabaDict()
-
         self.Sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.SetSizer(self.Sizer)
         self.Show()
+
+    def SetLocaldict(self, dictfile):
+        if os.path.exists(dictfile):
+            self.localdict = formats.DictReader(dictfile).get()
+        else:
+            self.localdict = formats.DabaDict()
 
     def InitValues(self):
         self.infile = None
@@ -1150,6 +1150,7 @@ class MainFrame(wx.Frame):
         self.logger = None
         self.fileopened = False
         self.undolist = defaultdict(list)
+        
 
     def InitUI(self):
         self.notebook = wx.Notebook(self)
@@ -1204,6 +1205,18 @@ class MainFrame(wx.Frame):
             if self.fileopened:
                 self.UpdateUI()
         dlg.Destroy()
+
+    def OnSetLocaldict(self, e):
+        if not self.fileopened:
+            self.NoFileError(e)
+        else:
+            dlg = wx.FileDialog(self, "Choose localdict file", self.dirname, "localdict.txt", "*.*", wx.OPEN)
+            if dlg.ShowModal() == wx.ID_OK:
+                dictfile = dlg.GetPath()
+                self.SetLocaldict(dictfile)
+                if not dictfile == '/'.join([self.dirname, "localdict.txt"]):
+                    self.config.Write('/'.join(['localdict', self.infile]), dictfile)
+                dlg.Destroy()
 
     def OnWidgetInspector(self, e):
         import wx.lib.inspection
@@ -1396,6 +1409,8 @@ class MainFrame(wx.Frame):
         self.filename = os.path.basename(self.infile)
         logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
         self.logger = EditLogger(logfile)
+        self.dictfile = self.config.Read("/".join(["localdict", self.infile]), os.path.join(self.dirname, "localdict.txt"))
+        self.SetLocaldict(self.dictfile)
         self.processor.read_file(self.infile)
         self.InitUI()
         self.SetTitle(self.filename)
