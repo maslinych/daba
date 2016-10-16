@@ -309,7 +309,8 @@ class GlossInputDialog(wx.Dialog):
         vbox_top = wx.BoxSizer(wx.VERTICAL)
         vbox_top.Add(wx.StaticText(self, wx.ID_ANY, "Gloss string (edit inplace):"))
         glossstring = unicode(self.as_gloss)
-        self.glosstext = wx.ComboBox(self, wx.ID_ANY, glossstring, choices=[glossstring])
+        self.glosstext = wx.ComboBox(self, wx.ID_ANY, glossstring,
+                                     choices=[glossstring])
         vbox_top.Add(self.glosstext, 1, wx.EXPAND | wx.TOP | wx.BOTTOM, 10)
         self.gbutton = GlossButton(self, self.as_gloss, self.statecolors, disabled=True)
         vbox_top.Add(self.gbutton)
@@ -368,11 +369,14 @@ class GlossInputDialog(wx.Dialog):
                 self.as_gloss = grammar.stringgloss_parser().parse(toks)
                 if not self.as_gloss == oldgloss:
                     self.glosstext.SetBackgroundColour(wx.NullColour)
+                    self.glosstext.Refresh()
                     self.UpdateInterface(self.as_gloss)
                 else:
                     self.glosstext.SetBackgroundColour('yellow')
+                    self.glosstext.Refresh()
             except (LexerError, NoParseError):
                 self.glosstext.SetBackgroundColour('yellow')
+                self.glosstext.Refresh()
 
     def OnCheckLocaldict(self, evt):
         self.save = not self.save
