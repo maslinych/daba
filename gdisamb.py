@@ -20,6 +20,7 @@ import wx
 import wx.stc
 import wx.lib.scrolledpanel
 import wx.lib.newevent
+import wx.lib.colourselect as csel
 import os
 import formats
 import datetime
@@ -231,12 +232,13 @@ class SentText(wx.StaticText):
 
 
 class GlossButton(wx.Panel):
-    def __init__(self, parent, gloss, disabled=False, *args, **kwargs):
+    def __init__(self, parent, gloss, statecolours, disabled=False, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.selected = False
         self.children = []
         self.gloss = gloss
         self.disabled = disabled
+        self.statecolours = statecolours
 
         box = wx.BoxSizer(wx.VERTICAL)
         # prepare main gloss button
@@ -246,13 +248,16 @@ class GlossButton(wx.Panel):
         else:
             self.main = wx.ToggleButton(self, -1, makeGlossString(gloss))
             self.main.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggled)
-        self.main.SetBackgroundColour('White')
+        fore, back = self.statecolours['deselected']
+        self.main.SetForegroundColour(fore)
+        self.main.SetBackgroundColour(back)
+        self.Refresh()
         box.Add(self.main, 0,wx.EXPAND)
         # prepare morphemes buttons recursively
         if gloss.morphemes:
             morphemes = wx.BoxSizer(wx.HORIZONTAL)
             for morph in gloss.morphemes:
-                m = GlossButton(self, morph, disabled=self.disabled)
+                m = GlossButton(self, morph, self.statecolours, disabled=self.disabled)
                 self.children.append(m)
                 morphemes.Add(m, 0)
             box.Add(morphemes, 0)
@@ -270,9 +275,14 @@ class GlossButton(wx.Panel):
         """programmatically push button"""
         self.selected = not self.selected
         if self.selected:
-            self.main.SetForegroundColour("DarkGreen")
+            fore, back = self.statecolours['selected']
+            self.main.SetForegroundColour(fore)
+            self.main.SetBackgroundColour(back)
         else:
-            self.main.SetForegroundColour("Black")
+            fore, back = self.statecolours['deselected']
+            self.main.SetForegroundColour(fore)
+            self.main.SetBackgroundColour(back)
+        self.Refresh()
         self.ToggleChildren()
  
     def ToggleChildren(self):
@@ -289,13 +299,17 @@ class GlossInputDialog(wx.Dialog):
         self.morphemes = []
         self.save = True
         self.freeze = False
+        config = wx.Config.Get()
+        statecolors = {'deselected': (
+            config.Read('colors/deselected/fore', 'Black'),
+            config.Read('colors/deselected/back', 'White'))}
 
         vbox_top = wx.BoxSizer(wx.VERTICAL)
         vbox_top.Add(wx.StaticText(self, wx.ID_ANY, "Gloss string (edit inplace):"))
         glossstring = unicode(self.as_gloss)
         self.glosstext = wx.ComboBox(self, wx.ID_ANY, glossstring, choices=[glossstring])
         vbox_top.Add(self.glosstext, 1, wx.EXPAND | wx.TOP | wx.BOTTOM, 10)
-        self.gbutton = GlossButton(self, self.as_gloss, disabled=True)
+        self.gbutton = GlossButton(self, self.as_gloss, statecolors, disabled=True)
         vbox_top.Add(self.gbutton)
         cb = wx.CheckBox(self, -1, "Save to localdict")
         cb.SetValue(True)
@@ -401,22 +415,16 @@ class TokenSplitDialog(wx.Dialog):
 
 
 class GlossEditButton(wx.Panel):
-    def __init__(self, parent, gloss, *args, **kwargs):
+    def __init__(self, parent, gloss, statecolours, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.gloss = gloss
         self.state = None
+        self.statecolours = statecolours
         self.button = wx.Button(self, wx.ID_ANY, makeGlossString(gloss, morphemes=True), style=wx.NO_BORDER)
         sizer.Add(self.button,0)
         self.SetSizer(sizer)
         self.button.Bind(wx.EVT_BUTTON, self.OnEditGloss)
-        self.statecolours = {
-                1: 'Black',
-                2: 'Navy',
-                3: 'Blue',
-                4: 'Red',
-                5: 'Green'
-                }
         
     def OnEditGloss(self, event):
         dlg = GlossInputDialog(self, wx.ID_ANY, 'Insert gloss manually', gloss=self.gloss)
@@ -438,7 +446,11 @@ class GlossEditButton(wx.Panel):
         self.button.SetLabel(glossstring)
         self.Layout()
         try:
-            self.button.SetForegroundColour(self.statecolours[statecode])
+            fore, back = self.statecolours[statecode]
+            self.button.SetForegroundColour(fore)
+            self.SetBackgroundColour(back)
+            self.button.Refresh()
+            self.Refresh()
             self.state = statecode
         except KeyError:
             #FIXME: proper error message
@@ -469,9 +481,24 @@ class GlossSelector(wx.Panel):
 
         self.gloss = self.CalculateGloss()
         self.statecode = self.CalculateState()
+        config = wx.Config.Get(False)
+        def getforeback(config, name):
+            fore = config.Read("colors/{}/fore".format(name))
+            back = config.Read("colors/{}/back".format(name))
+            return (fore, back)
+            
+        self.statecolours = {
+                1: getforeback(config, 'unambiguous'),
+                2: getforeback(config, 'ambiguous'),
+                3: getforeback(config, 'uncertain'),
+                4: getforeback(config, 'unparsed'),
+                5: getforeback(config, 'manual'),
+            'selected': getforeback(config, 'selected'),
+            'deselected': getforeback(config, 'deselected'),
+                }
 
         self.tbutton = TokenEditButton(self, self.index, self.toktype, self.form)
-        self.mbutton = GlossEditButton(self, self.gloss)
+        self.mbutton = GlossEditButton(self, self.gloss, self.statecolours)
         
         self.UpdateState(self.statecode, self.gloss)
         
@@ -529,7 +556,7 @@ class GlossSelector(wx.Panel):
     def AddButtons(self, glosslist):
         if len(self.glosslist) > 1:
             for gloss in glosslist:
-                gbutton = GlossButton(self, gloss)
+                gbutton = GlossButton(self, gloss, self.statecolours)
                 self.children.append(gbutton)
                 self.sizer.Add(gbutton, 0, *self.sizerflags)
             self.SetSizer(self.sizer)
@@ -703,6 +730,46 @@ class NotFoundDialog(wx.Dialog):
         self.SetSizer(sizer)
 
 
+class StatusColorsDialog(wx.Dialog):
+    def __init__(self, parent, config, statuscolors, *args, **kwargs):
+        wx.Dialog.__init__(self, parent, wx.ID_ANY, "Select status colors", *args, **kwargs)
+        self.config = config
+        self.buttonrefs = {}
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        buttonSizer = wx.FlexGridSizer(7, 5)
+        for name, fore, back in statuscolors:
+            sampletext = wx.TextCtrl(self, wx.ID_ANY, name)
+            sampletext.SetForegroundColour(fore)
+            sampletext.SetBackgroundColour(back)
+            forebutton = csel.ColourSelect(self, wx.ID_ANY, "", fore)
+            backbutton = csel.ColourSelect(self, wx.ID_ANY, "", back)
+            forebutton.Bind(csel.EVT_COLOURSELECT, self.OnSelectColor)
+            backbutton.Bind(csel.EVT_COLOURSELECT, self.OnSelectColor)
+            self.buttonrefs[forebutton.GetId()] = (name.lower(), 'fore', sampletext)
+            self.buttonrefs[backbutton.GetId()] = (name.lower(), 'back', sampletext)
+            buttonSizer.AddMany([
+                (sampletext, 2, wx.EXPAND),
+                (wx.StaticText(self, wx.ID_ANY, "Font color: "), 1, wx.ALIGN_RIGHT | wx.ALIGN_CENTER_VERTICAL),
+                (forebutton, 1, wx.ALL, 3),
+                (wx.StaticText(self, wx.ID_ANY, "Background color: "), 1, wx.ALIGN_RIGHT | wx.ALIGN_CENTER_VERTICAL),
+                (backbutton, 1, wx.ALL, 3)
+            ])
+        sizer.Add(buttonSizer, 0, wx.EXPAND, 4)
+        sizer.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.TOP | wx.BOTTOM, 10)
+        self.SetSizer(sizer)
+        self.Layout()
+        self.Fit()
+
+    def OnSelectColor(self, evt):
+        name, side, sampletext = self.buttonrefs[evt.GetId()]
+        colorstring = wx.Colour(*evt.GetValue()).GetAsString(wx.C2S_HTML_SYNTAX)
+        self.config.Write("colors/{0}/{1}".format(name, side), colorstring)
+        if side == 'fore':
+            sampletext.SetForegroundColour(colorstring)
+        elif side == 'back':
+            sampletext.SetBackgroundColour(colorstring)
+
+        
 class TokenEditButton(wx.Panel):
     def __init__(self, parent, index, tokentype, tokenstr, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
@@ -734,11 +801,13 @@ class SentenceText(wx.stc.StyledTextCtrl):
         self.encoder = codecs.getencoder("utf-8")
         self.decoder = codecs.getdecoder("utf-8")
         # defining styles
-        pb = 16
-        if platform.system() == 'Windows':
-            face = 'Arial'
-        else:
-            face = 'Helvetica'
+        config = wx.Config.Get(False)
+        self.mainfont = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+        savedfont = config.Read("fonts/main")
+        if savedfont:
+            self.mainfont.SetNativeFontInfoUserDesc(savedfont)
+        pb = self.mainfont.GetPointSize() + 2
+        face = self.mainfont.GetFaceName()
         self.style_default = 0
         self.style_unambiguous = 1
         self.style_ambiguous = 2
@@ -748,11 +817,11 @@ class SentenceText(wx.stc.StyledTextCtrl):
 
         self.StyleSetSpec(wx.stc.STC_STYLE_DEFAULT, "size:%d,face:%s,back:#FFFFFF,fore:#1A4780" % (pb, face))
         self.StyleClearAll()
-        self.StyleSetSpec(self.style_unambiguous, "size:%d,face:%s,bold,back:#FFFFFF,fore:#1A4780" % (pb, face))
-        self.StyleSetSpec(self.style_ambiguous, "size:%d,face:%s,back:#cccccc,fore:#1A4780" % (pb, face))
-        self.StyleSetSpec(self.style_uncertain, "size:%d,face:%s,back:#dda0dd,fore:#1A4780" % (pb, face))
-        self.StyleSetSpec(self.style_unparsed, "size:%d,face:%s,back:#fc6c85,fore:#1A4780" % (pb, face))
-        self.StyleSetSpec(self.style_manual, "size:%d,face:%s,back:#0bda51,fore:#1A4780" % (pb, face))
+        self.StyleSetSpec(self.style_unambiguous, "size:%d,face:%s,bold,fore:%s,back:%s" % (pb, face, config.Read("colors/unambiguous/fore"), config.Read("colors/unambiguous/back")))
+        self.StyleSetSpec(self.style_ambiguous, "size:%d,face:%s,fore:%s,back:%s" % (pb, face, config.Read("colors/ambiguous/fore"), config.Read("colors/ambiguous/back")))
+        self.StyleSetSpec(self.style_uncertain, "size:%d,face:%s,fore:%s,back:%s" % (pb, face, config.Read("colors/uncertain/fore"), config.Read("colors/uncertain/back")))
+        self.StyleSetSpec(self.style_unparsed, "size:%d,face:%s,fore:%s,back:%s" % (pb, face, config.Read("colors/unparsed/fore"), config.Read("colors/unparsed/back")))
+        self.StyleSetSpec(self.style_manual, "size:%d,face:%s,fore:%s,back:%s" % (pb, face, config.Read("colors/manual/fore"), config.Read("colors/manual/back")))
         self.SetSizer(wx.BoxSizer(wx.VERTICAL))
         self.Layout()
 
@@ -1054,7 +1123,23 @@ class MainFrame(wx.Frame):
         wx.Frame.__init__(self, parent, *args, **kwargs)
 
         # constants, no need to reinit on opening next file
-        self.config = wx.Config("gdisamb", style=wx.CONFIG_USE_LOCAL_FILE)
+        wx.Config.Set(wx.Config("gdisamb", style=wx.CONFIG_USE_LOCAL_FILE))
+        self.config = wx.Config.Get(False)
+        self.config.SetRecordDefaults()
+        def savedDefault(name, fore, back):
+            forecolor = self.config.Read("colors/{}/fore".format(name.lower()), fore)
+            backcolor = self.config.Read("colors/{}/back".format(name.lower()), back)
+            return (name, forecolor, backcolor)
+        self.statuscolors = [
+            savedDefault("unambiguous", "#1A4780", "#FFFFFF"),
+            savedDefault("ambiguous", "#1A4780", "#cccccc"),
+            savedDefault("uncertain", "#1A4780", "#dda0dd"),
+            savedDefault("unparsed", "#1A4780", "#fc6c85"),
+            savedDefault("manual", "#1A4780", "#0bda51"),
+            savedDefault("deselected", "Black", "White"),
+            savedDefault("selected", "DarkGreen", "White")
+        ]
+
         self.dirname = self.config.Read("state/curdir", os.curdir)
         self.InitValues()
 
@@ -1098,8 +1183,10 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnVerticalMode, menuVertical)
         self.Bind(wx.EVT_MENU, self.OnUndoTokens, self.menuUndoTokens)
         menuFont = settingsmenu.Append(wx.ID_ANY, "Select F&ont", "Select font")
-        menuLocaldict = settingsmenu.Append(wx.ID_ANY, "Set &Localdict", "Set Localdict")
         self.Bind(wx.EVT_MENU, self.OnSelectFont, menuFont)
+        menuColors = settingsmenu.Append(wx.ID_ANY, "Select &Colors", "Select colors")
+        self.Bind(wx.EVT_MENU, self.OnSelectColors, menuColors)
+        menuLocaldict = settingsmenu.Append(wx.ID_ANY, "Set &Localdict", "Set Localdict")
         self.Bind(wx.EVT_MENU, self.OnSetLocaldict, menuLocaldict)
         menuBar.Append(settingsmenu,"&Settings")
         self.SetMenuBar(menuBar)
@@ -1173,16 +1260,15 @@ class MainFrame(wx.Frame):
         self.Layout()
         self.Thaw()
 
-    def OnVerticalMode(self,e):
+    def OnVerticalMode(self, e):
         self.config.WriteBool("display/vertical", not self.config.ReadBool("display/vertical"))
         self.config.Flush()
         if self.fileopened:
             self.UpdateUI()
 
-    def OnSelectFont(self,e):
+    def OnSelectFont(self, e):
         fontdata = wx.FontData()
         fontdata.SetInitialFont(self.mainfont)
-
         dlg = wx.FontDialog(self, fontdata)
         if dlg.ShowModal() == wx.ID_OK:
             self.mainfont = dlg.GetFontData().GetChosenFont()
@@ -1192,6 +1278,12 @@ class MainFrame(wx.Frame):
             self.config.Flush()
             if self.fileopened:
                 self.UpdateUI()
+        dlg.Destroy()
+
+    def OnSelectColors(self, e):
+        dlg = StatusColorsDialog(self, self.config, self.statuscolors)
+        if dlg.ShowModal() == wx.ID_OK:
+            self.config.Flush()
         dlg.Destroy()
 
     def OnSetLocaldict(self, e):
