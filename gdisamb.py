@@ -294,13 +294,15 @@ class GlossButton(wx.Panel):
 
 class GlossInputDialog(wx.Dialog):
     def __init__(self, parent, id, title, gloss, *args, **kwargs):
-        wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
+        wx.Dialog.__init__(self, parent, id, title,
+                           style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER,
+                           *args, **kwargs)
         self.as_gloss = gloss
         self.morphemes = []
         self.save = True
         self.freeze = False
         config = wx.Config.Get()
-        statecolors = {'deselected': (
+        self.statecolors = {'deselected': (
             config.Read('colors/deselected/fore', 'Black'),
             config.Read('colors/deselected/back', 'White'))}
 
@@ -309,7 +311,7 @@ class GlossInputDialog(wx.Dialog):
         glossstring = unicode(self.as_gloss)
         self.glosstext = wx.ComboBox(self, wx.ID_ANY, glossstring, choices=[glossstring])
         vbox_top.Add(self.glosstext, 1, wx.EXPAND | wx.TOP | wx.BOTTOM, 10)
-        self.gbutton = GlossButton(self, self.as_gloss, statecolors, disabled=True)
+        self.gbutton = GlossButton(self, self.as_gloss, self.statecolors, disabled=True)
         vbox_top.Add(self.gbutton)
         cb = wx.CheckBox(self, -1, "Save to localdict")
         cb.SetValue(True)
@@ -340,7 +342,7 @@ class GlossInputDialog(wx.Dialog):
         sizer = self.GetSizer()
         sizer.Detach(self.gbutton)
         self.gbutton.Show(False)
-        self.gbutton = GlossButton(self, gloss, disabled=True)
+        self.gbutton = GlossButton(self, gloss, self.statecolors, disabled=True)
         sizer.Insert(2, self.gbutton)
         self.FitGlosstextWidth()
         self.freeze = False
