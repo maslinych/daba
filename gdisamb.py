@@ -432,7 +432,7 @@ class GlossEditButton(wx.Panel):
         self.state = None
         self.statecolours = statecolours
         self.button = wx.Button(self, wx.ID_ANY, makeGlossString(gloss, morphemes=True), style=wx.NO_BORDER)
-        sizer.Add(self.button,0)
+        sizer.Add(self.button, 0)
         self.SetSizer(sizer)
         self.button.Bind(wx.EVT_BUTTON, self.OnEditGloss)
         
@@ -458,6 +458,7 @@ class GlossEditButton(wx.Panel):
         try:
             fore, back = self.statecolours[statecode]
             self.button.SetForegroundColour(fore)
+            self.button.SetBackgroundColour(back)
             self.SetBackgroundColour(back)
             self.button.Refresh()
             self.Refresh()
