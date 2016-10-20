@@ -22,11 +22,11 @@ import wx.lib.scrolledpanel
 import wx.lib.newevent
 import wx.lib.colourselect as csel
 import os
+import re
 import formats
 import datetime
 import codecs
 import unicodedata
-import platform
 import itertools
 from collections import defaultdict, namedtuple
 from ntgloss import Gloss
@@ -52,23 +52,26 @@ LocaldictSaveEvent, EVT_LOCALDICT_SAVE = wx.lib.newevent.NewCommandEvent()
 
 ## UTILITY functions and no-interface classes
 
-normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
+def normalizeText(t):
+    return unicodedata.normalize('NFKD', unicode(t))
+
 TokenEdit = namedtuple('TokenEdit', 'operation start end toklist')
+
 
 def get_basename(fname):
     basename = os.path.splitext(os.path.basename(fname))[0]
     pars = basename.rfind('.pars')
     if pars > 0:
         return basename[:pars]
-    #FIXME: may occasionally cut off part of filename
-    dis = basename.rfind('.dis')
+    dis = basename.rfind('.dis.')
     if dis > 0 and len(basename)-dis <= 7:
         return basename[:dis]
     return basename
 
+
 class NormalizedTextCtrl(wx.TextCtrl):
     def __init__(*args, **kwargs):
-        if len(args)>3:
+        if len(args) > 3:
             arglist = list(args)
             arglist[3] = normalizeText(args[3])
         if 'value' in kwargs:
@@ -99,9 +102,9 @@ class FileParser(object):
         self.metadata = freader.metadata
         self.glosses = []
         for pnum, par in enumerate(freader.glosses):
-            for snum,sent in enumerate(par):
+            for snum, sent in enumerate(par):
                 # tuple(sent_text, selectlist, glosslist, index)
-                self.glosses.append((sent[0], [[] for i in sent[1]], sent[1], (pnum,snum)))
+                self.glosses.append((sent[0], [[] for i in sent[1]], sent[1], (pnum, snum)))
                 self.numsent = freader.numsent
                 self.numwords = freader.numwords
 
@@ -109,10 +112,10 @@ class FileParser(object):
         out = [[]]
         for sent in self.glosses:
             pnum = sent[3][0]
-            if pnum>len(out)-1:
+            if pnum > len(out)-1:
                 out.append([])
             outgloss = []
-            for selectlist,glosstoken in zip(sent[1], sent[2]):
+            for selectlist, glosstoken in zip(sent[1], sent[2]):
                 if not selectlist:
                     outgloss.append(glosstoken)
                 else:
@@ -122,6 +125,7 @@ class FileParser(object):
             out[-1].append((sent[0], outgloss))
         fwriter = formats.HtmlWriter((self.metadata, out), filename)
         fwriter.write()
+
 
 class EditLogger(object):
     def __init__(self, filename, encoding='utf-8'):
@@ -252,7 +256,7 @@ class GlossButton(wx.Panel):
         self.main.SetForegroundColour(fore)
         self.main.SetBackgroundColour(back)
         self.Refresh()
-        box.Add(self.main, 0,wx.EXPAND)
+        box.Add(self.main, 0, wx.EXPAND)
         # prepare morphemes buttons recursively
         if gloss.morphemes:
             morphemes = wx.BoxSizer(wx.HORIZONTAL)
@@ -488,11 +492,12 @@ class GlossSelector(wx.Panel):
         self.gloss = self.CalculateGloss()
         self.statecode = self.CalculateState()
         config = wx.Config.Get(False)
+
         def getforeback(config, name):
             fore = config.Read("colors/{}/fore".format(name))
             back = config.Read("colors/{}/back".format(name))
             return (fore, back)
-            
+
         self.statecolours = {
                 1: getforeback(config, 'unambiguous'),
                 2: getforeback(config, 'ambiguous'),
@@ -511,7 +516,7 @@ class GlossSelector(wx.Panel):
         if self.vertical:
             self.sizer = wx.BoxSizer(wx.VERTICAL)
         else:
-            self.sizer = wx.BoxSizer(wx.HORIZONTAL) 
+            self.sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.sizerflags = (wx.EXPAND | wx.TOP | wx.BOTTOM, 4)
         self.sizer.Add(self.tbutton, 0, *self.sizerflags)
         self.sizer.Add(self.mbutton, 0, *self.sizerflags)
