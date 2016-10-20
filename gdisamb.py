@@ -581,11 +581,11 @@ class GlossSelector(wx.Panel):
         gloss = evt.gloss
         self.gloss = gloss
         self.glosslist = [gloss] + [button.gloss for button in self.children]
-        selectedbuttons = [button.gloss for button in self.children if button.selected]
-        if selectedbuttons:
-            self.selectlist = [gloss] + selectedbuttons
-        else:
-            self.selectlist = [gloss]
+        for button in self.children:
+            if button.selected:
+                button.main.SetValue(False)
+                button.DoToggle()
+        self.selectlist = [gloss]
         self.statecode = 5
         self.UpdateState(self.statecode, self.gloss)
         self.OnSelectorUpdated()
