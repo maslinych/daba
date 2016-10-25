@@ -15,25 +15,26 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-
-import wx
-import wx.stc
-import wx.lib.scrolledpanel
-import wx.lib.newevent
-import wx.lib.colourselect as csel
+import codecs
+import datetime
+import itertools
 import os
 import re
-import formats
-import datetime
-import codecs
 import unicodedata
-import itertools
 from collections import defaultdict, namedtuple
-from ntgloss import Gloss
+
+import wx.lib.colourselect as csel
+import wx.lib.newevent
+import wx.lib.scrolledpanel
+import wx.stc
+
+import formats
 import grammar
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
 from intervaltree import IntervalTree
+from ntgloss import Gloss
+
 
 ## EVENTS 
 
