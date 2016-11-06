@@ -426,17 +426,37 @@ class TokenSplitDialog(wx.Dialog):
 
 
 class GlossEditButton(wx.Panel):
-    def __init__(self, parent, gloss, statecolours, *args, **kwargs):
+    def __init__(self, parent, glosslist, statecolours, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         sizer = wx.BoxSizer(wx.VERTICAL)
-        self.gloss = gloss
+        self.gloss = glosslist[0]
         self.state = None
         self.statecolours = statecolours
-        self.button = wx.Button(self, wx.ID_ANY, makeGlossString(gloss, morphemes=True), style=wx.NO_BORDER)
+        glossstring = makeGlossString(self.CalculateGloss(glosslist), morphemes=True)
+        self.button = wx.Button(self, wx.ID_ANY, glossstring, style=wx.NO_BORDER)
         sizer.Add(self.button, 0)
         self.SetSizer(sizer)
         self.button.Bind(wx.EVT_BUTTON, self.OnEditGloss)
-        
+
+    def CalculateGloss(self, glosslist):
+        """Setup a gloss to show as current selection"""
+        form = [v.form for v in glosslist][0]
+        ps = tuple(set(itertools.chain(*[v.ps for v in glosslist if v.ps])))
+        glosses = []
+        for variant in glosslist:
+            if variant.gloss:
+                glosses.append(variant.gloss)
+            else:
+                if variant.morphemes:
+                    glosses.append(u'.'.join([g.gloss for g in variant.morphemes]))
+        if glosses:
+            if len(glosses) > 1:
+                glosses = glosses[:1] + ['...']
+            gloss = u'/'.join(glosses)
+        else:
+            gloss = ''
+        return Gloss(form, ps, gloss, ())
+
     def OnEditGloss(self, event):
         dlg = GlossInputDialog(self, wx.ID_ANY, 'Insert gloss manually', gloss=self.gloss)
         evt = LocaldictLookupEvent(self.GetId(), gloss=self.gloss, dlg=dlg)
@@ -453,7 +473,7 @@ class GlossEditButton(wx.Panel):
         dlg.Destroy()
 
     def OnStateChange(self, statecode, gloss):
-        glossstring = makeGlossString(gloss, morphemes=True)
+        glossstring = makeGlossString(self.CalculateGloss([gloss]), morphemes=True)
         self.button.SetLabel(glossstring)
         self.Layout()
         try:
@@ -491,8 +511,11 @@ class GlossSelector(wx.Panel):
         self.Bind(EVT_GLOSS_SELECTED, self.OnGlossSelected)
         self.Bind(EVT_GLOSS_EDITED, self.OnEdition)
 
-        self.gloss = self.CalculateGloss()
-        self.statecode = self.CalculateState()
+        try:
+            self.gloss = self.selectlist[0]
+        except (IndexError):
+            self.gloss = self.glosslist[0]
+            self.statecode = self.CalculateState()
         config = wx.Config.Get(False)
 
         def getforeback(config, name):
@@ -511,7 +534,7 @@ class GlossSelector(wx.Panel):
                 }
 
         self.tbutton = TokenEditButton(self, self.index, self.toktype, self.form)
-        self.mbutton = GlossEditButton(self, self.gloss, self.statecolours)
+        self.mbutton = GlossEditButton(self, self.selectlist or self.glosslist, self.statecolours)
         
         self.UpdateState(self.statecode, self.gloss)
         
@@ -535,26 +558,6 @@ class GlossSelector(wx.Panel):
                         button.DoToggle()
                 else:
                     self.OnSelection(gloss)
-
-    def CalculateGloss(self):
-        """Setup a gloss to show as current selection"""
-        glist = self.selectlist or self.glosslist
-        form = [v.form for v in glist][0]
-        ps = tuple(set(itertools.chain(*[v.ps for v in glist if v.ps])))
-        glosses = []
-        for variant in glist:
-            if variant.gloss:
-                glosses.append(variant.gloss)
-            else:
-                if variant.morphemes:
-                    glosses.append(u'.'.join([g.gloss for g in variant.morphemes]))
-        if glosses:
-            if len(glosses) > 1:
-                glosses = glosses[:1] + ['...']
-            gloss = u'/'.join(glosses)
-        else:
-            gloss = ''
-        return Gloss(form, ps, gloss, ())
 
     def CalculateState(self):
         """Calculate current state code (self.state)"""
