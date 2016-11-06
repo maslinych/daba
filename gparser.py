@@ -36,7 +36,8 @@ def get_outdir(fname):
     return dirname
 
 def get_outfile(fname):
-    return '.'.join([os.path.splitext(fname)[0], 'pars'])
+    basename = os.path.basename(fname)
+    return '.'.join([os.path.splitext(basename)[0], 'pars'])
 
 
 class FilePanel(wx.Panel):
@@ -275,8 +276,6 @@ class MainFrame(wx.Frame):
         if not self.infile:
             self.NoFileError(e)
         else:
-            xfilename = '.'.join([os.path.splitext(self.infile)[0], 'parsed'])
-
             dlg = wx.FileDialog(self, "Choose a file", get_outdir(self.infile), get_outfile(self.infile), "*.html", wx.SAVE)
             if dlg.ShowModal() == wx.ID_OK:
                 self.outfile = dlg.GetPath()
