@@ -43,13 +43,17 @@ section inflection
 # -la/-na PROG
 pattern :v: [ {@nasal-v@|na}:: ] | :v: [:v: :mrph:PROG]
 pattern :v: [ {@nonnasal-v@|la}:: ] | :v: [:v: :mrph:PROG]
+# moved up from v_vq_derivation because of na/la ambiguity
+pattern :n: [ {@smth-nasal@|na}:: ] | :n: [ :v: :mrph:AG.PRM]
+pattern :n: [ {@nonnasal-v@|la}:: ] | :n: [ :v: :mrph:AG.PRM]
+
 # -ra/-la/-na PFV.INTR
 pattern :v: [ {@nasal-syl@|<re>n[a']</re>}:: ] | :v: [:v: :mrph:PFV.INTR]
 pattern :v: [ {@glide-syl@|<re>l[a']</re>}:: ] | :v: [:v: :mrph:PFV.INTR]
 pattern :v: [ {@nonnasalglide-syl@|<re>r[a']</re>}:: ] | :v: [:v: :mrph:PFV.INTR]
 # nominal inflection
 # -w PL
-pattern :n/adj/dtm/prn/ptcp/n.prop: [ {|w}:: ] | :n/adj/dtm/prn/ptcp/n.prop: [:n/adj/dtm/prn/ptcp/n.prop: :mrph:PL]
+pattern :n/adj/dtm/prn/ptcp/n.prop/num: [ {|w}:: ] | :n/adj/dtm/prn/ptcp/n.prop/num: [:n/adj/dtm/prn/ptcp/n.prop/num: :mrph:PL]
 
 # participles
 section participles
@@ -59,11 +63,18 @@ pattern :v/ptcp: [ {|tɔ}:: ] | :ptcp: [ :v: :mrph:CONV.PROG]
 pattern :v/ptcp: [ {@smth-nasal@|nen}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 pattern :v/ptcp: [ {@nonnasal-v@|len}:: ] | :ptcp: [ :v: :mrph:PTCP.RES]
 
+pattern :v/ptcp: [ {@smth-nasal@|nen|ba}:: ] | :ptcp: [ :v: :mrph:PTCP.RES :mrph:AUGM]
+pattern :v/ptcp: [ {@nonnasal-v@|len|ba}:: ] | :ptcp: [ :v: :mrph:PTCP.RES :mrph:AUGM]
+
+
 # derivative forms we need to consider even if we have them in dictionary
 section common_derivation
 pattern :ptcp/n/adj: [ {|nin}:: ] | :ptcp/n/adj: [:ptcp/n/adj: :mrph:DIM]
 pattern :n/adj/ptcp/v: [ {|ya}:: ] | :n: [:n/adj/ptcp/v: :mrph:ABSTR]
 pattern :ptcp/n/adj: [ {|ba}:: ] | :ptcp/n/adj: [:ptcp/n/adj: :mrph:AUGM]
+
+# to handle -baliya ex: basigi.bali.ya
+pattern :v/ptcp/n/adj: [ {|bali|ya}:: ] | :n: [:v/ptcp: :mrph:PTCP.PRIV :mrph:ABSTR]
 
 # common nominal/verbal derivation (locatives)
 section n_v_derivation
@@ -73,22 +84,44 @@ pattern :n/n.prop: [ {@nonnasal-v@|la}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
 
 # nominal derivation
 section n_derivation
+pattern :n: [ {@smth-nasal@|nama}:: ] | :n: [ :n: :mrph:STAT]
+pattern :n: [ {@nonnasal-v@|lama}:: ] | :n: [ :n: :mrph:STAT]
 pattern :n: [ {|ma}:: ] | :n: [ :n: :mrph:COM]
 pattern :adj/n: [ {|ntan}:: ] | :adj/n: [ :n: :mrph:PRIV]
 pattern :adj/n: [ {|bagatɔ}:: ] | :adj/n: [ :n: :mrph:ST]
+pattern :adj/n: [ {|baatɔ}:: ] | :adj/n: [ :n: :mrph:ST]
+pattern :n: [ {ɲɔgɔn|}:: ] | :n: [ :prn:RECP :n: ]
+pattern :n: [ {|<re>ɲwaa?n</re>}:: ] | :n: [ :n: :prn:RECP]
+
 
 # verbal/vq derivation
 section v_vq_derivation
-pattern :n: [ {@nasal-v@|na}:: ] | :n: [ :v: :mrph:AG.PRM]
-pattern :n: [ {@nonnasal-v@|la}:: ] | :n: [ :v: :mrph:AG.PRM]
-pattern :n: [ {@nasal-v@|nan}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@smth-nasal@|nan}:: ] | :n: [ :v: :mrph:INSTR]
 pattern :n: [ {@nonnasal-v@|lan}:: ] | :n: [ :v: :mrph:INSTR]
-pattern :n: [ {@nasal-syl@|ni}:: ] | :n: [ :v: :mrph:NMLZ]
-pattern :n: [ {@nonnasal-syl@|li}:: ] | :n: [ :v: :mrph:NMLZ]
+pattern :n: [ {@smth-nasal@|ni}:: ] | :n: [ :v: :mrph:NMLZ]
+pattern :n: [ {@nonnasal-v@|li}:: ] | :n: [ :v: :mrph:NMLZ]
 pattern :n: [ {|baga}:: ] | :n: [ :v: :mrph:AG.OCC]
 pattern :n: [ {|baa}:: ] | :n: [ :v: :mrph:AG.OCC]
-pattern :v: [ {|ɲɔgɔn}:: ] | :v: [ :v: :mrph:RECP]
-pattern :v: [ {|<re>ɲwaa?n</re>}:: ] | :v: [ :v: :mrph:RECP]
+pattern :n: [ {|baga|nci}:: ] | :n: [ :v: :mrph:AG.OCC :mrph:AG.EX]
+pattern :n: [ {|baa|nci}:: ] | :n: [ :v: :mrph:AG.OCC :mrph:AG.EX]
+
+# attempt to handle -likɛ, -likɛla, others like -liwari...
+pattern :v: [ {@nonnasal-v@|li|kɛ}:: ] | :v: [ :v: :mrph:NMLZ kɛ́:v:faire]
+pattern :n: [ {@nonnasal-v@|li|kɛ|la}:: ] | :n: [ :v: :mrph:NMLZ kɛ́:v:faire :mrph:AG.PRM]
+pattern :v: [ {@smth-nasal@|ni|kɛ}:: ] | :v: [ :v: :mrph:NMLZ kɛ́:v:faire]
+pattern :n: [ {@smth-nasal@|ni|kɛ|la}:: ] | :n: [ :v: :mrph:NMLZ kɛ́:v:faire :mrph:AG.PRM]
+pattern :n: [ {@nonnasal-v@|li|wari}:: ] | :n: [ :v: :mrph:NMLZ :n:]
+pattern :n: [ {@smth-nasal@|ni|wari}:: ] | :n: [ :v: :mrph:NMLZ :n:]
+pattern :n: [ {@nonnasal-v@|li|fɛn}:: ] | :n: [ :v: :mrph:NMLZ fɛ́n:n:chose]
+pattern :n: [ {@smth-nasal@|ni|fɛn}:: ] | :n: [ :v: :mrph:NMLZ fɛ́n:n:chose]
+pattern :n: [ {@nonnasal-v@|li|ko}:: ] | :n: [ :v: :mrph:NMLZ kó:n:affaire]
+pattern :n: [ {@smth-nasal@|ni|ko}:: ] | :n: [ :v: :mrph:NMLZ kó:n:affaire]
+
+# need to handle -ba AUGM inside ex: ko.jugu.ba.kɛ.la
+
+pattern :n: [ {|ɲɔgɔn}:: ] | :n: [ :v: :prn:RECP]
+pattern :n: [ {|<re>ɲwaa?n</re>}:: ] | :n: [ :v: :prn:RECP]
+pattern :n: [ {ɲɔgɔn|}:: ] | :n: [ :prn:RECP :v: ]
 
 # vq derivation
 section vq_derivation
@@ -117,8 +150,11 @@ pattern :adj: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>|<re>(?P=stem)</re>}:: 
 ## composition
 # general part-of-speech composition patterns
 #
-# two-word composites
 section pos_composition
+
+# two-words composites
+# n.prop + n = n   ex: Irisi.jamana
+pattern :n: [ :n.prop: :n: ] | :n: [ :n.prop: :n: ]
 # v/n + n = n
 pattern :n: [ :n/v: :n: ] | :n: [ :n/v: :n: ]
 # n + v = n/v
@@ -127,15 +163,33 @@ pattern :n/v: [ :n: :v: ] | :n/v: [ :n: :v: ]
 pattern :n: [ :n: :adj/num: ] | :n: [ :n: :adj/num: ]
 # dtm + v = n
 pattern :n: [ :dtm: :v: ] | :n: [ :dtm: :v: ]
-# three-word composites
-# n + adj/pp + n = n
-pattern :n: [ :n: :adj/pp: :n: ] | :n: [ :n: :adj/pp: :n: ]
-# n + pp + n + n = n
-pattern :n: [ :n: :pp: :n: :n: ] | :n: [ :n: :pp: :n: :n: ]
+# pp + n = n     ex. kɔkan.maliden, kɔnɔ.mɔgɔ
+pattern :n: [ :pp: :n: ] | :n: [ :pp: :n: ]
+
+# three-words composites
+# n + adj/pp/num + n = n     -> added num : san.duuru.baara
+pattern :n: [ :n: :adj/pp/num: :n: ] | :n: [ :n: :adj/pp/num: :n: ]
 # dtm/n + v + n = n
 pattern :n: [ :dtm/n: :v: :n: ] | :n: [ :dtm/n: :v: :n: ]
 # n + pp + v = n/v
 pattern :n/v: [ :n: :pp: :v: ] | :n/v: [ :n: :pp: :v: ]
+# n+n+n = n    yiriwali.nafolo.ko ?
+pattern :n: [ :n: :n: :n: ] | :n: [ :n: :n: :n: ]
+
+# ??? : mrph not taken into acount (not in dic?)
+# v+mrph+n  ex: gansi.li.walan 
+# pattern :n: [ :v: :mrph: :n: ] | :n: [ :v: :mrph: :n: ]
+# v+mrph+v 	ex: kɔlɔsi.li.kɛ
+# pattern :v: [ :v: :mrph: :v: ] | :v: [ :v: :mrph: :v: ]
+
+
+# four-words composites
+# n + pp + n + n = n
+pattern :n: [ :n: :pp: :n: :n: ] | :n: [ :n: :pp: :n: :n: ]
+# n + pp + adj + n = n    Ex: dugu.jukɔrɔ.nafoloma.fɛn
+pattern :n: [ :n: :pp: :adj: :n: ] | :n: [ :n: :pp: :adj: :n: ]
+# n+v+v+n : kunnafoni.falen.falen.ko
+pattern :n: [ :n: :v: :v: :n: ] | :n: [ :n: :v: :v: :n: ]
 
 
 # orthographically unlikely to be bamana words
