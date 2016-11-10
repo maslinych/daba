@@ -1565,6 +1565,7 @@ class MainFrame(wx.Frame):
                 if not os.path.splitext(self.outfile)[1] == '.html' :
                     self.outfile = ''.join([self.outfile, os.path.extsep, 'html'])
                 self.SaveFiles()
+                self.filehistory.AddFileToHistory(self.outfile)
             dlg.Destroy()
 
 
