@@ -64,7 +64,7 @@ def get_basename(fname):
     pars = basename.rfind('.pars')
     if pars > 0:
         return basename[:pars]
-    dis = basename.rfind('.dis.')
+    dis = basename.rfind('.dis')
     if dis > 0 and len(basename)-dis <= 7:
         return basename[:dis]
     return basename
