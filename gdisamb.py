@@ -1526,7 +1526,7 @@ class MainFrame(wx.Frame):
         self.config.Flush()
         self.filename = os.path.basename(self.infile)
         logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
-        self.logger = EditLogger(logfile)
+        self.logger = EditLogger(os.path.join(self.dirname, logfile))
         self.dictfile = self.config.Read("/".join(["localdict", self.infile]), os.path.join(self.dirname, "localdict.txt"))
         self.SetLocaldict(self.dictfile)
         self.processor.read_file(self.infile)
