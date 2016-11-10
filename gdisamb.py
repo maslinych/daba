@@ -420,7 +420,7 @@ class TokenSplitDialog(wx.Dialog):
             self.splittext = wx.StaticText(self, wx.ID_ANY, ' | '.join(self.split))
             sizer.Insert(2, self.splittext, 0, wx.EXPAND)
             self.Layout()
-    
+
     def GetResult(self):
         return self.split
 
@@ -515,7 +515,7 @@ class GlossSelector(wx.Panel):
             self.gloss = self.selectlist[0]
         except (IndexError):
             self.gloss = self.glosslist[0]
-            self.statecode = self.CalculateState()
+        self.statecode = self.CalculateState()
         config = wx.Config.Get(False)
 
         def getforeback(config, name):
@@ -535,9 +535,9 @@ class GlossSelector(wx.Panel):
 
         self.tbutton = TokenEditButton(self, self.index, self.toktype, self.form)
         self.mbutton = GlossEditButton(self, self.selectlist or self.glosslist, self.statecolours)
-        
+
         self.UpdateState(self.statecode, self.gloss)
-        
+
         if self.vertical:
             self.sizer = wx.BoxSizer(wx.VERTICAL)
         else:
