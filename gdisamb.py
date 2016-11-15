@@ -440,15 +440,18 @@ class GlossEditButton(wx.Panel):
 
     def CalculateGloss(self, glosslist):
         """Setup a gloss to show as current selection"""
+        def recursiveGlossDigger(gloss):
+            if gloss.gloss:
+                return gloss.gloss
+            else:
+                if gloss.morphemes:
+                    return u'.'.join([recursiveGlossDigger(g) for g in gloss.morphemes])
+            return ''
         form = [v.form for v in glosslist][0]
         ps = tuple(set(itertools.chain(*[v.ps for v in glosslist if v.ps])))
         glosses = []
         for variant in glosslist:
-            if variant.gloss:
-                glosses.append(variant.gloss)
-            else:
-                if variant.morphemes:
-                    glosses.append(u'.'.join([g.gloss for g in variant.morphemes]))
+            glosses.append(recursiveGlossDigger(variant))
         if glosses:
             if len(glosses) > 1:
                 glosses = glosses[:1] + ['...']
