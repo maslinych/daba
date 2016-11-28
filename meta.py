@@ -179,18 +179,18 @@ class DataPanel(wx.ScrolledWindow):
         self.config = config
         self.section = section
         self.builder = GUIBuilder() # FIXME make one instance at the top level
-        gridSizer = wx.FlexGridSizer(rows=1,cols=2,hgap=10,vgap=10)
+        gridSizer = wx.FlexGridSizer(cols=2, hgap=10, vgap=10)
         gridSizer.AddGrowableCol(1, 1)
         expandOption = dict(proportion=1, flag=wx.EXPAND)
         noOptions = dict(proportion=1)
         for wdata in self.config.getSectionConfig(self.section):
             # prepare widget data for future use
             name = wdata.id
-            widget = self.builder.makeWidget(self,wdata) 
+            widget = self.builder.makeWidget(self, wdata)
             wtype = wdata.type
-            self.widgetlist[name] = (widget,wtype)
+            self.widgetlist[name] = (widget, wtype)
             # position widget on the plane
-            gridSizer.Add(self.builder.makeLabel(self,wdata), **noOptions)
+            gridSizer.Add(self.builder.makeLabel(self, wdata), **noOptions)
             gridSizer.Add(widget, **expandOption)
         self.SetSizer(gridSizer)
         self.Layout()
