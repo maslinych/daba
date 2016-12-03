@@ -8,78 +8,93 @@
 # Le CRF implémenté provient du module tag de NLTK inspiré de CRFSuite (http://www.nltk.org/api/nltk.tag.html#module-nltk.tag.crf).
 # Trois modèles sont possibles : les POS, les tons, les gloses
 
-import sys, re, codecs, random, glob,  time
+import sys, re, codecs, random, glob,  time, random
 import argparse
 import formats,  grammar
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
-from daba_crf_evaluation import *
 
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
 def main():
-    
-    aparser = argparse.ArgumentParser(description='Daba disambiguator')
-    aparser.add_argument('-t', '--tone', help='Prediction for tones', default=False, action='store_true')
-    aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
-    aparser.add_argument('-p', '--modelpos', help='Prediction for POS', default=False, action='store_true')
-    aparser.add_argument('-l', '--learn', help='Learn model from data', default=False, action='store_true')
-    aparser.add_argument('-u', '--use', help='Use model', default=False, action='store_true')
-    aparser.add_argument('-i', '--infile', help='Input file (.html)', default="sys.stdin")
-    aparser.add_argument('-o', '--outfile', help='Output file (.html)', default="sys.stdout")
-    aparser.add_argument('model', help='The type of data for testing', default=False, nargs='?')
-    args = aparser.parse_args()
+	
+	aparser = argparse.ArgumentParser(description='Daba disambiguator')
+	# aparser.add_argument('-i', '--infile', help='Input file (.html)', default="sys.stdin")
+	# aparser.add_argument('-o', '--outfile', help='Output file (.html)', default="sys.stdout")
+	aparser.add_argument('-l', '--learn', help='Learn model from data (and save as F if provided)', default=None)
+	aparser.add_argument('-p', '--pos', help='Prediction for POS', default=False, action='store_true')
+	aparser.add_argument('-t', '--tone', help='Prediction for tones', default=False, action='store_true')
+	aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
+	aparser.add_argument('-e', '--evalsize', help='Percent of randomized data to use for evaluation (default 10)', default=10)
+	aparser.add_argument('-v', '--verbose', help='Verbose output', default=False, action='store_true')
+	args = aparser.parse_args()
 
-    if args.use:
-        print 'USE...'
+	if args.learn:
 
-    else:
-        # Gather all files
-        files1 = glob.iglob("../corbama/*/*.dis.html")
-        files2 = glob.iglob("../corbama/*.dis.html")
-        allfiles = ""
-        for file1, file2 in zip(files1, files2):
-            allfiles += file1+','+file2+','
-        allsents = []
+		if not args.pos or args.tone or args.gloss:
+			print 'Choose pos, tone, gloss or combination of them'
+			exit(0)
 
-        print 'Open files and find features / supervision tags'
-        for infile in allfiles.split(','):
-            if(len(infile)) :
-                print '-', infile
-                sent = []
-                in_handler = formats.HtmlReader(infile, compatibility_mode=False)
-                for token in in_handler:
-                    if token.type == 'w' or token.type == 'c':
-                        # CODE FOR POS
-                        for ps in token.gloss.ps:
-                            sent.append((token.token, ps))
-                        # CODE FOR TONE
-                        # sent.append((token.token, token.gloss.form.encode('utf-8')))
-                        # CODE FOR GLOSS
-                        # sent.append((token.token, token.gloss.gloss.encode('utf-8')))
-                    if token.type == 'c' and token.token in ['.', '?', '!']:
-                        if len(sent) > 1:
-                            allsents.append(sent)
-                        sent = []
+		print 'Make list of files'
+		files1 = glob.iglob("../corbama/*/*.dis.html")
+		files2 = glob.iglob("../corbama/*.dis.html")
+		allfiles = ""
+		for file1, file2 in zip(files1, files2):
+			allfiles += file1+','+file2+','
+		allsents = []
 
-        print 'Split the data in train / evaluation'
-        pourcentage = 10;
-        datalength = len(allsents)
-        train_len = (datalength*pourcentage)/100
-        train_set = allsents[:train_len]
+		print 'Open files and find features / supervision tags'
+		for infile in allfiles.split(','):
+			if(len(infile)) :
+				print '-', infile
+				sent = []
+				in_handler = formats.HtmlReader(infile, compatibility_mode=False)
+				for token in in_handler:
+					tag = ''
+					if token.type == 'w' or token.type == 'c':
+						tags = ''
+						if args.pos:
+							for ps in token.gloss.ps:
+								tags += ps
+						if args.tone:
+							tags += token.gloss.form.encode('utf-8')
+						if args.gloss:
+							tags += token.gloss.gloss.encode('utf-8')
+						sent.append((token.token, tags))
+					if token.type == 'c' and token.token in ['.', '?', '!']:
+						if len(sent) > 1:
+							allsents.append(sent)
+						sent = []
 
-        print 'Building CRF classifier (NLTK)'
-        tagger = CRFTagger(verbose = True, training_opt = {'feature.minfreq' : 10})
-        t1 = time.time()
-        tagger.train(train_set, 'disambiguation.model')
-        t2 = time.time()
-        texec = t2-t1
-        print "... done in",  time.strftime('%H %M %S', time.localtime(texec))
+		datalength = len(allsents)
+		p = (1-args.evalsize/100.0)
+		print 'Randomize and split the data in train (', int(p*datalength),' sentences) / test (', int(datalength-p*datalength),' sentences)'
+		random.seed(123456)
+		random.shuffle(allsents)
+		train_set = allsents[:int(p*datalength)]
+		test_set = allsents[int(p*datalength):datalength]
 
-    exit(0)
+		print 'Building classifier (CRF/NLTK)'
+		tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
+		t1 = time.time()
+		tagger.train(train_set, args.learn)
+		t2 = time.time()
+		texec = t2-t1
+		print "... done in",  time.strftime('%H %M %S', time.localtime(texec))
+
+		print 'Evaluating classifier'
+		tagger.evaluate(test_set)
+
+		if args.verbose:
+			print 'Compute detailed output'
+
+	else:
+		print 'USE...'
+
+	exit(0)
 
 if __name__ == '__main__':
-    main()
+	main()
 
