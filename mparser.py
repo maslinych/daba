@@ -14,7 +14,6 @@
 #
 
 import newmorph
-import orthography
 import grammar
 from ntgloss import Gloss
 import os
@@ -22,10 +21,7 @@ import re
 import argparse
 import sys
 import cPickle
-import funcparserlib.lexer 
-import xml.etree.cElementTree as e
-import collections
-import itertools
+import funcparserlib.lexer
 import formats
 from plugins import OrthographyConverter
 
