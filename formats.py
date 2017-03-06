@@ -549,7 +549,8 @@ class VariantsDict(MutableMapping):
 
 
 class DictReader(object):
-    def __init__(self, filename, encoding='utf-8', store=True, variants=False, polisemy=False):
+    def __init__(self, filename, encoding='utf-8', store=True,
+                 variants=False, polisemy=False):
 
         self._dict = DabaDict()
         self._variants = VariantsDict()
@@ -583,26 +584,27 @@ class DictReader(object):
                 detonedkey = detone(key)
                 if not detonedkey == key:
                     self._dict[detonedkey] = lx
-        
+
+        def process_record(lemmalist):
+            lemmalist = [(key, item._replace(ps=ps,gloss=ge)) for key, item in lemmalist]
+            if lemmalist and not ps == ('mrph',):
+                if store:
+                    push_items(key, lemmalist)
+                if variants and len(lemmalist) > 1:
+                    self._variants.add(zip(*lemmalist)[1])
+
         with codecs.open(filename, 'r', encoding=encoding) as dictfile:
             for line in dictfile:
                 self.line = self.line + 1
                 # end of the artice/dictionary
                 if not line or line.isspace():
-                    lemmalist = [(key, item._replace(ps=ps,gloss=ge)) for key, item in lemmalist]
-                    if lemmalist and not ps == ('mrph',):
-                        if store:
-                            push_items(key, lemmalist)
-                        if variants and len(lemmalist) > 1:
-                            self._variants.add(zip(*lemmalist)[1])
-
+                    process_record(lemmalist)
                     lemmalist = []
                     ps = ()
                     ge = ''
                     key = None
                     seengf = False
                     seenge = False
-
                 elif line.startswith('\\'):
                     tag, space, value = line[1:].partition(' ')
                     value = value.strip()
@@ -631,12 +633,8 @@ class DictReader(object):
                             dk = detone(key)
                             if not dk == key:
                                 self._polisemy[dk][ge].append(value)
-                else:
-                    if lemmalist:
-                        if store:
-                            push_items(key, lemmalist)
-                        if variants:
-                            self._variants.add(zip(*lemmalist)[1])
+            else:
+                process_record(lemmalist)
 
             if not self._dict.attributed():
                 print r"Dictionary does not contain obligatory \lang, \name or \ver fields.\
