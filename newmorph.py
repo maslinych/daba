@@ -105,6 +105,7 @@ def firstmatch(func, patterns):
 
     return lambda gloss: seq(patterns, [gloss])
 
+
 class Parser(object):
     def __init__(self, dictionary, grammar, detone=False):
         'Dictionary, Grammar, str -> Parser'
@@ -141,6 +142,7 @@ class Parser(object):
     def lookup_gloss(self, gloss, gdict):
         'Gloss, Dictionary -> tuple(Gloss)'
         lookup_form = None
+        parts = None
         try:
             if self.detone:
                 bare = detone(gloss.form) 
@@ -149,13 +151,23 @@ class Parser(object):
             else:
                 if gloss.form in gdict:
                     lookup_form = gloss.form
+                elif '-' in gloss.form:
+                    parts = gloss.form.split('-')
+                    lookup_form = ''.join(parts)
                 else:
                     bare = detone(gloss.form)
                     if not gloss.form == bare and bare in gdict:
                         lookup_form = bare
             if lookup_form:
                 pattern = emptyGloss._replace(ps=gloss.ps, gloss=gloss.gloss)
-                return tuple([dgloss for dgloss in gdict[lookup_form] if dgloss.matches(pattern)])
+                if parts:
+                    out = []
+                    for dgloss in gdict[lookup_form]:
+                        if dgloss.matches(pattern) and len(dgloss.morphemes) == len(parts):
+                            out.append(dgloss)
+                    return tuple(out)
+                else:
+                    return tuple([dgloss for dgloss in gdict[lookup_form] if dgloss.matches(pattern)])
             else:
                 return ()
         except (KeyError,AttributeError):
@@ -227,8 +239,10 @@ class Parser(object):
                 stempos = -1
             if stemgloss.psmatch(pattern.select):
                 stem = stemgloss.form
-
-                decomp = [[emptyGloss._replace(form=f) for f in fl] for fl in parse_composite(stem, self.dictionary, parts)]
+                if '-' in stem:
+                    decomp = [[emptyGloss._replace(form=f) for f in stem.split('-')]]
+                else:
+                    decomp = [[emptyGloss._replace(form=f) for f in fl] for fl in parse_composite(stem, self.dictionary, parts)]
                 if decomp:
                     newmorphemes = [tuple(m.union(p) for m,p in zip(gl, pattern.select.morphemes)) for gl in decomp]
                     for morphlist in newmorphemes:
