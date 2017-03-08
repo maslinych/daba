@@ -267,6 +267,10 @@ class Parser(object):
                     return result or None
         return None
 
+    def filter_duplicates(self, seq):
+        seen = set()
+        seen_add = seen.add
+        return [x for x in seq if not (x in seen or seen_add(x))]
 
     def lemmatize(self,word, debug=False):
         'word -> (stage, [Gloss])'
@@ -276,7 +280,7 @@ class Parser(object):
             if step == 'return':
                 filtered = stageparser(parsedword)
                 if filtered:
-                    return (stage, filtered)
+                    return (stage, self.filter_duplicates(filtered))
             else:
                 newparsed = stageparser(parsedword)
                 #FIXME: debug statement
@@ -286,7 +290,7 @@ class Parser(object):
                 if debug:
                     print stagestr
                     print stage, '\n'.join(unicode(p) for p in newparsed)
-        return (stage, parsedword)
+        return (stage, self.filter_duplicates(parsedword))
 
     def disambiguate(sent):
         # TODO: STUB
