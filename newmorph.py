@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import re
-import operator
 from ntgloss import Gloss, CompactGloss, emptyGloss, Pattern, Dictionary
 from orthography import detone
+
 
 def nullgloss(word):
     'str -> Gloss'
@@ -211,11 +211,14 @@ class Parser(object):
                 result = self.lookup_gloss(lemma, self.dictionary)
             return result
 
-    def parse(self, pattern, gloss, joinchar='-'):
-        'Pattern, Gloss, str="-" -> Maybe([Gloss])'
+    def parse(self, pattern, gloss):
+        'Pattern, Gloss -> Maybe([Gloss])'
         # performs formal parsing only, does not lookup words in dict
         result = pattern.apply(gloss)
         if result:
+            if () in [m.ps for m in result.morphemes]:
+                ms = filter(lambda i: i.ps is not (), result.morphemes)
+                result = result._replace(morphemes=ms)
             return [result]
         else:
             return None
