@@ -39,7 +39,8 @@ def tokenize(string):
     specs = [
             ('Comment', (r'#.*',)),
             ('NL', (r'[\r\n]+',)),
-            ('Space', (r'[ \t\r\n]+',)),
+            ('Space', (r'[ ]+',)),
+            ('JunkSpace', (r'[\t]+',)),
             ('Op', (r'[\[\]|:{}]',)),
             #('Regex', (r'<(\w|[-={}\[\]|().,^$+*?:\\])*>', re.UNICODE)),
             ('Regex', (r'<re>.*?</re>', re.UNICODE)),
@@ -48,7 +49,7 @@ def tokenize(string):
             #('Name', (ur"(\w[\u0300\u0301\u0302]?)+([-./](\w[\u0300\u0301\u0302]?)+)*['\u2019]?",re.UNICODE)),
             #('Name', (ur'(\w[\u0300\u0301]?([-./](\w[\u0300\u0301]?)+)*|[-0-9][-0-9]*)',re.UNICODE))
             ]
-    useless = ['Comment', 'NL', 'Space']
+    useless = ['Comment', 'NL', 'JunkSpace']
     tok = make_tokenizer(specs)
     #print "DEBUG TOKENIZER: ", [x for x in tok(string)]
     return [x for x in tok(string) if x.type not in useless]
@@ -85,6 +86,7 @@ denone = lambda s: s or ()
 maketuple = lambda t: tuple(t.split('/')) if t else ()
 denonetuple = lambda t: t or ()
 filternone = lambda s: [i for i in s if i]
+despace = lambda s: [i for i in s if s is not ' ']
 
 def flatten_list(l):
     for el in l:
@@ -123,10 +125,11 @@ def fullgloss_parser():
     unregex = regex >> unwrap_re
     splitter = oneplus(op_('|') + maybe(re_or_string) ) >> tuple
     form_expr = op_('{') + (maybe(re_or_string) >> foldl) + splitter + op_('}') >> unfoldl >> tuple >> unwrap_re
-    lemma = maybe(form_expr | unregex | name ) + op_(':') + (maybe(name) >> maketuple ) + op_(':') + maybe(name | unregex) 
+    lemma = skip(maybe(space)) + maybe(form_expr | unregex | name) + op_(':') + (maybe(name) >> maketuple) + op_(':') + maybe(name | unregex)
     fullgloss = forward_decl()
-    glosslist = skip(op('[')) + many(fullgloss) + skip(op(']')) >> tuple
+    glosslist = skip(space) + skip(op('[')) + many(fullgloss) + skip(op(']')) >> tuple
     fullgloss.define(lemma + ( maybe(glosslist) >> denone ) >> unarg(Gloss))
+#    fullgloss.define(lemma + maybe(glosslist) >> unarg(Gloss))
 
     return fullgloss
 
@@ -136,23 +139,23 @@ def parse(seq):
     make_patterns = lambda x: ('patterns', x)
     n = lambda s: a(Token('Name', s)) >> tokval
     # plan syntax
-    f_add = n('add') 
-    f_apply = n('apply') 
-    f_lookup = n('lookup') 
-    f_parallel = n('parallel') 
-    f_sequential = n('sequential') 
-    f_firstmatch = n('firstmatch')
-    f_parse = n('parse') + name >> list
-    f_decompose = n('decompose') + name >> list
+    f_add = n('add') + skip(space)
+    f_apply = n('apply') + skip(space)
+    f_lookup = n('lookup') + skip(maybe(space))
+    f_parallel = n('parallel') + skip(space)
+    f_sequential = n('sequential') + skip(space)
+    f_firstmatch = n('firstmatch') + skip(space)
+    f_parse = n('parse') + skip(space) + name >> list
+    f_decompose = n('decompose') + skip(space) + name >> list
     func_clause = oneplus(f_add | f_apply | f_lookup | f_parallel | f_sequential | f_firstmatch) + maybe(f_parse | f_decompose) >> unfoldl >> tuple
-    stage_clause = skip(n('stage')) + name + func_clause 
-    return_clause = n('return') + skip(n('if')) + name
-    for_clause = skip(n('for')) + name + skip(op(':')) + many(stage_clause | return_clause ) >> tuple
+    stage_clause = skip(n('stage')) + skip(space) + name + skip(space) + func_clause + skip(maybe(space))
+    return_clause = n('return') + skip(space) + skip(n('if')) + skip(space) + name + skip(maybe(space))
+    for_clause = skip(n('for')) + skip(space) + name + skip(op(':')) + many(stage_clause | return_clause ) >> tuple
     plan_dict = oneplus(for_clause) >> dict
     plan = n('plan') + plan_dict  >> tuple
     # pattern syntax
-    pattern = skip(n('pattern')) + fullgloss_parser() + skip(op('|')) + fullgloss_parser() >> unarg(Pattern)
-    sec_header = skip(n('section')) + name 
+    pattern = skip(n('pattern')) + skip(space) + fullgloss_parser() + skip(space) + skip(op('|')) + skip(space) + fullgloss_parser() + skip(maybe(space)) >> unarg(Pattern)
+    sec_header = skip(n('section')) + skip(space) + name 
     section = sec_header + many(pattern) 
     sections = many(section) >> dict
     patterns = sections >> make_patterns
