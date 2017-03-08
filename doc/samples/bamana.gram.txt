@@ -178,7 +178,7 @@ pattern :n: [ :n: :n: :n: ] | :n: [ :n: :n: :n: ]
 
 # ??? : mrph not taken into acount (not in dic?)
 # v+mrph+n  ex: gansi.li.walan 
-# pattern :n: [ :v: :mrph: :n: ] | :n: [ :v: :mrph: :n: ]
+pattern :n: [ :v: li:mrph: :n: ] | :n: [ :v: :mrph:NMLZ :n: ]
 # v+mrph+v 	ex: kɔlɔsi.li.kɛ
 # pattern :v: [ :v: :mrph: :v: ] | :v: [ :v: :mrph: :v: ]
 

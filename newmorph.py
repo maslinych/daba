@@ -241,6 +241,12 @@ class Parser(object):
                 stem = stemgloss.form
                 if '-' in stem:
                     decomp = [[emptyGloss._replace(form=f) for f in stem.split('-')]]
+                elif any([m.form for m in pattern.select.morphemes]):
+                    for m in pattern.select.morphemes:
+                        if m.form:
+                            splitre = u'({})'.format(m.form)
+                            break
+                    decomp = [[emptyGloss._replace(form=f) for f in re.split(splitre, stem)]]
                 else:
                     decomp = [[emptyGloss._replace(form=f) for f in fl] for fl in parse_composite(stem, self.dictionary, parts)]
                 if decomp:
@@ -253,7 +259,10 @@ class Parser(object):
                                 mlist = list(gloss.morphemes)
                                 mlist[stempos:stempos+1] = list(morphlist)
                                 newgloss = gloss._replace(morphemes=tuple(mlist))
-                            result.extend(filter(operator.truth, [pattern.apply(g) for g in self.lookup(newgloss) if parsed(g)]))
+                            for i in self.lookup(newgloss):
+                                g = pattern.apply(i)
+                                if g and parsed(g):
+                                    result.extend([g])
                     return result or None
         return None
 
