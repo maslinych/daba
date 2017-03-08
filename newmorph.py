@@ -251,14 +251,14 @@ class Parser(object):
                     decomp = [[emptyGloss._replace(form=f) for f in fl] for fl in parse_composite(stem, self.dictionary, parts)]
                 if decomp:
                     morphmatches = [tuple(m.matches(p) for m,p in zip(gl, pattern.select.morphemes)) for gl in decomp]
-                    for matches,morphlist in zip(morphmatches,decomp):
-                        if all(matches):
-                            newmorphlist = tuple(m.union(p) for m,p in zip(morphlist, pattern.select.morphemes))
+                    newmorphemes = [tuple(m.union(p) for m,p in zip(gl, pattern.select.morphemes)) for gl in decomp]
+                    for matches,morphlist in zip(morphmatches,newmorphemes):
+                        if all(matches) and all(morphlist):
                             if stempos < 0:
-                                newgloss = gloss._replace(morphemes=newmorphlist)
+                                newgloss = gloss._replace(morphemes=morphlist)
                             else:
                                 mlist = list(gloss.morphemes)
-                                mlist[stempos:stempos+1] = list(newmorphlist)
+                                mlist[stempos:stempos+1] = list(morphlist)
                                 newgloss = gloss._replace(morphemes=tuple(mlist))
                             for i in self.lookup(newgloss):
                                 g = pattern.apply(i)
