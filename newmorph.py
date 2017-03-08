@@ -243,21 +243,22 @@ class Parser(object):
                     decomp = [[emptyGloss._replace(form=f) for f in stem.split('-')]]
                 elif any([m.form for m in pattern.select.morphemes]):
                     for m in pattern.select.morphemes:
-                        if m.form:
+                        if 'mrph' in m.ps:
                             splitre = u'({})'.format(m.form)
                             break
                     decomp = [[emptyGloss._replace(form=f) for f in re.split(splitre, stem)]]
                 else:
                     decomp = [[emptyGloss._replace(form=f) for f in fl] for fl in parse_composite(stem, self.dictionary, parts)]
                 if decomp:
-                    newmorphemes = [tuple(m.union(p) for m,p in zip(gl, pattern.select.morphemes)) for gl in decomp]
-                    for morphlist in newmorphemes:
-                        if all(morphlist):
+                    morphmatches = [tuple(m.matches(p) for m,p in zip(gl, pattern.select.morphemes)) for gl in decomp]
+                    for matches,morphlist in zip(morphmatches,decomp):
+                        if all(matches):
+                            newmorphlist = tuple(m.union(p) for m,p in zip(morphlist, pattern.select.morphemes))
                             if stempos < 0:
-                                newgloss = gloss._replace(morphemes=morphlist)
+                                newgloss = gloss._replace(morphemes=newmorphlist)
                             else:
                                 mlist = list(gloss.morphemes)
-                                mlist[stempos:stempos+1] = list(morphlist)
+                                mlist[stempos:stempos+1] = list(newmorphlist)
                                 newgloss = gloss._replace(morphemes=tuple(mlist))
                             for i in self.lookup(newgloss):
                                 g = pattern.apply(i)
