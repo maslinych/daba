@@ -42,8 +42,8 @@ class Tokenizer(object):
                 ('Cardinal', (r'(\d([-.,:]\d)?)+',re.UNICODE)),
                 #FIXME: hardcoded acute and grave accents plus round apostrophe (shoud not split words)
                 ('Word', (ur'(\w\.){2,}', re.UNICODE)),
-                ('Word', (ur"[\w\u0300\u0301\u030c\u0308\u07eb\u07ec\u07ed\u07ee\u07ef\u07f0\u07f1\u07f2\u07f3\u07f6\u07fa-]+['\u2019\u07f4\u07f5]",re.UNICODE)),
-                ('Word', (ur"(\w[\u0300\u0301\u030c\u0308\u07eb\u07ec\u07ed\u07ee\u07ef\u07f0\u07f1\u07f2\u07f3\u07f6\u07fa-]{0,2})+",re.UNICODE)),
+                ('Word', (ur"[\w\u0300\u0301\u0302\u030c\u0308\u07eb\u07ec\u07ed\u07ee\u07ef\u07f0\u07f1\u07f2\u07f3\u07f6\u07fa-]+['\u2019\u07f4\u07f5]",re.UNICODE)),
+                ('Word', (ur"(\w[\u0300\u0301\u0302\u030c\u0308\u07eb\u07ec\u07ed\u07ee\u07ef\u07f0\u07f1\u07f2\u07f3\u07f6\u07fa-]{0,2})+",re.UNICODE)),
                 ('SentPunct', (ur'([.!?\u061f\u07f9]+(?=[\s\n\u200f])|:(?=\s*\n))',re.UNICODE)),
                 ('Punct', (ur'([:;,\u061b\u060c\u07f8\u200f(){}"]+)',re.UNICODE)),
                 ('Nonword', (r'\W', re.UNICODE)),
