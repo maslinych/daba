@@ -179,8 +179,9 @@ pattern :n: [ :n: :n: :n: ] | :n: [ :n: :n: :n: ]
 # ??? : mrph not taken into acount (not in dic?)
 # v+mrph+n  ex: gansi.li.walan 
 pattern :n: [ :v: li:mrph: :n: ] | :n: [ :v: :mrph:NMLZ :n: ]
+pattern :n: [ :n: ba:mrph: :n: ] | :n: [ :n: :mrph:AUGM :n: ]
 # v+mrph+v 	ex: kɔlɔsi.li.kɛ
-# pattern :v: [ :v: :mrph: :v: ] | :v: [ :v: :mrph: :v: ]
+pattern :v: [ :v: li:mrph: :v: ] | :v: [ :v: :mrph:NMLZ :v: ]
 
 
 # four-words composites
