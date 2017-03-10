@@ -173,8 +173,6 @@ class Parser(object):
         except (KeyError,AttributeError):
             if gloss.form in gdict:
                 print 'PP', gloss.form, gdict[gloss.form]
-            else:
-                print 'PN', gloss.form
             return ()
 
     def lookup(self, lemma, make_lemma=False):
@@ -229,7 +227,7 @@ class Parser(object):
             parts = len(pattern.select.morphemes)
         except (TypeError):
             #FIXME: morphemes=None case. Print some error message?
-            pass
+            parts = 0
         result = []
         if  parts < 2:
             return self.parse(pattern, gloss)
@@ -243,14 +241,17 @@ class Parser(object):
             if stemgloss.psmatch(pattern.select):
                 stem = stemgloss.form
                 if '-' in stem:
-                    decomp = [[emptyGloss._replace(form=f) for f in stem.split('-')]]
+                    sparts = stem.split('-')
+                    if len(sparts) == parts:
+                        decomp = [[emptyGloss._replace(form=f) for f in stem.split('-')]]
+                    else:
+                        return None
                 elif ('mrph',) in [m.ps for m in pattern.select.morphemes]:
                     for m in pattern.select.morphemes:
                         if 'mrph' in m.ps:
                             splitre = u'({})'.format(m.form)
                             decomp = [[emptyGloss._replace(form=f) for f in re.split(splitre, stem)]]
                             break
-                        
                 else:
                     decomp = [[emptyGloss._replace(form=f) for f in fl] for fl in parse_composite(stem, self.dictionary, parts)]
                 if decomp:
@@ -264,10 +265,11 @@ class Parser(object):
                                 mlist = list(gloss.morphemes)
                                 mlist[stempos:stempos+1] = list(morphlist)
                                 newgloss = gloss._replace(morphemes=tuple(mlist))
-                            for i in self.lookup(newgloss):
-                                g = pattern.apply(i)
-                                if g and parsed(g):
-                                    result.extend([g])
+                            ng = pattern.apply(newgloss)
+                            if ng:
+                                for g in self.lookup(ng):
+                                    if g and parsed(g):
+                                        result.extend([g])
                     return result or None
         return None
 

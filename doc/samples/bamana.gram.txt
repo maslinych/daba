@@ -182,6 +182,7 @@ pattern :n: [ :v: li:mrph: :n: ] | :n: [ :v: :mrph:NMLZ :n: ]
 pattern :n: [ :n: ba:mrph: :n: ] | :n: [ :n: :mrph:AUGM :n: ]
 # v+mrph+v 	ex: kɔlɔsi.li.kɛ
 pattern :v: [ :v: li:mrph: :v: ] | :v: [ :v: :mrph:NMLZ :v: ]
+pattern :n: [ :v: ka:pm: :v: ] | :n: [ :v: kà:pm:INF :v: ]
 
 
 # four-words composites
