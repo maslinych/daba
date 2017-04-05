@@ -85,13 +85,14 @@ def main():
 		print "... done in",  time.strftime('%H %M %S', time.localtime(texec))
 
 		print 'Evaluating classifier'
-		tagger.evaluate(test_set)
+		print tagger.evaluate(test_set)
 
 		if args.verbose:
 			print 'Compute detailed output'
 
 	else:
 		print 'USE...'
+		parser.print_help()
 
 	exit(0)
 
