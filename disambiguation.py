@@ -13,27 +13,33 @@ import argparse
 import formats,  grammar
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
+from differential_tone_coding import differential_coding_for_tone
 
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
 def main():
-	
+
+	# déclaration d'une interface en ligne de commande
 	aparser = argparse.ArgumentParser(description='Daba disambiguator')
-	# aparser.add_argument('-i', '--infile', help='Input file (.html)', default="sys.stdin")
-	# aparser.add_argument('-o', '--outfile', help='Output file (.html)', default="sys.stdout")
 	aparser.add_argument('-l', '--learn', help='Learn model from data (and save as F if provided)', default=None)
 	aparser.add_argument('-p', '--pos', help='Prediction for POS', default=False, action='store_true')
 	aparser.add_argument('-t', '--tone', help='Prediction for tones', default=False, action='store_true')
 	aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
 	aparser.add_argument('-e', '--evalsize', help='Percent of randomized data to use for evaluation (default 10)', default=10)
 	aparser.add_argument('-v', '--verbose', help='Verbose output', default=False, action='store_true')
+
+	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data', default=None)
+	# aparser.add_argument('-i', '--infile', help='Input file (.html)', default="sys.stdin")
+	# aparser.add_argument('-o', '--outfile', help='Output file (.html)', default="sys.stdout")
+
 	args = aparser.parse_args()
+	print args
 
 	if args.learn:
 
-		if not args.pos or args.tone or args.gloss:
+		if not (args.pos or args.tone or args.gloss) :
 			print 'Choose pos, tone, gloss or combination of them'
 			exit(0)
 
@@ -59,7 +65,16 @@ def main():
 							for ps in token.gloss.ps:
 								tags += ps
 						if args.tone:
-							tags += token.gloss.form.encode('utf-8')
+
+							# form tonale
+							# tags += token.gloss.form.encode('utf-8')
+
+							# representation différentielle de la tonalisation
+							ton_coded = differential_coding_for_tone(token.token, token.gloss.form)
+							if ton_coded :
+								tags += ton_coded.encode('utf-8')
+							else :
+								tags += u''
 						if args.gloss:
 							tags += token.gloss.gloss.encode('utf-8')
 						sent.append((token.token, tags))
@@ -67,7 +82,7 @@ def main():
 						if len(sent) > 1:
 							allsents.append(sent)
 						sent = []
-
+		# print len(allsents); exit(); # débogage
 		datalength = len(allsents)
 		p = (1-args.evalsize/100.0)
 		print 'Randomize and split the data in train (', int(p*datalength),' sentences) / test (', int(datalength-p*datalength),' sentences)'
@@ -92,7 +107,7 @@ def main():
 
 	else:
 		print 'USE...'
-		parser.print_help()
+		aparser.print_help()
 
 	exit(0)
 
