@@ -31,6 +31,8 @@ def main():
 	aparser.add_argument('-v', '--verbose', help='Verbose output', default=False, action='store_true')
 
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data', default=None)
+
+	# ToDO : 
 	# aparser.add_argument('-i', '--infile', help='Input file (.html)', default="sys.stdin")
 	# aparser.add_argument('-o', '--outfile', help='Output file (.html)', default="sys.stdout")
 
@@ -51,6 +53,10 @@ def main():
 			allfiles += file1+','+file2+','
 		allsents = []
 
+		# verbose :
+		cnt_untreated_tone = 0
+		cnt_treated_tone = 0
+
 		print 'Open files and find features / supervision tags'
 		for infile in allfiles.split(','):
 			if(len(infile)) :
@@ -66,15 +72,15 @@ def main():
 								tags += ps
 						if args.tone:
 
-							# form tonale
-							# tags += token.gloss.form.encode('utf-8')
-
 							# representation différentielle de la tonalisation
-							ton_coded = differential_encode(token.token, token.gloss.form)
-							if ton_coded :
+							[ton_coded,validity] = differential_encode(token.token, token.gloss.form)
+							if validity :
 								tags += ton_coded.encode('utf-8')
+								cnt_treated_tone += 1
 							else :
-								tags += u''
+								print token.token, token.gloss.form
+								tags += token.gloss.form.encode('utf-8')
+								cnt_untreated_tone += 1
 						if args.gloss:
 							tags += token.gloss.gloss.encode('utf-8')
 						sent.append((token.token, tags))
@@ -82,7 +88,12 @@ def main():
 						if len(sent) > 1:
 							allsents.append(sent)
 						sent = []
-		# print len(allsents); exit(); # débogage
+
+		if args.verbose:
+			print 'differentially modelized tone number :', cnt_treated_tone
+        	        print 'non-modelized tone number (we put, in the case, accented tokens in the training set) :', cnt_untreated_tone
+		# exit()
+
 		datalength = len(allsents)
 		p = (1-args.evalsize/100.0)
 		print 'Randomize and split the data in train (', int(p*datalength),' sentences) / test (', int(datalength-p*datalength),' sentences)'
