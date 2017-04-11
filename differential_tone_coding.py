@@ -26,7 +26,7 @@ def strcmp_non_tonal (ustr1, ustr2) :
 
 	return strip_tone(ustr1) == strip_tone(ustr2)
 
-def differential_coding_for_tone (form_non_tonal, form_tonal) :
+def differential_encode (form_non_tonal, form_tonal) :
 
 	"""
 	description :
@@ -60,14 +60,59 @@ def differential_coding_for_tone (form_non_tonal, form_tonal) :
 	else :
 		return None
 
+def differential_decode(form_non_tonal, code_tone) :
+
+	code_normalized = unicodedata.normalize('NFC', code_tone.decode('raw_unicode_escape'))
+	form_normalized = unicodedata.normalize('NFC', form_non_tonal)
+	cursor = int(0)
+	ret = str("")
+	for i, c in enumerate(code_normalized) :
+		if not i % 2 :
+			# position de la lettre accentuée
+			position = int(c)
+		else :
+			# précautions
+			c_non_tonal = form_normalized[position]
+			c_tonal = c
+			if position >= len(form_non_tonal) or not strcmp_non_tonal(c_non_tonal, c_tonal) :
+				return None
+
+			ret += form_non_tonal[cursor : position] + c
+			cursor = position + 1
+
+	# le reste de la chaîne de caractères
+	ret += form_non_tonal[cursor :]
+	return ret
+
 def main () :
 
+	# une paire d'exemple
 	token = u"woroduguyan"
-	form = u"wòroduguyàn"
-	diff = differential_coding_for_tone(token, form)
+	form =  u"wòroduguyàn"
+
+	# encodage = x - y = z
+	# x : token sans accents en UTF-8
+	# y : token accentués en UTF-8
+	# z : code tonal
+	diff = differential_encode(token, form)
 	if diff :
 		print u"{} - {} = {}" . format(form, token, diff)
 	else :
-		print "La différence entre {} et {} n'est pas exclusivement tonale !" . format(form, token)
+		print u"La différence entre {} et {} n'est pas exclusivement tonale !" . format(form, token)
+
+	# decodage
+	# x + z = y
+	# x : token sans accents en UTF-8
+        # y : token accentués en UTF-8
+        # z : code tonal
+	form =  u"wòroduguyàn"
+	token = u"aocdefghabn"
+	if diff :
+		form_recovered = differential_decode(token, diff)
+		sys.stdout.write(u"{} + {} = ". format(token, diff))
+		if form_recovered :
+			print form_recovered
+		else :
+			print "(le décodage est impossible !)"
 
 if __name__ == "__main__" : main()

@@ -13,7 +13,7 @@ import argparse
 import formats,  grammar
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
-from differential_tone_coding import differential_coding_for_tone
+from differential_tone_coding import differential_encode
 
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
@@ -70,7 +70,7 @@ def main():
 							# tags += token.gloss.form.encode('utf-8')
 
 							# representation différentielle de la tonalisation
-							ton_coded = differential_coding_for_tone(token.token, token.gloss.form)
+							ton_coded = differential_encode(token.token, token.gloss.form)
 							if ton_coded :
 								tags += ton_coded.encode('utf-8')
 							else :
