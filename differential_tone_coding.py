@@ -48,17 +48,35 @@ def differential_encode (form_non_tonal, form_tonal) :
 	"""
 
 	ret = ""
-	if strcmp_non_tonal(form_non_tonal, form_tonal) :
+	isconsistant = strcmp_non_tonal(form_non_tonal.lower(), form_tonal.lower())
+
+	# debug
+	"""
+	if not isconsistant :
+		print form_non_tonal.lower(), form_tonal.lower()
+	"""
+
+	if isconsistant :
 		form_tonal_normalized = unicodedata.normalize('NFC', form_tonal)
 		for position, c in enumerate(form_tonal_normalized) :
 			if unicodedata.decomposition(c) :
 				c_decomposed = unicodedata.normalize('NFD', c)
 				alpha, markers = c_decomposed[0], c_decomposed[1:]
+				try : 
+					isupper1 = form_non_tonal[position-1].isupper()
+				except : 
+					print position, len(form_non_tonal)
+				isupper2 = c.isupper()
+				if isupper1 != isupper2 :
+					if isupper1 :
+						alpha.upper()
+					else :
+						alpha.lower()
 				for marker in markers :
 					ret += u"{}{}{}".format(position, alpha, marker.encode('raw_unicode_escape'))
-		return ret
+		return [ret,True]
 	else :
-		return None
+		return [None,False]
 
 def differential_decode(form_non_tonal, code_tone) :
 
@@ -94,8 +112,8 @@ def main () :
 	# x : token sans accents en UTF-8
 	# y : token accentués en UTF-8
 	# z : code tonal
-	diff = differential_encode(token, form)
-	if diff :
+	[diff, validity] = differential_encode(token, form)
+	if validity :
 		print u"{} - {} = {}" . format(form, token, diff)
 	else :
 		print u"La différence entre {} et {} n'est pas exclusivement tonale !" . format(form, token)
@@ -106,7 +124,7 @@ def main () :
         # y : token accentués en UTF-8
         # z : code tonal
 	form =  u"wòroduguyàn"
-	token = u"aocdefghabn"
+	token = u"aocdefghaan"
 	if diff :
 		form_recovered = differential_decode(token, diff)
 		sys.stdout.write(u"{} + {} = ". format(token, diff))
