@@ -13,7 +13,7 @@ import argparse
 import formats,  grammar
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
-from differential_tone_coding import differential_encode
+from differential_tone_coding import differential_encode, is_encodable
 
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
@@ -32,7 +32,7 @@ def main():
 
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data', default=None)
 
-	# ToDO : 
+	# ToDO :
 	# aparser.add_argument('-i', '--infile', help='Input file (.html)', default="sys.stdin")
 	# aparser.add_argument('-o', '--outfile', help='Output file (.html)', default="sys.stdout")
 
@@ -54,8 +54,9 @@ def main():
 		allsents = []
 
 		# verbose :
-		cnt_untreated_tone = 0
-		cnt_treated_tone = 0
+		if args.tone :
+			cnt_non_encodable_tone = 0
+			cnt_encodable_tone = 0
 
 		print 'Open files and find features / supervision tags'
 		for infile in allfiles.split(','):
@@ -73,14 +74,15 @@ def main():
 						if args.tone:
 
 							# representation différentielle de la tonalisation
-							[ton_coded,validity] = differential_encode(token.token, token.gloss.form)
+							lists_of_equivalence = [{u'e',u'ɛ',u'a'}, {u'o',u'ɔ'}]
+							[ton_coded, validity] = differential_encode(token.token, token.gloss.form, lists_of_equivalence)
 							if validity :
 								tags += ton_coded.encode('utf-8')
-								cnt_treated_tone += 1
+								cnt_encodable_tone += 1
 							else :
-								print token.token, token.gloss.form
+								# print token.token, token.gloss.form
 								tags += token.gloss.form.encode('utf-8')
-								cnt_untreated_tone += 1
+								cnt_non_encodable_tone += 1
 						if args.gloss:
 							tags += token.gloss.gloss.encode('utf-8')
 						sent.append((token.token, tags))
@@ -89,10 +91,11 @@ def main():
 							allsents.append(sent)
 						sent = []
 
-		if args.verbose:
-			print 'differentially modelized tone number :', cnt_treated_tone
-        	        print 'non-modelized tone number (we put, in the case, accented tokens in the training set) :', cnt_untreated_tone
-		# exit()
+		if args.verbose and args.tone :
+			print 'number of tokens encodables     :', cnt_encodable_tone
+        	        print 'number of tokens non-encodables :', cnt_non_encodable_tone
+			print 'taux des tons non-codés         :', cnt_non_encodable_tone / float(cnt_encodable_tone)
+			# exit()
 
 		datalength = len(allsents)
 		p = (1-args.evalsize/100.0)
