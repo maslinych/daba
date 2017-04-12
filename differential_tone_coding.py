@@ -1,102 +1,126 @@
 #! /usr/bin/env python
 # coding=utf-8
 
+import string
 import unicodedata
 import sys
 
-def strcmp_non_tonal (ustr1, ustr2) :
+tbl_punc = dict.fromkeys(i for i in xrange(sys.maxunicode) if unicodedata.category(unichr(i)).startswith('P'))
+
+def strip_punctuations(form) :
+	return form.translate(tbl_punc)
+
+def strip_tones(form_tonal) :
 
 	"""
-	descritpion :
-		Cette fonction vérifie si la différence des
-	deux chaînes de caractères qu'elle reçoit ne porent que sur leurs marqueurs de ton
-
-	args : ustr1 (str), ustr2 (str)
-	returns : (boolean)
-
 	référence :
 		http://stackoverflow.com/questions/517923/what-is-the-best-way-to-remove-accents-in-a-python-unicode-string
-	note :
+    note :
 		'Mn' pour Nonspacing_Mark
 	"""
+        form_tonal     = unicodedata.normalize('NFD', form_tonal)
+        form_tonal     = "".join(c for c in form_tonal \
+		if (unicodedata.category(c) != 'Mn') and (not unicodedata.category(c).startswith('P')))
+	return form_tonal
 
-	def strip_tone (str) :
-		return ''.join(c for c in unicodedata.normalize('NFD', str)
-			if unicodedata.category(c) != 'Mn')
+def is_encodable(form_non_tonal, form_tonal, encodable_sets = []) :
 
-	return strip_tone(ustr1) == strip_tone(ustr2)
+	form_non_tonal = strip_tones(form_non_tonal).lower()
+	form_tonal     = strip_tones(form_tonal).lower()
 
-def differential_encode (form_non_tonal, form_tonal) :
+	if not encodable_sets :
+		return form_non_tonal == form_tonal
+	else :
+		if len(form_non_tonal) != len(form_tonal) :
+			return False
+
+	        for c1, c2 in zip(form_non_tonal.lower(), form_tonal.lower()) :
+        	        if c1 != c2 :
+                	        is_equivalent = False
+                        	for lst in encodable_sets :
+                                	if c1 in lst and c2 in lst :
+	                                        is_equivalent = True
+        	                                break
+                	        if not is_equivalent :
+					# print c1,c2
+                        	        return False
+	        return True
+
+def differential_encode (form_non_tonal, form_tonal, encodable_sets = []) :
 
 	"""
-	description :
-		Cette fonction encode les informations tonales à partir de la forme non-tonal et 
-	la forme tonal d'un même mot qu'elle reçoit en argument.
-		Le codage différential des informations s'exprime sous la forme illustrée dans
-	l'exemple ci-dessous
+    description :
+		Cette fonction encode les informations tonales à partir de la forme non-tonal et
+			la forme tonal d'un même mot qu'elle reçoit en argument.
+		Le codage différential des informations s'exprime sous la forme illustrée dans l'exemple ci-dessous
 
-	exemple :
-		soit form_non_tonal = u"wòroduguyàn", form_tonal = u"woroduguyan"
-		leur différence sera représenté par le code 1ò9à ou 1o\u03009a\u0300 qui s'est composé
-		des suites dont chacune s'ecrit en trois caractère dont respectivement
-			le prémier marque la position de le marqueur du ton,
-			le deuxième note l'alphabet non-accentué sur lequel le premier s'ajoute dans le mot
-			le dernier représente le marqueur par son code définie dans le standard UTF-8 comme
-			'Combining Diacritical Marks'
-		note : ò est la concaténation de deux caractères, ils s'affichent comme un caractère entière en raison du traitement
-		du système d'exploitation sur l'affichage des chaînes de caractère en unicode
-	"""
+		exemple :
+			soit form_non_tonal = u"wòroduguyàn", form_tonal = u"woroduguyan"
+				leur différence sera représenté par le code 1ò9à ou 1o\u03009a\u0300 qui s'est composé
+				des suites dont chacune s'ecrit en trois caractère dont respectivement
+				le prémier marque la position de le marqueur du ton,
+				le deuxième note l'alphabet non-accentué sur lequel le premier s'ajoute dans le mot
+				le dernier représente le marqueur par son code définie dans le standard UTF-8 comme
+					'Combining Diacritical Marks'
+			note : ò est la concaténation de deux caractères, ils s'affichent
+				comme un caractère entière en raison du traitement du système 
+				d'exploitation sur l'affichage des chaînes de caractère en unicode
+       """
 
 	ret = ""
-	isconsistant = strcmp_non_tonal(form_non_tonal.lower(), form_tonal.lower())
+	if is_encodable(form_non_tonal, form_tonal, encodable_sets) :
 
-	# debug
-	"""
-	if not isconsistant :
-		print form_non_tonal.lower(), form_tonal.lower()
-	"""
+		form_tonal     = unicodedata.normalize('NFC', form_tonal)
+		form_tonal     = strip_punctuations(form_tonal)
+		form_non_tonal = strip_punctuations(form_non_tonal)
 
-	if isconsistant :
-		form_tonal_normalized = unicodedata.normalize('NFC', form_tonal)
-		for position, c in enumerate(form_tonal_normalized) :
-			if unicodedata.decomposition(c) :
-				c_decomposed = unicodedata.normalize('NFD', c)
-				alpha, markers = c_decomposed[0], c_decomposed[1:]
-				try : 
-					isupper1 = form_non_tonal[position-1].isupper()
-				except : 
-					print position, len(form_non_tonal)
-				isupper2 = c.isupper()
-				if isupper1 != isupper2 :
-					if isupper1 :
-						alpha.upper()
-					else :
-						alpha.lower()
-				for marker in markers :
-					ret += u"{}{}{}".format(position, alpha, marker.encode('raw_unicode_escape'))
+		cursor = 0
+		for c1, c2 in zip(form_tonal, form_non_tonal) :
+			if c1 != c2:
+				if unicodedata.decomposition(c1):
+					c3   = unicodedata.normalize('NFD', c1)
+					alpha, markers = c3[0], c3[1:]
+					isupper_token  = c2.isupper()
+
+					# conversion de caisse des lettres
+					if isupper_token != c1.isupper() :
+						if isupper_token : alpha.upper()
+						else             : alpha.lower()
+
+					# codage 2 chiffres pour la position, 1 lettre pour le caractère remplaçant
+					ret += u"{:02d}".format(cursor) + c3
+				else :
+					ret += u"{:02d}".format(cursor) + c1
+			cursor += 1
 		return [ret,True]
 	else :
 		return [None,False]
 
-def differential_decode(form_non_tonal, code_tone) :
+def differential_decode(form_non_tonal, code_tone, encodable_set = []) :
 
-	code_normalized = unicodedata.normalize('NFC', code_tone.decode('raw_unicode_escape'))
+	code_normalized = unicodedata.normalize('NFC', code_tone)
 	form_normalized = unicodedata.normalize('NFC', form_non_tonal)
 	cursor = int(0)
 	ret = str("")
+
+	str_buffer = ""
 	for i, c in enumerate(code_normalized) :
-		if not i % 2 :
+		if i % 3 != 2 :
 			# position de la lettre accentuée
-			position = int(c)
+			str_buffer += c
 		else :
 			# précautions
+			position = int(str_buffer)
+
 			c_non_tonal = form_normalized[position]
 			c_tonal = c
-			if position >= len(form_non_tonal) or not strcmp_non_tonal(c_non_tonal, c_tonal) :
+			if position >= len(form_non_tonal) or not is_encodable(c_non_tonal, c_tonal, encodable_set) :
 				return None
 
 			ret += form_non_tonal[cursor : position] + c
 			cursor = position + 1
+			str_buffer = ""
+
 
 	# le reste de la chaîne de caractères
 	ret += form_non_tonal[cursor :]
@@ -105,14 +129,15 @@ def differential_decode(form_non_tonal, code_tone) :
 def main () :
 
 	# une paire d'exemple
-	token = u"woroduguyan"
-	form =  u"wòroduguyàn"
+	token = u"woroduguyanfdsfjle"
+	form =  u"wòroduguy¤nfdsfjlë"
+	encodable_set = [{u"¤",u"a"}]
 
 	# encodage = x - y = z
 	# x : token sans accents en UTF-8
 	# y : token accentués en UTF-8
 	# z : code tonal
-	[diff, validity] = differential_encode(token, form)
+	[diff, validity] = differential_encode(token, form, encodable_set)
 	if validity :
 		print u"{} - {} = {}" . format(form, token, diff)
 	else :
@@ -123,10 +148,8 @@ def main () :
 	# x : token sans accents en UTF-8
         # y : token accentués en UTF-8
         # z : code tonal
-	form =  u"wòroduguyàn"
-	token = u"aocdefghaan"
 	if diff :
-		form_recovered = differential_decode(token, diff)
+		form_recovered = differential_decode(token, diff, encodable_set)
 		sys.stdout.write(u"{} + {} = ". format(token, diff))
 		if form_recovered :
 			print form_recovered
