@@ -11,7 +11,7 @@ def strip_punctuations(form) :
 	try :
 		return form.translate(tbl_punc)
 	except TypeError:
-		return form
+		return u""
 
 def strip_tones(form_tonal) :
 
@@ -29,6 +29,7 @@ def is_encodable(form_non_tonal, form_tonal, encodable_sets = []) :
 	# ignorer les ponctuations
 	form_non_tonal = strip_punctuations(form_non_tonal)
 	form_tonal     = strip_punctuations(form_tonal)
+
 	# suppression des accents
 	form_non_tonal = strip_tones(form_non_tonal).lower()
 	form_tonal     = strip_tones(form_tonal).lower()
@@ -58,13 +59,15 @@ def differential_encode (form_non_tonal, form_tonal, encodable_sets = []) :
 	ret = ""
 	if is_encodable(form_non_tonal, form_tonal, encodable_sets) :
 
-		form_tonal     = strip_punctuations(unicodedata.normalize('NFD', form_tonal))
-		form_non_tonal = strip_punctuations(strip_tones(form_non_tonal))
+		form_tonal     = strip_punctuations(form_tonal)
+		form_non_tonal = strip_punctuations(form_non_tonal)
+
+		form_tonal     = unicodedata.normalize('NFD', form_tonal)
+		form_non_tonal = strip_tones(form_non_tonal)
 
 		cursor = 0
 		markers = ""
 		alpha = ""
-		ret = ""
 		for c in form_tonal :
 			if unicodedata.category(c) == "Mn" :
 				markers += c
@@ -124,9 +127,9 @@ def differential_decode(form_non_tonal, code_tone, encodable_set = []) :
 def main () :
 
 	# une paire d'exemple
-	token = u"worODuguyaofdãfileɔ"
-	form =  u"wòrɔ̀;dUg,,u;y¤õfdafĩleɔ̃̂"
-	encodable_set = [{u"¤",u"a"}, {u"ɔ",u"o"}]
+	token = u"worODaguyaofdafileɔ"
+	form =  u"wòrɔ̀dɛguyaõfdãfĩleɔ̃̂"
+	encodable_set = [{u'e',u'ɛ',u'a'}, {u'o',u'ɔ'}]
 
 	# encodage = x - y = z
 	# x : token sans accents en UTF-8
