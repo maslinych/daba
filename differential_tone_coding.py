@@ -6,7 +6,12 @@ import unicodedata
 import sys
 
 tbl_punc = dict.fromkeys(i for i in xrange(sys.maxunicode) if unicodedata.category(unichr(i)).startswith('P'))
-def strip_punctuations(form) : return form.translate(tbl_punc)
+def strip_punctuations(form) :
+
+	try :
+		return form.translate(tbl_punc)
+	except TypeError:
+		return form
 
 def strip_tones(form_tonal) :
 
@@ -49,6 +54,7 @@ def is_encodable(form_non_tonal, form_tonal, encodable_sets = []) :
 
 def differential_encode (form_non_tonal, form_tonal, encodable_sets = []) :
 
+
 	ret = ""
 	if is_encodable(form_non_tonal, form_tonal, encodable_sets) :
 
@@ -82,6 +88,8 @@ def differential_encode (form_non_tonal, form_tonal, encodable_sets = []) :
 	return [ret, validity]
 
 def differential_decode(form_non_tonal, code_tone, encodable_set = []) :
+
+	if not code_tone : return form_non_tonal
 
 	code_tone = unicodedata.normalize('NFD', code_tone)
 	form_non_tonal = unicodedata.normalize('NFC', form_non_tonal)
@@ -117,7 +125,7 @@ def main () :
 
 	# une paire d'exemple
 	token = u"worODuguyaofdãfileɔ"
-	form =  u"wòrɔ̀dUguy¤õfdafĩleɔ̃̂"
+	form =  u"wòrɔ̀;dUg,,u;y¤õfdafĩleɔ̃̂"
 	encodable_set = [{u"¤",u"a"}, {u"ɔ",u"o"}]
 
 	# encodage = x - y = z
