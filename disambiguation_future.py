@@ -96,9 +96,11 @@ def main():
 								tags += token.gloss.gloss.encode('utf-8')
 							sent.append((token.token, tags))
 						# if token.type == 'c' and token.token in ['.', '?', '!']: #
-						if len(sent) > 1:
-							allsents.append(sent)
+					if len(sent) > 1:
+						allsents.append(sent)
 						sent = []
+						
+		print allsents
 
 		# affichage
 		if args.verbose and args.tone :
