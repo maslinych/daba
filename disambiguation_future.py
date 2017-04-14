@@ -25,7 +25,8 @@ from differential_tone_coding import differential_encode
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
-lists_of_equivalence = [{u'e',u'ɛ',u'a'}, {u'o',u'ɔ'}]
+#lists_of_equivalence = [{u'e',u'ɛ',u'a'}, {u'o',u'ɔ'}]
+lists_of_equivalence = []
 
 def main():
 
@@ -80,15 +81,23 @@ def main():
 						if token.type == 'w' or token.type == 'c':
 							tags = ''
 							if args.pos:
-								for ps in token.gloss.ps:
-									tags += ps
+								for ps in token.gloss.ps  :
+									tags += ps.encode('utf-8')
 							if args.tone:
 								[tone_coded, validity] = differential_encode(token.token, \
 								       				        token.gloss.form, \
 												    lists_of_equivalence)
+
 								if validity :
-									tags += tone_coded.encode('raw_unicode_escape')
+									tags += tone_coded.encode('utf-8')
 									cnt_encodable_tone += 1
+
+									if args.verbose :
+										if tone_coded :
+											sys.stdout.write(u"{} : \'{}\' - \'{}\' = \'{}\'\n".\
+											format(cnt_encodable_tone,token.gloss.form,token.token,tone_coded))
+
+
 								else :
 									# tags += token.gloss.form.encode('utf-8')
 									cnt_non_encodable_tone += 1
@@ -99,15 +108,15 @@ def main():
 					if len(sent) > 1:
 						allsents.append(sent)
 						sent = []
-						
-		print allsents
+
+		# print allsents # débogage
 
 		# affichage
 		if args.verbose and args.tone :
 			print ""
 			print  'number of tokens encodables     :', cnt_encodable_tone
         	        print  'number of tokens non-encodables :', cnt_non_encodable_tone
-			print u'taux des tons non-codés         :', cnt_non_encodable_tone / float(cnt_encodable_tone)
+			print u'rate of non-coded tones         :', "%4.2f" % ( cnt_non_encodable_tone / float(cnt_encodable_tone) * 100), "%"
 
 		datalength = len(allsents)
 		p = (1-args.evalsize/100.0)
