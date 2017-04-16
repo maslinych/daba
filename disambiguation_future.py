@@ -25,8 +25,6 @@ from differential_tone_coding import differential_encode
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
-#lists_of_equivalence = [{u'e',u'ɛ',u'a'}, {u'o',u'ɔ'}]
-lists_of_equivalence = []
 
 def main():
 
@@ -43,7 +41,8 @@ def main():
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default="sys.stdout")
 
 	args = aparser.parse_args()
-	print args
+	if args.verbose :
+		print args
 
 	if args.learn:
 
@@ -60,17 +59,15 @@ def main():
 		allsents = []
 
 		# verbose :
-		if args.tone :
-			cnt_non_encodable_tone = 0
-			cnt_encodable_tone = 0
-
+		if args.verbose :
+			cnt_ambiguity_phonetic = 0
+			cnt_token = 0
 		print 'Open files and find features / supervision tags'
 		for infile in allfiles.split(','):
 			if(len(infile)) :
 				print '-', infile
 				sent = []
 
-				# in_handler = formats.HtmlReader(infile, compatibility_mode=False) #
 				html_parser = FileParser()
 				html_parser.read_file(infile)
 
@@ -84,39 +81,27 @@ def main():
 								for ps in token.gloss.ps  :
 									tags += ps.encode('utf-8')
 							if args.tone:
-								[tone_coded, validity] = differential_encode(token.token, \
-								       				        token.gloss.form, \
-												    lists_of_equivalence)
-
-								if validity :
-									tags += tone_coded.encode('utf-8')
-									cnt_encodable_tone += 1
-
-									if args.verbose :
-										if tone_coded :
-											sys.stdout.write(u"{} : \'{}\' - \'{}\' = \'{}\'\n".\
-											format(cnt_encodable_tone,token.gloss.form,token.token,tone_coded))
-
-
+								if '|' not in token.gloss.form :
+									tags += differential_encode(token.token, token.gloss.form).encode('utf-8')
+									if args.verbose and tags :
+										sys.stdout.write(u"\'{}\' - \'{}\' = \'{}\'\n".\
+										format(token.gloss.form, token.token, tags.decode('utf-8')))
 								else :
-									# tags += token.gloss.form.encode('utf-8')
-									cnt_non_encodable_tone += 1
+									if args.verbose :
+										cnt_ambiguity_phonetic += 1
 							if args.gloss:
 								tags += token.gloss.gloss.encode('utf-8')
+
 							sent.append((token.token, tags))
-						# if token.type == 'c' and token.token in ['.', '?', '!']: #
+							cnt_token += 1
 					if len(sent) > 1:
 						allsents.append(sent)
 						sent = []
-
-		# print allsents # débogage
-
+		if args.verbose :
+			if args.tone :
+				sys.stdout.write(u"nombre de mots phonétiquement ambuiguës : {}\n".format(str(cnt_ambiguity_phonetic).encode('utf-8')))
+			sys.stdout.write(u"nombre de tokens analysés : {}\n".format(str(cnt_token).encode('utf-8')))
 		# affichage
-		if args.verbose and args.tone :
-			print ""
-			print  'number of tokens encodables     :', cnt_encodable_tone
-        	        print  'number of tokens non-encodables :', cnt_non_encodable_tone
-			print u'rate of non-coded tones         :', "%4.2f" % ( cnt_non_encodable_tone / float(cnt_encodable_tone) * 100), "%"
 
 		datalength = len(allsents)
 		p = (1-args.evalsize/100.0)
