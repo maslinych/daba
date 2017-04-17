@@ -13,7 +13,7 @@ import argparse
 import formats,  grammar
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
-from differential_tone_coding import differential_encode, is_encodable
+from differential_tone_coding import differential_encode
 
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
@@ -75,13 +75,22 @@ def main():
 
 							# representation différentielle de la tonalisation
 							lists_of_equivalence = [{u'e',u'ɛ',u'a'}, {u'o',u'ɔ'}]
-							[ton_coded, validity] = differential_encode(token.token, token.gloss.form, lists_of_equivalence)
+							# lists_of_equivalence = []
+							[tone_coded, validity] = differential_encode(token.token, \
+												    token.gloss.form, \
+												 lists_of_equivalence)
 							if validity :
-								tags += ton_coded.encode('utf-8')
+								# debogage
+								"""
+								if cnt_encodable_tone % 5 == 4 : str = "\n"
+								else : str = " "
+								sys.stdout.write(u"'{}' - '{}' = '{}'\t{}".format(token.gloss.form,token.token,tone_coded,str))
+								"""
+								tags += tone_coded.encode('raw_unicode_escape')
 								cnt_encodable_tone += 1
 							else :
 								# print token.token, token.gloss.form
-								tags += token.gloss.form.encode('utf-8')
+								# tags += token.gloss.form.encode('utf-8')
 								cnt_non_encodable_tone += 1
 						if args.gloss:
 							tags += token.gloss.gloss.encode('utf-8')
@@ -92,10 +101,10 @@ def main():
 						sent = []
 
 		if args.verbose and args.tone :
-			print 'number of tokens encodables     :', cnt_encodable_tone
-        	        print 'number of tokens non-encodables :', cnt_non_encodable_tone
-			print 'taux des tons non-codés         :', cnt_non_encodable_tone / float(cnt_encodable_tone)
-			# exit()
+			print ""
+			print  'number of tokens encodables     :', cnt_encodable_tone
+        	        print  'number of tokens non-encodables :', cnt_non_encodable_tone
+			print u'taux des tons non-codés         :', cnt_non_encodable_tone / float(cnt_encodable_tone)
 
 		datalength = len(allsents)
 		p = (1-args.evalsize/100.0)
@@ -104,6 +113,9 @@ def main():
 		random.shuffle(allsents)
 		train_set = allsents[:int(p*datalength)]
 		test_set = allsents[int(p*datalength):datalength]
+
+		if args.verbose and args.tone :
+			print train_set;
 
 		print 'Building classifier (CRF/NLTK)'
 		tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
