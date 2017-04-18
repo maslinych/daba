@@ -5,6 +5,15 @@ import unicodedata
 import sys
 import Levenshtein
 
+# todo :
+# il faut remplacer le module actuel par ceci
+# https://pypi.python.org/pypi/weighted-levenshtein/0.1
+# pour permettre de pénaliser les autres opérations que
+# l'insetion qui est massivement utilisée par
+# la modélisation des tons et des pauses en prenant compte
+# également des replacements dans certains d'alphabet
+# par exemple, e par epsilon
+
 markers_tone =  [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
 markers_pause = [unichr(0x002e)]
 PREDICTION_GENERAL = True
