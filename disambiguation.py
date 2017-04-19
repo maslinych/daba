@@ -96,7 +96,7 @@ def main():
 			if args.tone :
 				enc.report()
 
-		datalength = len(allsents)
+		datalength = len(allsents) / 100
 		p = (1-args.evalsize/100.0)
 		# todo : remplacer la répartition des données en un corpus d'apprentissage et un d'évaluation par une méthode d'échantilonnage
 		# à priori à un taux de répartition de 9 : 1
@@ -112,7 +112,7 @@ def main():
 		tagger.train(train_set, args.learn)
 		t2 = time.time()
 		texec = t2-t1
-		print "... done in",  time.strftime('%H %M %S', time.localtime(texec))
+		print "... done in", '{:<2.0f}:{:<2.0f}:{:<2.0f}:{:<2d}'.format(texec // 86400, texec // 3600, texec // 60, int(texec) % 60)
 
 		print 'Evaluating classifier'
 		print tagger.evaluate(test_set)
