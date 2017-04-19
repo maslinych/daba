@@ -112,7 +112,7 @@ def main():
 		tagger.train(train_set, args.learn)
 		t2 = time.time()
 		texec = t2-t1
-		print "... done in", '{:<2.0f}:{:<2.0f}:{:<2.0f}:{:<2d}'.format(texec // 86400, texec // 3600, texec // 60, int(texec) % 60)
+		print "... done in", '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(texec // 86400, texec // 3600, texec // 60, int(texec) % 60)
 
 		print 'Evaluating classifier'
 		print tagger.evaluate(test_set)
