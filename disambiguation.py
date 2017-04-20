@@ -27,7 +27,7 @@ import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
-RATIO = 100
+
 
 def main():
 
@@ -43,6 +43,8 @@ def main():
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default="sys.stdin")
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default="sys.stdout")
 	aparser.add_argument('-s', '--store', help='Exportation of tagged set in file (.csv) for research purposes', default=None)
+
+	aparser.add_argument('-R', '--Ratio', help='The proportion of the corpus to be processed', default=1)
 
 
 	args = aparser.parse_args()
@@ -99,11 +101,12 @@ def main():
 					if len(sent) > 1:
 						allsents.append(sent)
 						sent = []
+
 		if args.verbose :
 			if args.tone :
 				enc.report()
 			print u"Nombre de token ayant une forme tonale phonétiquement variée ou ambiguë :", cnt_ambiguity_phonetic
-			print u"Cette expérience porte sur 1 / {} de l'ensembles des corpus diponibles".format(RATIO)
+			print u"Cette expérience porte sur {:>4.2f}% de l'ensembles des corpus diponibles".format(float(args.Ratio)*100.0)
 			print ""
 			print args
 			print ""
@@ -114,7 +117,7 @@ def main():
 		print 'Split the data in train (', int(p*datalength),' sentences) / test (', int(datalength-p*datalength),' sentences)'
 		# dynamic sampling to split data in train / test set with a percentage p specified
 		train_set, test_set = [], []
-		for i,sent in enumerate(allsents[0 : : RATIO]) :
+		for i,sent in enumerate(allsents[0 : : int(1/float(args.Ratio))]) :
 			p_approx = (len(train_set) + 1) / (len(test_set) + 1)
 			if p_approx <= p :
 				train_set.append(sent)
