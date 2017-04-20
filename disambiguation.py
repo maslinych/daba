@@ -17,11 +17,17 @@ from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
 from differential_tone_coding import encoder_tones
 
+
+import csv
+import nltk.tag.util
+import itertools
+from nltk.metrics.scores import accuracy
+
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
-RATIO = 25
+RATIO = 100
 
 def main():
 
@@ -36,6 +42,8 @@ def main():
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data', default=None)
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default="sys.stdin")
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default="sys.stdout")
+	aparser.add_argument('-s', '--store', help='Exportation of tagged set in file (.csv) for research purposes', default=None)
+
 
 	args = aparser.parse_args()
 	if args.verbose :
@@ -50,6 +58,7 @@ def main():
 		print 'Make list of files'
 		files1 = glob.iglob("../corbama/*/*.dis.html")
 		files2 = glob.iglob("../corbama/*.dis.html")
+
 		allfiles = ""
 		for file1, file2 in zip(files1, files2):
 			allfiles += file1+','+file2+','
@@ -122,14 +131,32 @@ def main():
 		hours = texec // 3600 - days * 24
 		minutes = texec // 60 - hours * 60 - days * 60 * 24
 		secondes = int(texec) % 60
-		print "... done in", '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(days,hours,minutes,secondes)
+		print "... done in", '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(days, hours, minutes, secondes)
 
 		print 'Evaluating classifier'
-		print tagger.evaluate(test_set)
+		tagged_sents = tagger.tag_sents(nltk.tag.util.untag(sent) for sent in test_set)
+		gold_tokens = list(itertools.chain(*test_set))
+		test_tokens = list(itertools.chain(*tagged_sents))
+		paired_tokens = [(g[0], \
+				g[-1], \
+				test_tokens[i][-1]) \
+				for i, g in enumerate(gold_tokens)]
+
+		# export
+		if args.store :
+			try :
+				csvfile = codecs.open(args.store, 'wb')
+				writer = csv.writer(csvfile)
+				writer.writerow(["Token", "Golden", "Prediction", "Consistent"])
+				for g, t in zip(gold_tokens, test_tokens) :
+					writer.writerow([g[0].encode('utf-8'), g[-1], t[-1], (g[-1] == t[-1])])
+				csvfile.close()
+			except :
+				print "unable to dump result in CSV file to create !"
+		print accuracy(gold_tokens, test_tokens)
 
 		if args.verbose:
 			print 'Compute detailed output'
-			# enregistrer la sortie des tokens étiquetés qui vont permettre une fouille d'erreurs sur le résultat produit
 
 	else:
 		# todo :  sécuriser le mode de désambiguisation en ajoutant des vérifications d'argument
