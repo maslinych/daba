@@ -8,13 +8,7 @@
 # Le CRF implémenté provient du module tag de NLTK inspiré de CRFSuite (http://www.nltk.org/api/nltk.tag.html#module-nltk.tag.crf).
 # Trois modèles sont possibles : les POS, les tons, les gloses
 
-# Change 1: Use sentence boundaries as described in the input HTML file to construct input and evaluation input data.
-# Change 2: Insertion of a tone encoder in order to improve the learning of tone prediction.
-# Change 3 (i progress) : Implementation of the -d option (used with -i, -o) which serves to disambiguate
-#           the parts of speech, tones, translation glosses of a parsed fihcer
-#           where ambiguity remains by applying the learned CRF model to the data of reference.
-
-import sys, re, codecs, random, glob,  time, random, os
+import sys, re, codecs, glob, time, os
 import argparse
 import formats,  grammar
 import collections
@@ -27,6 +21,8 @@ import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
+RATIO = 25
+
 def main():
 
 	aparser = argparse.ArgumentParser(description='Daba disambiguator')
@@ -35,7 +31,7 @@ def main():
 	aparser.add_argument('-p', '--pos', help='Prediction for POS', default=False, action='store_true')
 	aparser.add_argument('-t', '--tone', help='Prediction for tones', default=False, action='store_true')
 	aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
-	aparser.add_argument('-e', '--evalsize', help='Percent of randomized data to use for evaluation (default 10)', default=10)
+	aparser.add_argument('-e', '--evalsize', help='Percent of total data to use for evaluation (default 10)', default=10)
 
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data', default=None)
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default="sys.stdin")
@@ -62,7 +58,7 @@ def main():
 		enc = encoder_tones()
 		# verbose :
 		if args.verbose :
-			cnt_markers = collections.Counter()
+			cnt_ambiguity_phonetic = 0
 		print 'Open files and find features / supervision tags'
 		for infile in allfiles.split(','):
 			if(len(infile)) :
@@ -85,6 +81,8 @@ def main():
 
 								if '|' not in token.gloss.form :
 									tags += enc.differential_encode(token.token, token.gloss.form).encode('utf-8')
+								else :
+									cnt_ambiguity_phonetic+=1
 							if args.gloss:
 								tags += token.gloss.gloss.encode('utf-8')
 
@@ -95,30 +93,43 @@ def main():
 		if args.verbose :
 			if args.tone :
 				enc.report()
+			print u"Nombre de token ayant une forme tonale phonétiquement variée ou ambiguë :", cnt_ambiguity_phonetic
+			print u"Cette expérience porte sur 1 / {} de l'ensembles des corpus diponibles".format(RATIO)
+			print ""
+			print args
+			print ""
 
-		datalength = len(allsents) / 100
-		p = (1-args.evalsize/100.0)
-		# todo : remplacer la répartition des données en un corpus d'apprentissage et un d'évaluation par une méthode d'échantilonnage
-		# à priori à un taux de répartition de 9 : 1
-		print 'Randomize and split the data in train (', int(p*datalength),' sentences) / test (', int(datalength-p*datalength),' sentences)'
-		random.seed(123456)
-		random.shuffle(allsents)
-		train_set = allsents[:int(p*datalength)]
-		test_set = allsents[int(p*datalength):datalength]
+
+		datalength = len(allsents)
+		p = (1 - args.evalsize / 100.0)
+		print 'Split the data in train (', int(p*datalength),' sentences) / test (', int(datalength-p*datalength),' sentences)'
+		# dynamic sampling to split data in train / test set with a percentage p specified
+		train_set, test_set = [], []
+		for i,sent in enumerate(allsents[0 : : RATIO]) :
+			p_approx = (len(train_set) + 1) / (len(test_set) + 1)
+			if p_approx <= p :
+				train_set.append(sent)
+			else:
+				test_set.append(sent)
 
 		print 'Building classifier (CRF/NLTK)'
 		tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
 		t1 = time.time()
 		tagger.train(train_set, args.learn)
 		t2 = time.time()
-		texec = t2-t1
-		print "... done in", '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(texec // 86400, texec // 3600, texec // 60, int(texec) % 60)
+		texec = t2 - t1
+		days = texec // 86400
+		hours = texec // 3600 - days * 24
+		minutes = texec // 60 - hours * 60 - days * 60 * 24
+		secondes = int(texec) % 60
+		print "... done in", '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(days,hours,minutes,secondes)
 
 		print 'Evaluating classifier'
 		print tagger.evaluate(test_set)
 
 		if args.verbose:
 			print 'Compute detailed output'
+			# enregistrer la sortie des tokens étiquetés qui vont permettre une fouille d'erreurs sur le résultat produit
 
 	else:
 		# todo :  sécuriser le mode de désambiguisation en ajoutant des vérifications d'argument
@@ -135,11 +146,9 @@ def main():
 			for token in sentence[2] :
 				sent.append(token.token)
 			allsents.append(sent)
-		# print allsents
 
 		# étiquettage par CRF
 		tagged_sent = tagger.tag_sents(allsents)
-		# print tagged_sent
 
 		# sauvergardage
 		for snum, sentence in enumerate(html_parser.glosses) :
