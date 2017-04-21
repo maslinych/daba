@@ -27,6 +27,10 @@ import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
+def repr (c, null = "None") :
+	if not c : return null
+	else : return c
+
 def sampling(allsents, ratio, p) :
 	train_set, test_set = [], []
 	for i, sent in enumerate(allsents[0 : : int(1/float(ratio))]) :
@@ -58,8 +62,9 @@ def main():
 	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for research purposes', default=None)
 
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data', default=None)
-	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default="sys.stdin")
-	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default="sys.stdout")
+	aparser.add_argument('-m', '--mode'        , help='Disambuigation mode' , default=1)
+	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
+	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
 
 
 
@@ -67,7 +72,7 @@ def main():
 	if args.verbose :
 		print args
 
-	if args.learn:
+	if args.learn and (args.pos or args.tone or args.gloss):
 
 		if not (args.pos or args.tone or args.gloss) :
 			print 'Choose pos, tone, gloss or combination of them'
@@ -200,7 +205,12 @@ def main():
 				writer = csv.writer(csvfile)
 				writer.writerow(["Token", "Golden", "Prediction", "Consistent"])
 				for g, t in zip(gold_tokens, test_tokens) :
-					writer.writerow([g[0].encode('utf-8'), g[-1], t[-1], (g[-1] == t[-1])])
+					row = [\
+						repr(g[0].encode('utf-8')), \
+						repr(g[-1]), \
+						repr(t[-1]), \
+						g[-1] == t[-1]]
+					writer.writerow(row)
 				csvfile.close()
 			except :
 				print "unable to dump result in CSV file to create !"
@@ -210,13 +220,20 @@ def main():
 		if args.verbose:
 			print 'Compute detailed output'
 
-	else:
-		# todo :  sécuriser le mode de désambiguisation en ajoutant des vérifications d'argument
-		print 'USE...'
+	elif args.disambiguate and args.mode and args.infile and args.outfile :
+
 		html_parser = FileParser()
 		tagger = CRFTagger()
-		tagger.set_model_file(args.disambiguate)
-		html_parser.read_file(args.infile)
+		try :
+			tagger.set_model_file(args.disambiguate)
+		except IOError:
+			print "Error : unable to open the model {} !".format(args.infile)
+                        exit(1)
+		try :
+			html_parser.read_file(args.infile)
+		except IOError:
+			print "Error : unable to open the input file {} !".format(args.infile)
+			exit(1)
 
 		# construction des données à être étiqueter
 		allsents = []
@@ -227,7 +244,28 @@ def main():
 			allsents.append(sent)
 
 		# étiquettage par CRF
-		tagged_sent = tagger.tag_sents(allsents)
+		#######################################################
+		# code source de la méthode tag_sents(self, allsents) #
+		# de la classe CRFTagger(TaggerI)                     #
+		# du parquet nltk.tag.crf                             #
+		#                                                     #
+		# http://www.nltk.org/_modules/nltk/tag/crf.html      #
+		#######################################################
+		if tagger._model_file == '':
+			raise Exception(' No model file is found !! Please use train or set_model_file function')
+
+		# We need the list of sentences instead of the list generator for matching the input and output
+		result = []
+		for tokens in allsents:
+			features = [tagger._feature_func(tokens,i) for i in range(len(tokens))]
+			labels = tagger._tagger.tag(features)
+
+			if len(labels) != len(tokens):
+				raise Exception(' Predicted Length Not Matched, Expect Errors !')
+
+			tagged_sent = list(zip(tokens,labels))
+			result.append(tagged_sent)
+		tagged_sents = result
 
 		# sauvergardage
 		for snum, sentence in enumerate(html_parser.glosses) :
@@ -244,15 +282,24 @@ def main():
 					# dans un fichier HTML de sortie, en soumettant à l'objet une nouvelle liste des
 					# gloses pour chaque token donnée
 					#option2 = Gloss(token.token, 'x', '', '')
-					ps =  (tagged_sent[snum][tnum][1],)
+					ps =  (tagged_sents[snum][tnum][1].decode('utf-8'),)
 					# format Gloss (token, pos, glose, morpheme)
+
+					# print type(token.token), type(ps[0]); input()
+
 					option2 = Gloss(token.token, ps, '', '')
 					print option2, option
 					html_parser.glosses[snum][1][tnum] = [option2]
 			print ""
 
-		html_parser.write(args.outfile)
+		try :
+			html_parser.write(args.outfile)
+		except IOError:
+			print "Error : unable to create the output file {}".format(args.outfile)
 
+	else :
+		# show script usage
+		aparser.print_help()
 	exit(0)
 
 if __name__ == '__main__':
