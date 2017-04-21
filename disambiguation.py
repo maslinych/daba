@@ -17,7 +17,7 @@ from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
 from differential_tone_coding import encoder_tones
 
-
+import pycrfsuite
 import csv
 import nltk.tag.util
 import itertools
@@ -27,7 +27,23 @@ import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
+def sampling(allsents, ratio, p) :
+	train_set, test_set = [], []
+	for i, sent in enumerate(allsents[0 : : int(1/float(ratio))]) :
+		p_approx = float(len(train_set) + 1) / float(len(test_set) + len(train_set) + 1)
+		if p_approx <= p :
+			train_set.append(sent)
+		else:
+			test_set.append(sent)
+	return [train_set, test_set]
 
+def get_duration(t1_secs, t2_secs) :
+	secs = abs(t1_secs - t2_secs)
+	days = secs // 86400
+	hours = secs // 3600 - days * 24
+	minutes = secs // 60 - hours * 60 - days * 60 * 24
+	secondes = int(secs) % 60
+	return '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(days, hours, minutes, secondes)
 
 def main():
 
@@ -37,14 +53,14 @@ def main():
 	aparser.add_argument('-p', '--pos', help='Prediction for POS', default=False, action='store_true')
 	aparser.add_argument('-t', '--tone', help='Prediction for tones', default=False, action='store_true')
 	aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
-	aparser.add_argument('-e', '--evalsize', help='Percent of total data to use for evaluation (default 10)', default=10)
+	aparser.add_argument('-R', '--Ratio', help='Percent of total data to use for training and test', default=1)
+	aparser.add_argument('-e', '--evalsize', help='Percent of training data with respect to training and test one (default 10)', default=10)
+	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for research purposes', default=None)
 
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data', default=None)
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default="sys.stdin")
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default="sys.stdout")
-	aparser.add_argument('-s', '--store', help='Exportation of tagged set in file (.csv) for research purposes', default=None)
 
-	aparser.add_argument('-R', '--Ratio', help='The proportion of the corpus to be processed', default=1)
 
 
 	args = aparser.parse_args()
@@ -106,37 +122,69 @@ def main():
 			if args.tone :
 				enc.report()
 			print u"Nombre de token ayant une forme tonale phonétiquement variée ou ambiguë :", cnt_ambiguity_phonetic
-			print u"Cette expérience porte sur {:>4.2f}% de l'ensembles des corpus diponibles".format(float(args.Ratio)*100.0)
+			print u"Cette expérience porte sur {:>4.2f} % de l'ensembles des corpus diponibles".format(float(args.Ratio)*100.0)
 			print ""
 			print args
 			print ""
 
-
-		datalength = len(allsents)
+		# Constitution des ensmebles d'entraînement de d'évaluation
 		p = (1 - args.evalsize / 100.0)
-		print 'Split the data in train (', int(p*datalength),' sentences) / test (', int(datalength-p*datalength),' sentences)'
-		# dynamic sampling to split data in train / test set with a percentage p specified
-		train_set, test_set = [], []
-		for i,sent in enumerate(allsents[0 : : int(1/float(args.Ratio))]) :
-			p_approx = (len(train_set) + 1) / (len(test_set) + 1)
-			if p_approx <= p :
-				train_set.append(sent)
-			else:
-				test_set.append(sent)
+		train_set, test_set = sampling(allsents, args.Ratio, p)
+		print 'Split the data in train (', len(train_set),' sentences) / test (', len(test_set),' sentences)'
 
 		print 'Building classifier (CRF/NLTK)'
 		tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
 		t1 = time.time()
-		tagger.train(train_set, args.learn)
-		t2 = time.time()
-		texec = t2 - t1
-		days = texec // 86400
-		hours = texec // 3600 - days * 24
-		minutes = texec // 60 - hours * 60 - days * 60 * 24
-		secondes = int(texec) % 60
-		print "... done in", '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(days, hours, minutes, secondes)
+
+		# Training
+		"""
+		Set of possible training options (using LBFGS training algorithm).
+	         'feature.minfreq' : The minimum frequency of features.
+        	 'feature.possible_states' : Force to generate possible state features.
+	         'feature.possible_transitions' : Force to generate possible transition features.
+	         'c1' : Coefficient for L1 regularization.
+	         'c2' : Coefficient for L2 regularization.
+	         'max_iterations' : The maximum number of iterations for L-BFGS optimization.
+	         'num_memories' : The number of limited memories for approximating the inverse hessian matrix.
+	         'epsilon' : Epsilon for testing the convergence of the objective.
+	         'period' : The duration of iterations to test the stopping criterion.
+	         'delta' : The threshold for the stopping criterion; an L-BFGS iteration stops when the
+        	            improvement of the log likelihood over the last ${period} iterations is no greater than this threshold.
+	         'linesearch' : The line search algorithm used in L-BFGS updates:
+                           { 'MoreThuente': More and Thuente's method,
+                              'Backtracking': Backtracking method with regular Wolfe condition,
+                              'StrongBacktracking': Backtracking method with strong Wolfe condition
+                           }
+        	 'max_linesearch' :  The maximum number of trials for the line search algorithm.
+		"""
+		###########################################################
+		# code source de la méthode train(train_data, model_file) #
+		# de la classe CRFTagger                                  #
+		# du parquet nltk.tag.crf                                 #
+		#							  #
+		# http://www.nltk.org/_modules/nltk/tag/crf.html	  #
+		###########################################################
+		# algorithm : {‘lbfgs’, ‘l2sgd’, ‘ap’, ‘pa’, ‘arow’}
+		trainer = pycrfsuite.Trainer(verbose=tagger._verbose, algorithm='lbfgs')
+		trainer.set_params(tagger._training_options)
+		for sent in train_set:
+			tokens, labels = zip(*sent)
+			features = [tagger._feature_func(tokens, i) for i in range(len(tokens))]
+			trainer.append(features, labels)
+		trainer.train(model=args.learn)
+		tagger.set_model_file(args.learn)
+
+		# on vient de terminer l'entraînement d'un modèle en affichant le temps passé
+		print "... done in", get_duration(t1_secs = t1, t2_secs = time.time())
 
 		print 'Evaluating classifier'
+		#####################################################
+		# code source de la méthode evaluate(gold=test_set) #
+		# de la classe TaggerI                              #
+		# du parquet nltk.tag.api                           #
+		#                                                   #
+		# http://www.nltk.org/_modules/nltk/tag/api.html    #
+		#####################################################
 		tagged_sents = tagger.tag_sents(nltk.tag.util.untag(sent) for sent in test_set)
 		gold_tokens = list(itertools.chain(*test_set))
 		test_tokens = list(itertools.chain(*tagged_sents))
@@ -145,7 +193,7 @@ def main():
 				test_tokens[i][-1]) \
 				for i, g in enumerate(gold_tokens)]
 
-		# export
+		# exportation du résultat d'étiquetage en fichier csv
 		if args.store :
 			try :
 				csvfile = codecs.open(args.store, 'wb')
@@ -158,6 +206,7 @@ def main():
 				print "unable to dump result in CSV file to create !"
 		print accuracy(gold_tokens, test_tokens)
 
+		# affichage avancé
 		if args.verbose:
 			print 'Compute detailed output'
 
