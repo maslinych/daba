@@ -8,10 +8,59 @@ import Levenshtein
 from collections import Counter, defaultdict
 
 # todo :
-REMPLACEMENT_INTERDIT = False
+
+# configurations for simuation
+REMPLACEMENT_INTERDIT = True
 DECOMPOSE_OPS_FOR_TONES = True
+
+# constant lists
 markers_tone =  [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
 markers_pause = [unichr(0x002e)]
+lst_vowels = u'aeiouɛəɑœɔø'
+lst_mode_position_caracter = u'$£§#@%'
+mode_id_lst = ["delete","insert","replace"]
+caracter_category_lst = ["vowel", "non-vowel"]
+
+""" mode - positon indicatteur codage
+lst_mode_position_caracter[0] <-> a vowel to delete
+lst_mode_position_caracter[1] <-> a vowel to insert
+lst_mode_position_caracter[2] <-> a vowel to be replace
+lst_mode_position_caracter[3] <-> a non-vowel to delete
+lst_mode_position_caracter[4] <-> a non-vowel to insert
+lst_mode_position_caracter[5] <-> a non-vowel to be replace
+"""
+
+def get_mode_position_table () :
+
+	ret = ""
+	len_mode_id_lst = len(mode_id_lst)
+	len_caracter_category = len(caracter_category_lst)
+	for j in range(len_caracter_category) :
+		for i in range(len_mode_id_lst) :
+			ret += " ".join([lst_mode_position_caracter[i + len(caracter_category_lst) * j], "<->", \
+				mode_id_lst[i], "+", caracter_category_lst[j], "\n"])
+	return ret
+
+def mode_position_encoder (token, position, mode_id, offset = 0, lst = lst_vowels) :
+
+	position_eff = position + offset
+
+	position_vowels = 0
+	position_others = 0
+	position_all = 0
+	for c in token :
+		if c in lst :
+			caracter_category_id = 0
+			if position_all >= position_eff:
+				return lst_mode_position_caracter[caracter_category_id * len(mode_id_lst) + mode_id] + str(position_vowels)
+			position_vowels += 1
+		else :
+			caracter_category_id = 1
+			if position_all >= position_eff:
+				return lst_mode_position_caracter[caracter_category_id * len(mode_id_lst) + mode_id] + str(position_others)
+			position_others += 1
+		position_all+=1
+	return None
 
 def entropy2 (dic, cnt, cnt2, mode = 'token', unit = 'natural') :
 
@@ -111,19 +160,22 @@ class encoder_tones () :
 		self.stat = statistique()
 
 	def delete(self) :
-		self.ret += '*' + str(self.p_src) + self.src[self.p_src]
+		mode_id = mode_id_lst.index("delete")
+		self.ret += mode_position_encoder(self.src,self.p_src, mode_id) + self.src[self.p_src]
 		self.stat.cnt_d[self.src[self.p_src]] += 1
 		self.stat.cnt_ops += 1
 		self.stat.mode["delete"] += 1
 
 	def insert(self) :
-		self.ret += '' + str(self.p_src) + self.dst[self.p_dst]
+		mode_id = mode_id_lst.index("insert")
+		self.ret += mode_position_encoder(self.src,self.p_src, mode_id, offset=-1) + self.dst[self.p_dst]
 		self.stat.cnt_i[self.dst[self.p_dst]] += 1
 		self.stat.cnt_ops += 1
 		self.stat.mode["insert"] += 1
 
 	def replace(self) :
-		self.ret += '@' + str(self.p_src) + self.dst[self.p_dst]
+		mode_id = mode_id_lst.index("replace")
+		self.ret += mode_position_encoder(self.src,self.p_src, mode_id) + self.dst[self.p_dst]
 		self.stat.cnt_r[0][self.src[self.p_src]] += 1
 		self.stat.cnt_r[1][self.dst[self.p_dst]] += 1
 		self.stat.cnt_ops += 1
@@ -174,7 +226,7 @@ class encoder_tones () :
 
 def main () :
 
-	form_non_tonal = u'abécèiè'
+	form_non_tonal = u'abécëiè'
 	form_tonal     = u'àbèceleh'
 
 	print "src : ", form_non_tonal
@@ -182,6 +234,7 @@ def main () :
 	enc = encoder_tones()
 	print enc.differential_encode (form_non_tonal, form_tonal)
 	print enc.differential_encode (form_non_tonal, form_tonal)
+	print get_mode_position_table()
 	enc.report()
 
 if __name__ == "__main__" : main()
