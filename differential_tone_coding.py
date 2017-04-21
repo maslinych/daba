@@ -8,9 +8,8 @@ import Levenshtein
 from collections import Counter, defaultdict
 
 # todo :
-
-REMPLACEMENT_INTERDIT=True
-DECOMPOSE_OPS_FOR_TONES = False
+REMPLACEMENT_INTERDIT = False
+DECOMPOSE_OPS_FOR_TONES = True
 markers_tone =  [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
 markers_pause = [unichr(0x002e)]
 
@@ -27,7 +26,7 @@ def entropy2 (dic, cnt, cnt2, mode = 'token', unit = 'natural') :
 		token_cnt = {form_tonal : cnt[form_tonal] for form_tonal in lst}
 		if mode == 'occurrence' :
 			averaged_entropy += entropy(token_cnt) * cnt2[k]
-		else :
+		else : # mode == "token"
 			averaged_entropy += entropy(token_cnt)
 
 	averaged_entropy /= float(n + 1)
@@ -94,6 +93,9 @@ class statistique () :
 		ret += u"Distance entre token et sa forme tonale (en moyenne) = {:<6.2f} \n".format(self.cnt_ops / float(self.num))
 		ret += u"Distribution des opérations d'édition : \n {}".format(sprint_cnt(self.mode, "\t"))
 		ret += u"sur un ensemble de corpus de {} mot(s)\n".format(str(self.num))
+		ret += u"\nConfigurations\n"
+		ret += u"\tREMPLACEMENT_INTERDIT = {}\n".format(REMPLACEMENT_INTERDIT)
+		ret += u"\tDECOMPOSE_OPS_FOR_TONES = {}\n".format(DECOMPOSE_OPS_FOR_TONES)
 
 		return ret
 
