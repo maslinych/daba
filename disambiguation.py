@@ -66,6 +66,8 @@ def main():
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
 
+	# experimental parameters
+	aparser.add_argument('-a', '--algorithm', help='Optimization algorihtm used for sovling CRF training', default='lbfgs')
 
 
 	args = aparser.parse_args()
@@ -170,7 +172,15 @@ def main():
 		# http://www.nltk.org/_modules/nltk/tag/crf.html	  #
 		###########################################################
 		# algorithm : {‘lbfgs’, ‘l2sgd’, ‘ap’, ‘pa’, ‘arow’}
-		trainer = pycrfsuite.Trainer(verbose=tagger._verbose, algorithm='lbfgs')
+		try :
+			trainer = pycrfsuite.Trainer(verbose=tagger._verbose, algorithm= args.algorithm)
+		except :
+			algorithm_list = {'lbfgs', 'l2sgd', 'ap', 'pa', 'arow'}
+			if algorithm not in algorithm_list :
+				print ("Error : please choose an algorithm among theses possibilities :")
+				print (algorithm_list)
+			else :
+				print ("Error : unable to initialize pycrfsuite !")
 		trainer.set_params(tagger._training_options)
 		for sent in train_set:
 			tokens, labels = zip(*sent)
