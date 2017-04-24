@@ -8,10 +8,14 @@ import Levenshtein
 from collections import Counter, defaultdict
 
 # todo :
+# implement a new version of tone decoder
 
 # configurations for simuation
-REMPLACEMENT_INTERDIT = True
-DECOMPOSE_OPS_FOR_TONES = True
+REMPLACEMENT_INTERDIT = False
+DECOMPOSE_OPS_FOR_TONES_PAUSE = True
+NOT_TO_CODE_CARACTER_TO_DELETE = False
+ONLY_TONE_PREDICTION = False
+ONLY_TONE_PAUSE_PREDICTION = False
 
 # constant lists
 markers_tone =  [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
@@ -23,11 +27,11 @@ caracter_category_lst = ["vowel", "non-vowel"]
 
 """ mode - positon indicatteur codage
 lst_mode_position_caracter[0] <-> a vowel to delete
-lst_mode_position_caracter[1] <-> a vowel to insert
-lst_mode_position_caracter[2] <-> a vowel to be replace
+lst_mode_position_caracter[1] <-> a caracter to insert after a vowel
+lst_mode_position_caracter[2] <-> a caracter to be replace after a vowel
 lst_mode_position_caracter[3] <-> a non-vowel to delete
-lst_mode_position_caracter[4] <-> a non-vowel to insert
-lst_mode_position_caracter[5] <-> a non-vowel to be replace
+lst_mode_position_caracter[4] <-> a caracter to insert after non-vowel
+lst_mode_position_caracter[5] <-> a caracter to replace after a non-vowel
 """
 
 def get_mode_position_table () :
@@ -37,7 +41,7 @@ def get_mode_position_table () :
 	len_caracter_category = len(caracter_category_lst)
 	for j in range(len_caracter_category) :
 		for i in range(len_mode_id_lst) :
-			ret += " ".join([lst_mode_position_caracter[i + len(caracter_category_lst) * j], "<->", \
+			ret += " ".join([lst_mode_position_caracter[i + len_mode_id_lst * j], "<->", \
 				mode_id_lst[i], "+", caracter_category_lst[j], "\n"])
 	return ret
 
@@ -143,8 +147,11 @@ class statistique () :
 		ret += u"Distribution des opérations d'édition : \n {}".format(sprint_cnt(self.mode, "\t"))
 		ret += u"sur un ensemble de corpus de {} mot(s)\n".format(str(self.num))
 		ret += u"\nConfigurations\n"
-		ret += u"\tREMPLACEMENT_INTERDIT = {}\n".format(REMPLACEMENT_INTERDIT)
-		ret += u"\tDECOMPOSE_OPS_FOR_TONES = {}\n".format(DECOMPOSE_OPS_FOR_TONES)
+		ret += u"\tREMPLACEMENT_INTERDIT          = {}\n".format(REMPLACEMENT_INTERDIT)
+		ret += u"\tDECOMPOSE_OPS_FOR_TONES_PAUSE  = {}\n".format(DECOMPOSE_OPS_FOR_TONES_PAUSE)
+		ret += u"\tNOT_TO_CODE_CARACTER_TO_DELETE = {}\n".format(NOT_TO_CODE_CARACTER_TO_DELETE)
+		ret += u"\tONLY_TONE_PREDICTION           = {}\n".format(ONLY_TONE_PREDICTION)
+		ret += u"\tONLY_TONE_PAUSE_PREDICTION     = {}\n".format(ONLY_TONE_PAUSE_PREDICTION)
 
 		return ret
 
@@ -161,7 +168,9 @@ class encoder_tones () :
 
 	def delete(self) :
 		mode_id = mode_id_lst.index("delete")
-		self.ret += mode_position_encoder(self.src,self.p_src, mode_id) + self.src[self.p_src]
+		self.ret += mode_position_encoder(self.src,self.p_src, mode_id)
+		if not NOT_TO_CODE_CARACTER_TO_DELETE :
+			self.ret += self.src[self.p_src]
 		self.stat.cnt_d[self.src[self.p_src]] += 1
 		self.stat.cnt_ops += 1
 		self.stat.mode["delete"] += 1
@@ -200,19 +209,27 @@ class encoder_tones () :
 
 			mode, self.p_src, self.p_dst = op
 			if mode == "delete" :
-				self.delete()
+				if not ONLY_TONE_PREDICTION :
+					self.delete()
 
 			elif mode == "insert" :
-				self.insert()
+				if not ONLY_TONE_PREDICTION or \
+				      (ONLY_TONE_PREDICTION and (self.dst[self.p_dst] in markers_tone)) or \
+  				      (ONLY_TONE_PAUSE_PREDICTION and (self.dst[self.p_dst] in markers_tone and self.dst[self.p_dst] in markers_pause)) :
+					self.insert()
 
 			else : # mode == "replace"
-				if REMPLACEMENT_INTERDIT or \
-				   self.dst[self.p_dst] in markers_tone or \
-   				   self.dst[self.p_dst] in markers_pause and DECOMPOSE_OPS_FOR_TONES :
-					self.delete()
-					self.insert()
-				else :
-					self.replace()
+				if not ONLY_TONE_PREDICTION or \
+				      (ONLY_TONE_PREDICTION and (self.dst[self.p_dst] in markers_tone)) or \
+  				      (ONLY_TONE_PAUSE_PREDICTION and (self.dst[self.p_dst] in markers_tone and self.dst[self.p_dst] in markers_pause)) :
+					if REMPLACEMENT_INTERDIT or \
+					   ((self.dst[self.p_dst] in markers_tone or \
+   					     self.dst[self.p_dst] in markers_pause) and DECOMPOSE_OPS_FOR_TONES_PAUSE) :
+
+						self.delete()
+						self.insert()
+					else :
+						self.replace()
 
 		self.stat.num += 1
 		self.stat.code[self.ret] += 1
@@ -227,12 +244,11 @@ class encoder_tones () :
 def main () :
 
 	form_non_tonal = u'abécëiè'
-	form_tonal     = u'àbèceleh'
+	form_tonal     = u'àbèc.eleh'
 
 	print "src : ", form_non_tonal
 	print "dst : ", form_tonal
 	enc = encoder_tones()
-	print enc.differential_encode (form_non_tonal, form_tonal)
 	print enc.differential_encode (form_non_tonal, form_tonal)
 	print get_mode_position_table()
 	enc.report()
