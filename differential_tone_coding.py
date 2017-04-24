@@ -16,6 +16,7 @@ DECOMPOSE_OPS_FOR_TONES_PAUSE = True
 NOT_TO_CODE_CARACTER_TO_DELETE = False
 ONLY_TONE_PREDICTION = False
 ONLY_TONE_PAUSE_PREDICTION = False
+SHAPING_TOKEN_IN = True
 
 # constant lists
 markers_tone =  [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
@@ -33,6 +34,19 @@ lst_mode_position_caracter[3] <-> a non-vowel to delete
 lst_mode_position_caracter[4] <-> a caracter to insert after non-vowel
 lst_mode_position_caracter[5] <-> a caracter to replace after a non-vowel
 """
+
+def reshaping (token, strip_tones = True) :
+
+	"""
+	référence :
+	http://stackoverflow.com/questions/517923/what-is-the-best-way-to-remove-accents-in-a-python-unicode-string
+	"""
+        token = unicodedata.normalize('NFD', token)
+
+	if strip_tones :
+		token = u"".join(c for c in token if unicodedata.category(c) != 'Mn')
+
+	return token.lower()
 
 def get_mode_position_table () :
 
@@ -152,6 +166,7 @@ class statistique () :
 		ret += u"\tNOT_TO_CODE_CARACTER_TO_DELETE = {}\n".format(NOT_TO_CODE_CARACTER_TO_DELETE)
 		ret += u"\tONLY_TONE_PREDICTION           = {}\n".format(ONLY_TONE_PREDICTION)
 		ret += u"\tONLY_TONE_PAUSE_PREDICTION     = {}\n".format(ONLY_TONE_PAUSE_PREDICTION)
+		ret += u"\tSHAPING_TOKEN_IN               = {}\n".format(SHAPING_TOKEN_IN)
 
 		return ret
 
@@ -198,7 +213,13 @@ class encoder_tones () :
 		self.p_dst = -1
 
 		# décomposition du token en opérations d'édition
-		self.src = unicodedata.normalize('NFD', form_non_tonal)
+		if SHAPING_TOKEN_IN :
+			self.src = reshaping(form_non_tonal)
+		else:
+			self.src = form_non_tonal
+
+		if not self.src :
+			return u''
 		self.dst = unicodedata.normalize('NFD', form_tonal)
 		ops = Levenshtein.editops(self.src, self.dst)
 		self.stat.form_non_tonal[self.src] += 1
