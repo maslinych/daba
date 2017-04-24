@@ -216,7 +216,7 @@ class encoder_tones () :
 		if SHAPING_TOKEN_IN :
 			self.src = reshaping(form_non_tonal)
 		else:
-			self.src = form_non_tonal
+			self.src = form_non_tonal.lower()
 
 		if not self.src :
 			return u''
