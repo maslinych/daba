@@ -245,7 +245,7 @@ class encoder_tones () :
 
 		if not self.src :
 			return [self.ret, self.chunks]
-		self.dst = unicodedata.normalize('NFD', form_tonal)
+		self.dst = unicodedata.normalize('NFD', form_tonal.lower())
 		ops = Levenshtein.editops(self.src, self.dst)
 		self.stat.form_non_tonal[self.src] += 1
 		self.stat.form_tonal    [self.dst] += 1
