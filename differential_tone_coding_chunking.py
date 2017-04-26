@@ -239,7 +239,6 @@ class encoder_tones () :
 		# init. par codage
 		self.p_src = -1
 		self.p_dst = -1
-		self.ret = [u"" for i in range(len(self.chunks))]
 
 		# décomposition du token en opérations d'édition
 		if SHAPING_TOKEN_IN :
@@ -248,6 +247,7 @@ class encoder_tones () :
 			self.src = form_non_tonal.lower()
 
 		self.chunks = chunking(self.src, self.chunk_size)
+		self.ret = [u"" for i in range(len(self.chunks))]
 
 		if not self.src :
 			return [self.ret, self.chunks]
