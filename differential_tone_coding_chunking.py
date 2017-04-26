@@ -207,7 +207,7 @@ class encoder_tones () :
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
 		self.ret[chunk_id] += mp_code
 		if not NOT_TO_CODE_CARACTER_TO_DELETE :
-			self.ret += self.src[self.p_src]
+			self.ret[chunk_id] += self.src[self.p_src]
 		self.stat.cnt_d[self.src[self.p_src]] += 1
 		self.stat.cnt_ops += 1
 		self.stat.mode["delete"] += 1
