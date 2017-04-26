@@ -57,18 +57,18 @@ def main():
 	aparser.add_argument('-p', '--pos', help='Prediction for POS', default=False, action='store_true')
 	aparser.add_argument('-t', '--tone', help='Prediction for tones', default=False, action='store_true')
 	aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
-	aparser.add_argument('-R', '--Ratio', help='Percent of total data to use for training and test', default=1)
 	aparser.add_argument('-e', '--evalsize', help='Percent of training data with respect to training and test one (default 10)', default=10)
-	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for research purposes', default=None)
 
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data', default=None)
 	aparser.add_argument('-m', '--mode'        , help='Disambuigation mode' , default=1)
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
 
-	# experimental parameters
+	# experimental parameters with relation to tone learning
 	aparser.add_argument('-a', '--algorithm', help='Optimization algorihtm used for sovling CRF training', default='lbfgs')
-
+	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for research purposes', default=None)
+	aparser.add_argument('-R', '--Ratio', help='Percent of total data to use for training and test', default=1)
+	aparser.add_argument('-c', '--chunksize', help='Size of each chunk of a word', default = 3)
 
 	args = aparser.parse_args()
 	if args.verbose :
@@ -89,7 +89,12 @@ def main():
 			allfiles += file1+','+file2+','
 		allsents = []
 
-		enc = encoder_tones()
+		if args.tone :
+			try :
+				enc = encoder_tones(int(args.chunksize))
+			except :
+				enc = None
+				print ("error : unable to initialize the tone encoder !")
 		# verbose :
 		if args.verbose :
 			cnt_ambiguity_phonetic = 0
