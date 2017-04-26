@@ -41,8 +41,13 @@ def chunking (token, chunk_length = 3) :
 		print ("error : chunk size should be a positif integer !")
 		exit(1)
 
-	if len(token) <= 3 : return token
-	return [ token[i : i + chunk_length] for i in range(0, len(token), chunk_length) ]
+	if len(token) <= chunk_length :
+		return [token]
+
+	ret = [ token[i : i + chunk_length] for i in \
+		range(0, len(token), chunk_length) ]
+
+	return ret
 
 def reshaping (token, strip_tones = True) :
 
@@ -234,7 +239,6 @@ class encoder_tones () :
 		# init. par codage
 		self.p_src = -1
 		self.p_dst = -1
-		self.chunks = chunking(form_non_tonal, self.chunk_size)
 		self.ret = [u"" for i in range(len(self.chunks))]
 
 		# décomposition du token en opérations d'édition
@@ -242,6 +246,8 @@ class encoder_tones () :
 			self.src = reshaping(form_non_tonal)
 		else:
 			self.src = form_non_tonal.lower()
+
+		self.chunks = chunking(self.src, self.chunk_size)
 
 		if not self.src :
 			return [self.ret, self.chunks]
@@ -292,11 +298,13 @@ def main () :
 
 	form_non_tonal = u'abécëiè'
 	form_tonal     = u'àbèc.eleh'
+	form_non_tonal = u'ka'
+	form_tonal = u'kà'
 
 	print "src            : ", form_non_tonal
 	print "src (reshaped) : ", reshaping(form_non_tonal)
 	print "dst            : ", form_tonal
-	enc = encoder_tones(chunk_size = 1)
+	enc = encoder_tones(chunk_size = 2)
 	[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
 	for chunk in chunks : sys.stdout.write(u"{} ".format(chunk))
 	print ""

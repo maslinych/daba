@@ -176,7 +176,7 @@ class encoder_tones () :
 		self.dst = ""
 		self.p_src = 0
 		self.p_dst = 0
-		self.ret = ""
+		self.ret = u""
 
 		# statistique sur la complexité
 		self.stat = statistique()
