@@ -121,8 +121,17 @@ def main():
 
 								if '|' not in token.gloss.form :
 									[codes, chunks] = enc.differential_encode(token.token, token.gloss.form)
+									if args.verbose :
+										chunk_id = 0
+										sys.stdout.write(u"{} -> {}\n".format(token.token, token.gloss.form))
 									for chunk, code in zip(chunks, codes) :
-										sent.append((chunk, code.encode('utf-8')))
+										if args.verbose :
+											sys.stdout.write(u"\tchunk {} : {} -> {}\n".format(chunk_id, chunk, code))
+											chunk_id += 1
+										if chunk :
+											sent.append((chunk, code.encode('utf-8')))
+									if args.verbose :
+										print ""
 								else :
 									cnt_ambiguity_phonetic += 1
 							elif args.gloss:
