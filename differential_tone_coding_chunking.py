@@ -37,6 +37,10 @@ lst_mode_position_caracter[5] <-> a caracter to replace after a non-vowel
 
 def chunking (token, chunk_length = 3) :
 
+	if chunk_length < 1 :
+		print ("error : chunk size should be a positif integer !")
+		exit(1)
+
 	if len(token) <= 3 : return token
 	return [ token[i : i + chunk_length] for i in range(0, len(token), chunk_length) ]
 
@@ -186,13 +190,14 @@ class statistique () :
 		return ret
 
 class encoder_tones () :
-	def __init__ (self) :
+	def __init__ (self, chunk_size = 3) :
 		self.src = ""
 		self.dst = ""
 		self.p_src = 0
 		self.p_dst = 0
 		self.ret = ""
 		self.chunks = []
+		self.chunk_size = chunk_size
 
 		# statistique sur la complexité
 		self.stat = statistique()
@@ -229,7 +234,7 @@ class encoder_tones () :
 		# init. par codage
 		self.p_src = -1
 		self.p_dst = -1
-		self.chunks = chunking(form_non_tonal)
+		self.chunks = chunking(form_non_tonal, self.chunk_size)
 		self.ret = [u"" for i in range(len(self.chunks))]
 
 		# décomposition du token en opérations d'édition
@@ -291,7 +296,7 @@ def main () :
 	print "src            : ", form_non_tonal
 	print "src (reshaped) : ", reshaping(form_non_tonal)
 	print "dst            : ", form_tonal
-	enc = encoder_tones()
+	enc = encoder_tones(chunk_size = 1)
 	[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
 	for chunk in chunks : sys.stdout.write(u"{} ".format(chunk))
 	print ""
