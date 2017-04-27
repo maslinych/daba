@@ -61,6 +61,11 @@ def main():
 
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data', default=None)
 	aparser.add_argument('-m', '--mode'        , help='Disambuigation mode' , default=1)
+	# les trois modes de désambiugisation sont
+	# mode 1 : étiquetage par la sortie CRF
+	# mode 2 : séléctionne la phrase la plus probable (d'après la CRF) de la liste des glosses
+	# mode 3 : présenter toutes les possibilités avec leur probabilité donnée par la CRF
+
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
 
@@ -128,8 +133,10 @@ def main():
 										if args.verbose :
 											sys.stdout.write(u"\tchunk {} : {} -> {}\n".format(chunk_id, chunk, code))
 											chunk_id += 1
-										if chunk :
+										try :
 											sent.append((chunk, code.encode('utf-8')))
+										except LookupError:
+											pass
 									if args.verbose :
 										print ""
 								else :
@@ -286,6 +293,9 @@ def main():
 		for tokens in allsents:
 			features = [tagger._feature_func(tokens,i) for i in range(len(tokens))]
 			labels = tagger._tagger.tag(features)
+			# fonctions à appeler pour les modes 2 & 3
+			# tagger._tagger.set(features)
+			# tagger._tagger.probability(tags)
 
 			if len(labels) != len(tokens):
 				raise Exception(' Predicted Length Not Matched, Expect Errors !')
@@ -331,4 +341,3 @@ def main():
 
 if __name__ == '__main__':
 	main()
-
