@@ -4,6 +4,7 @@
 import sys, math, unicodedata
 from collections import Counter, defaultdict
 import Levenshtein
+from syllables import syllabify
 
 # Installation of prerequisites
 # sudo pip install python-Levenshtein
@@ -36,6 +37,7 @@ lst_mode_position_caracter[4] <-> a caracter to insert after non-vowel
 lst_mode_position_caracter[5] <-> a caracter to replace after a non-vowel
 """
 
+"""
 def chunking (token) :
 
 	chunks = []
@@ -54,6 +56,15 @@ def chunking (token) :
 
 	if token[i_pre :] :
 		chunks.append(token[i_pre :])
+
+	return chunks
+"""
+
+def chunking (token) :
+
+	chunks = []
+	for chunk in syllabify(token)[0]:
+		chunks.append(unicodedata.normalize('NFD', chunk))
 
 	return chunks
 
