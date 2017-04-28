@@ -36,19 +36,20 @@ lst_mode_position_caracter[4] <-> a caracter to insert after non-vowel
 lst_mode_position_caracter[5] <-> a caracter to replace after a non-vowel
 """
 
-def chunking (token, chunk_length = 3) :
+def chunking (token) :
 
-	if chunk_length < 1 :
-		print ("error : chunk size should be a positif integer !")
-		exit(1)
+	chunks = []
+	i_pre = 0
+	for i, c in enumerate(token) :
+		if c in lst_vowels :
+			chunks.append(token[i_pre : i + 1])
+			i_pre = i + 1
 
-	if len(token) <= chunk_length :
-		return [token]
+	if token[i_pre :] :
+		chunks.append(token[i_pre :])
 
-	ret = [ token[i : i + chunk_length] for i in \
-		range(0, len(token), chunk_length) ]
 
-	return ret
+	return chunks
 
 def reshaping (token, strip_tones = True) :
 
@@ -196,14 +197,13 @@ class statistique () :
 
 class encoder_tones () :
 
-	def __init__ (self, chunk_size = 3) :
+	def __init__ (self) :
 		self.src = ""
 		self.dst = ""
 		self.p_src = 0
 		self.p_dst = 0
 		self.ret = ""
 		self.chunks = []
-		self.chunk_size = chunk_size
 		self.stat = statistique()
 
 	def delete(self) :
@@ -242,7 +242,7 @@ class encoder_tones () :
 		if not self.src :
 			return [u"", []]
 
-		self.chunks = chunking(self.src, self.chunk_size)
+		self.chunks = chunking(self.src)
 		self.ret = [u"" for i in range(len(self.chunks))]
 
 		self.dst = unicodedata.normalize('NFD', form_tonal.lower())
@@ -293,16 +293,14 @@ def main () :
 
 	form_non_tonal = u'abécëiè'
 	form_tonal     = u'àbèc.eleh'
-	form_non_tonal = u'ka'
-	form_tonal = u'kà'
 
 	print "src            : ", form_non_tonal
 	print "src (reshaped) : ", reshaping(form_non_tonal)
 	print "dst            : ", form_tonal
-	enc = encoder_tones(chunk_size = 4)
+	enc = encoder_tones()
 	[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
-	for chunk in chunks : sys.stdout.write(u"{} ".format(chunk)); print ""
-	for code in codes : sys.stdout.write(u"{} ".format(code)); print ""
+	for chunk, code in zip(chunks, codes) :
+		sys.stdout.write(u"{} -> {}\n".format(chunk, code));
 	print get_mode_position_table()
 	enc.report()
 
