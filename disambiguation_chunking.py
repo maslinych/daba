@@ -8,6 +8,27 @@
 # Le CRF implémenté provient du module tag de NLTK inspiré de CRFSuite (http://www.nltk.org/api/nltk.tag.html#module-nltk.tag.crf).
 # Trois modèles sont possibles : les POS, les tons, les gloses
 
+# todo:
+# 1. redéfinir la function de feature en vue d'
+# 	a. activer l'utilisation de bigramme, voire trigramme
+#       b. prendre en compte le(s) caractère(s) de la voyelle de chaque chunk (la voyelle au lieu des voyelles, voir 3)
+#       c. préfixe des tokens (des chunks ?)
+# 2. consacrer un chunk à un spéparateur de mot pour reconstituer
+#       l'informaiton à la CRF sur la strcutre des mots de la phrase, détruite par le proceédé de chunking
+# 3. découpage ou chunking plus fin ou plus linguistique :
+#	soit faire en sorte que chaque chunk se termine (ou commence) par une voyelle et qu'il y ait une seule voyelle dans tout le chunk
+#	soit employer l'analyseur morphologique fourni avec daba afin d'obtenir les morphèmes et donc leurs fronières
+# 4. à propos de l'interface de désambiguisation :
+#	mode 3 : afficher la probabilité pour chacun d'une liste des tokens proposés à la place d'un mot d'une phrase
+#		 une marginalisation est nécessaire pour obtenir la propabilité d'un choix de token sur une phrase. Le but
+#		 est d'ordonner les éléments de chaque liste par leurs probabilités d'apparition en tenant compte du modèle CRF, 
+#		 qui associe à chaque mot un contexte de phrase, et qui donne l'ensemble des étiquettes pour une phrase
+#
+# des RDV. prévus
+#	le 3 mai à 12 heures
+# 	le 9 mai à 12 heures
+#	le 10 mai à 15 heures
+
 import sys, re, codecs, glob, time, os
 import argparse
 import formats,  grammar
