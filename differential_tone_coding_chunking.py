@@ -41,15 +41,16 @@ def chunking (token) :
 	chunks = []
 	i_pre = 0
 	end_of_chunk = set(markers_tone)| set(markers_pause) | set(lst_vowels)
+
 	for i, c in enumerate(token) :
 		if c in end_of_chunk :
 			try :
-				if token[i + 1] not in end_of_chunk :
-					chunks.append(token[i_pre : i + 1])
-					i_pre = i + 1
+				if token[i + 1] in end_of_chunk :
+					continue
 			except IndexError :
-				chunks.append(token[i_pre : i + 1])
-				i_pre = i + 1
+				pass
+			chunks.append(token[i_pre : i + 1])
+			i_pre = i + 1
 
 	if token[i_pre :] :
 		chunks.append(token[i_pre :])
