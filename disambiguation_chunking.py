@@ -13,11 +13,9 @@
 # 	a. activer l'utilisation de bigramme, voire trigramme
 #       b. prendre en compte le(s) caractère(s) de la voyelle de chaque chunk (la voyelle au lieu des voyelles, voir 3)
 #       c. préfixe des tokens (des chunks ?)
-# 2. consacrer un chunk à un spéparateur de mot pour reconstituer
-#       l'informaiton à la CRF sur la strcutre des mots de la phrase, détruite par le proceédé de chunking
-# 3. découpage ou chunking plus fin ou plus linguistique :
-#	soit faire en sorte que chaque chunk se termine (ou commence) par une voyelle et qu'il y ait une seule voyelle dans tout le chunk
-#	soit employer l'analyseur morphologique fourni avec daba afin d'obtenir les morphèmes et donc leurs fronières
+#       d. prendre en compte l'identifiant du chunk (la tonalisation pour chunk 0 n'est peut-être pas la même pour le chunk 1, par ex.)
+# 3. découpage ou chunking d'après un critère plus linguistique :
+#	employer l'analyseur morphologique fourni avec daba afin d'obtenir les morphèmes et donc leurs fronières
 # 4. à propos de l'interface de désambiguisation :
 #	mode 3 : afficher la probabilité pour chacun d'une liste des tokens proposés à la place d'un mot d'une phrase
 #		 une marginalisation est nécessaire pour obtenir la propabilité d'un choix de token sur une phrase. Le but
