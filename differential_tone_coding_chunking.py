@@ -229,7 +229,7 @@ class encoder_tones () :
 		self.stat.cnt_ops += 1
 		self.stat.mode["replace"] += 1
 
-	def differential_encode (self, form_non_tonal, form_tonal) :
+	def differential_encode (self, form_non_tonal, form_tonal, seperator = True) :
 
 		self.p_src = -1
 		self.p_dst = -1
@@ -240,7 +240,10 @@ class encoder_tones () :
 			self.src = form_non_tonal.lower()
 
 		if not self.src :
-			return [u"", []]
+			if seperator:
+				return [u"_", [u"_"]]
+			else :
+				return [u"", []]
 
 		self.chunks = chunking(self.src)
 		self.ret = [u"" for i in range(len(self.chunks))]
@@ -284,6 +287,11 @@ class encoder_tones () :
 		for ret in self.ret :
 			self.stat.code[ret] += 1
 			self.stat.dict_code.setdefault(self.src, []).append(ret)
+
+		if seperator :
+			self.ret.append(u'_')
+			self.chunks.append(u'_')
+
 		return [self.ret, self.chunks]
 
 	def report (self) :
