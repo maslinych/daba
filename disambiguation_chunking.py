@@ -94,7 +94,6 @@ def main():
 	aparser.add_argument('-a', '--algorithm', help='Optimization algorihtm used for sovling CRF training', default='lbfgs')
 	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for research purposes', default=None)
 	aparser.add_argument('-R', '--Ratio', help='Percent of total data to use for training and test', default=1)
-	aparser.add_argument('-c', '--chunksize', help='Size of each chunk of a word', default = 3)
 
 	args = aparser.parse_args()
 	if args.verbose :
@@ -117,7 +116,7 @@ def main():
 
 		if args.tone :
 			try :
-				enc = encoder_tones(int(args.chunksize))
+				enc = encoder_tones()
 			except :
 				enc = None
 				print ("error : unable to initialize the tone encoder !")
