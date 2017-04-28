@@ -17,7 +17,7 @@ DECOMPOSE_OPS_FOR_TONES_PAUSE  = True
 NOT_TO_CODE_CARACTER_TO_DELETE = False
 ONLY_TONE_PREDICTION           = False
 ONLY_TONE_PAUSE_PREDICTION     = False
-SHAPING_TOKEN_IN               = True
+SHAPING_TOKEN_IN               = False
 
 # Constant lists
 markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
@@ -40,14 +40,19 @@ def chunking (token) :
 
 	chunks = []
 	i_pre = 0
+	end_of_chunk = set(markers_tone)| set(markers_pause) | set(lst_vowels)
 	for i, c in enumerate(token) :
-		if c in lst_vowels :
-			chunks.append(token[i_pre : i + 1])
-			i_pre = i + 1
+		if c in end_of_chunk :
+			try :
+				if token[i + 1] not in end_of_chunk :
+					chunks.append(token[i_pre : i + 1])
+					i_pre = i + 1
+			except IndexError :
+				chunks.append(token[i_pre : i + 1])
+				i_pre = i + 1
 
 	if token[i_pre :] :
 		chunks.append(token[i_pre :])
-
 
 	return chunks
 
@@ -284,9 +289,8 @@ class encoder_tones () :
 						self.replace()
 
 		self.stat.num += 1
-		for ret in self.ret :
-			self.stat.code[ret] += 1
-			self.stat.dict_code.setdefault(self.src, []).append(ret)
+		self.stat.code[u"".join(self.ret)] += 1
+		self.stat.dict_code.setdefault(self.src, []).append(u"".join(self.ret))
 
 		if seperator :
 			self.ret.append(u'_')
