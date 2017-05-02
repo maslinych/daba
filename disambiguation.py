@@ -64,17 +64,13 @@ def get_duration(t1_secs, t2_secs) :
 def _get_features_customised(tokens, idx):
 
 	token = tokens[idx]
-        
 	feature_list = []
-        
 	if not token:
 		return feature_list
 
-	# Capitalization 
+	# Capitalization
 	if token[0].isupper():
 		feature_list.append('CAPITALIZATION')
-	
-	
 	# Chunk IDs using seperator "_" introduced by Tone Encoder
 	for dist_to_head, i in enumerate(range(idx,-2,-1)) :
 		try :
@@ -90,25 +86,22 @@ def _get_features_customised(tokens, idx):
 			pass
 	feature_list.append("DIST_DEBUT_" + str(dist_to_head))
 	feature_list.append("DIST_FIN_" + str(dist_to_tail))
-	
-	print str(dist_to_head), str(dist_to_tail)
-		
-	# Number 
+
+	# print str(dist_to_head), str(dist_to_tail)
+
+	# Number
 	if re.search(r'\d', token) is not None:
-		feature_list.append('UN_CHIFFRE') 
-        
+		feature_list.append('UN_CHIFFRE')
 	# Punctuation
 	punc_cat = set(["Pc", "Pd", "Ps", "Pe", "Pi", "Pf", "Po"])
 	if all (unicodedata.category(x) in punc_cat for x in token):
 		feature_list.append('PUNCTUATION')
-		
 	# Voyelles
-	voyelles = "" 
+	voyelles = ""
 	for c in token :
 		if c in lst_vowels:
 			voyelles += c
 	feature_list.append('VOYELLES_'+ voyelles)
-	    
 	# Prefix & Suffix up to length 3
 	if len(token) > 1:
 		feature_list.append('SUF_' + token[-1:]) 
@@ -124,15 +117,13 @@ def _get_features_customised(tokens, idx):
 		feature_list.append('PRE_' + token[idx - 1])
 	except IndexError :
 		feature_list.append('PRE_')
-		    
+
 	try :
 		feature_list.append('POST_' + token[idx + 1])
 	except IndexError :
 		feature_list.append('POST_')
-	
-	
 	feature_list.append('CURR_' + token )
-	
+
 	return feature_list
 
 def main():
