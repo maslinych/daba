@@ -8,6 +8,18 @@
 # Le CRF implémenté provient du module tag de NLTK inspiré de CRFSuite (http://www.nltk.org/api/nltk.tag.html#module-nltk.tag.crf).
 # Trois modèles sont possibles : les POS, les tons, les gloses
 
+# todo:
+# 4. à propos de l'interface de désambiguisation :
+#	mode 3 : afficher la probabilité pour chacun d'une liste des tokens proposés à la place d'un mot d'une phrase
+#		 une marginalisation est nécessaire pour obtenir la propabilité d'un choix de token sur une phrase. Le but
+#		 est d'ordonner les éléments de chaque liste par leurs probabilités d'apparition en tenant compte du modèle CRF, 
+#		 qui associe à chaque mot un contexte de phrase, et qui donne l'ensemble des étiquettes pour une phrase
+#
+# des RDV. prévus
+#	le 3 mai à 12 heures
+# 	le 9 mai à 12 heures
+#	le 10 mai à 15 heures
+
 import sys, re, codecs, glob, time, os
 import argparse
 import formats,  grammar
@@ -15,8 +27,8 @@ import collections
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
-from differential_tone_coding import encoder_tones
-
+from differential_tone_coding import encoder_tones, chunking, options, lst_vowels
+import unicodedata
 import pycrfsuite
 import csv
 import nltk.tag.util
@@ -49,6 +61,80 @@ def get_duration(t1_secs, t2_secs) :
 	secondes = int(secs) % 60
 	return '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(days, hours, minutes, secondes)
 
+def _get_features_customised(tokens, idx):
+
+	token = tokens[idx]
+        
+	feature_list = []
+        
+	if not token:
+		return feature_list
+
+	# Capitalization 
+	if token[0].isupper():
+		feature_list.append('CAPITALIZATION')
+	
+	
+	# Chunk IDs using seperator "_" introduced by Tone Encoder
+	for dist_to_head, i in enumerate(range(idx,-2,-1)) :
+		try :
+			if tokens[i] == "_" : 
+				break
+		except IndexError : 
+			pass
+	for dist_to_tail, i in enumerate(range(idx, len(tokens) + 1)) :
+		try :
+			if tokens[i] == "_" : 
+				break 
+		except IndexError :
+			pass
+	feature_list.append("DIST_DEBUT_" + str(dist_to_head))
+	feature_list.append("DIST_FIN_" + str(dist_to_tail))
+	
+	print str(dist_to_head), str(dist_to_tail)
+		
+	# Number 
+	if re.search(r'\d', token) is not None:
+		feature_list.append('UN_CHIFFRE') 
+        
+	# Punctuation
+	punc_cat = set(["Pc", "Pd", "Ps", "Pe", "Pi", "Pf", "Po"])
+	if all (unicodedata.category(x) in punc_cat for x in token):
+		feature_list.append('PUNCTUATION')
+		
+	# Voyelles
+	voyelles = "" 
+	for c in token :
+		if c in lst_vowels:
+			voyelles += c
+	feature_list.append('VOYELLES_'+ voyelles)
+	    
+	# Prefix & Suffix up to length 3
+	if len(token) > 1:
+		feature_list.append('SUF_' + token[-1:]) 
+		feature_list.append('PRF_' + token[:1]) 
+	if len(token) > 2: 
+		feature_list.append('SUF_' + token[-2:])    
+		feature_list.append('PRF_' + token[:2])  
+	if len(token) > 3: 
+		feature_list.append('SUF_' + token[-3:])
+		feature_list.append('PRF_' + token[:3])
+
+	try :
+		feature_list.append('PRE_' + token[idx - 1])
+	except IndexError :
+		feature_list.append('PRE_')
+		    
+	try :
+		feature_list.append('POST_' + token[idx + 1])
+	except IndexError :
+		feature_list.append('POST_')
+	
+	
+	feature_list.append('CURR_' + token )
+	
+	return feature_list
+
 def main():
 
 	aparser = argparse.ArgumentParser(description='Daba disambiguator')
@@ -57,18 +143,28 @@ def main():
 	aparser.add_argument('-p', '--pos', help='Prediction for POS', default=False, action='store_true')
 	aparser.add_argument('-t', '--tone', help='Prediction for tones', default=False, action='store_true')
 	aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
-	aparser.add_argument('-R', '--Ratio', help='Percent of total data to use for training and test', default=1)
 	aparser.add_argument('-e', '--evalsize', help='Percent of training data with respect to training and test one (default 10)', default=10)
-	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for research purposes', default=None)
 
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data', default=None)
 	aparser.add_argument('-m', '--mode'        , help='Disambuigation mode' , default=1)
+	# les trois modes de désambiugisation sont
+	# mode 1 : étiquetage par la sortie CRF
+	# mode 2 : séléctionne la phrase la plus probable (d'après la CRF) de la liste des glosses
+	# mode 3 : présenter toutes les possibilités avec leur probabilité donnée par la CRF
+
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
 
-	# experimental parameters
-	aparser.add_argument('-a', '--algorithm', help='Optimization algorihtm used for sovling CRF training', default='lbfgs')
-
+	# experimental parameters with relation to tone learning
+	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for research purposes', default=None)
+	aparser.add_argument('-R', '--Ratio', help='Percent of total data to use for training and test', default=1)
+	aparser.add_argument('-D', '--Debug', help='Verbose output for debug', default=False, action='store_true')
+	aparser.add_argument('--no_replacement', help='REMPLACEMENT_INTERDIT', default=False, action='store_true')
+	aparser.add_argument('--decompose', help='DECOMPOSE_OPS_FOR_TONES_PAUSE', default=False, action='store_true')
+	aparser.add_argument('--no_deleted_caracter', help='NOT_TO_CODE_CARACTER_TO_DELETE', default=False, action='store_true')
+	aparser.add_argument('--only_tones', help='ONLY_TONE_PREDICTION', default=False, action='store_true')
+	aparser.add_argument('--only_tones_pauses', help='ONLY_TONE_PAUSE_PREDICTION', default=False, action='store_true')
+	aparser.add_argument('--shaping_token', help='SHAPING_TOKEN_IN', default=False, action='store_true')
 
 	args = aparser.parse_args()
 	if args.verbose :
@@ -89,7 +185,19 @@ def main():
 			allfiles += file1+','+file2+','
 		allsents = []
 
-		enc = encoder_tones()
+		if args.tone :
+			try :
+				options_obj = options(\
+					args.no_replacement,\
+					args.decompose,\
+					args.no_deleted_caracter,\
+					args.only_tones,\
+					args.only_tones_pauses,\
+					args.shaping_token)
+				enc = encoder_tones(options_obj)
+			except :
+				enc = None
+				print ("error : unable to initialize the tone encoder !")
 		# verbose :
 		if args.verbose :
 			cnt_ambiguity_phonetic = 0
@@ -111,16 +219,32 @@ def main():
 							if args.pos:
 								for ps in token.gloss.ps  :
 									tags += ps.encode('utf-8')
-							if args.tone:
+								sent.append((token.token, tags))
+							elif args.tone:
 
 								if '|' not in token.gloss.form :
-									tags += enc.differential_encode(token.token, token.gloss.form).encode('utf-8')
-								else :
-									cnt_ambiguity_phonetic+=1
-							if args.gloss:
-								tags += token.gloss.gloss.encode('utf-8')
+									[codes, chunks] = enc.differential_encode(token.token, token.gloss.form)
+									if args.verbose and args.Debug:
+										sys.stdout.write(u"{} -> {}\n".format(token.token, token.gloss.form))
+									chunk_id = 0
+									for chunk, code in zip(chunks, codes) :
+										if args.verbose and args.Debug:
+											sys.stdout.write(u"\tchunk {} : {} -> {}\n".format(chunk_id, chunk, code))
+										try :
+											sent.append((chunk, code.encode('utf-8')))
 
-							sent.append((token.token, tags))
+										except LookupError:
+											pass
+										chunk_id += 1
+
+									if args.verbose and args.Debug:
+										print ""
+								else :
+									cnt_ambiguity_phonetic += 1
+							elif args.gloss:
+								tags += token.gloss.gloss.encode('utf-8')
+								sent.append((token.token, tags))
+
 					if len(sent) > 1:
 						allsents.append(sent)
 						sent = []
@@ -144,26 +268,6 @@ def main():
 		t1 = time.time()
 
 		# Training
-		"""
-		Set of possible training options (using LBFGS training algorithm).
-	         'feature.minfreq' : The minimum frequency of features.
-        	 'feature.possible_states' : Force to generate possible state features.
-	         'feature.possible_transitions' : Force to generate possible transition features.
-	         'c1' : Coefficient for L1 regularization.
-	         'c2' : Coefficient for L2 regularization.
-	         'max_iterations' : The maximum number of iterations for L-BFGS optimization.
-	         'num_memories' : The number of limited memories for approximating the inverse hessian matrix.
-	         'epsilon' : Epsilon for testing the convergence of the objective.
-	         'period' : The duration of iterations to test the stopping criterion.
-	         'delta' : The threshold for the stopping criterion; an L-BFGS iteration stops when the
-        	            improvement of the log likelihood over the last ${period} iterations is no greater than this threshold.
-	         'linesearch' : The line search algorithm used in L-BFGS updates:
-                           { 'MoreThuente': More and Thuente's method,
-                              'Backtracking': Backtracking method with regular Wolfe condition,
-                              'StrongBacktracking': Backtracking method with strong Wolfe condition
-                           }
-        	 'max_linesearch' :  The maximum number of trials for the line search algorithm.
-		"""
 		###########################################################
 		# code source de la méthode train(train_data, model_file) #
 		# de la classe CRFTagger                                  #
@@ -171,20 +275,14 @@ def main():
 		#							  #
 		# http://www.nltk.org/_modules/nltk/tag/crf.html	  #
 		###########################################################
-		# algorithm : {‘lbfgs’, ‘l2sgd’, ‘ap’, ‘pa’, ‘arow’}
 		try :
-			trainer = pycrfsuite.Trainer(verbose=tagger._verbose, algorithm= args.algorithm)
+			trainer = pycrfsuite.Trainer(verbose=tagger._verbose)
 		except :
-			algorithm_list = {'lbfgs', 'l2sgd', 'ap', 'pa', 'arow'}
-			if algorithm not in algorithm_list :
-				print ("Error : please choose an algorithm among theses possibilities :")
-				print (algorithm_list)
-			else :
-				print ("Error : unable to initialize pycrfsuite !")
+			print ("Error : unable to initialize pycrfsuite !")
 		trainer.set_params(tagger._training_options)
 		for sent in train_set:
 			tokens, labels = zip(*sent)
-			features = [tagger._feature_func(tokens, i) for i in range(len(tokens))]
+			features = [_get_features_customised(tokens, i) for i in range(len(tokens))]
 			trainer.append(features, labels)
 		trainer.train(model=args.learn)
 		tagger.set_model_file(args.learn)
@@ -200,7 +298,17 @@ def main():
 		#                                                   #
 		# http://www.nltk.org/_modules/nltk/tag/api.html    #
 		#####################################################
-		tagged_sents = tagger.tag_sents(nltk.tag.util.untag(sent) for sent in test_set)
+		tagged_sents = []
+		for tokens in [nltk.tag.util.untag(sent) for sent in test_set]:
+			features = [_get_features_customised(tokens,i) for i in range(len(tokens))]
+			labels = tagger._tagger.tag(features)
+                
+			if len(labels) != len(tokens):
+				raise Exception(' Predicted Length Not Matched, Expect Errors !')
+            
+			tagged_sent = list(zip(tokens,labels))
+			tagged_sents.append(tagged_sent)
+		
 		gold_tokens = list(itertools.chain(*test_set))
 		test_tokens = list(itertools.chain(*tagged_sents))
 		paired_tokens = [(g[0], \
@@ -267,8 +375,11 @@ def main():
 		# We need the list of sentences instead of the list generator for matching the input and output
 		result = []
 		for tokens in allsents:
-			features = [tagger._feature_func(tokens,i) for i in range(len(tokens))]
+			features = [_get_features_customised(tokens,i) for i in range(len(tokens))]
 			labels = tagger._tagger.tag(features)
+			# fonctions à appeler pour les modes 2 & 3
+			# tagger._tagger.set(features)
+			# tagger._tagger.probability(tags)
 
 			if len(labels) != len(tokens):
 				raise Exception(' Predicted Length Not Matched, Expect Errors !')
@@ -314,4 +425,3 @@ def main():
 
 if __name__ == '__main__':
 	main()
-
