@@ -61,7 +61,7 @@ def get_duration(t1_secs, t2_secs) :
 	secondes = int(secs) % 60
 	return '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(days, hours, minutes, secondes)
 
-def _get_features_customised(tokens, idx):
+def _get_features_customised_for_tones(tokens, idx):
 
 	token = tokens[idx]
 	feature_list = []
@@ -104,15 +104,16 @@ def _get_features_customised(tokens, idx):
 	feature_list.append('VOYELLES_'+ voyelles)
 	# Prefix & Suffix up to length 3
 	if len(token) > 1:
-		feature_list.append('SUF_' + token[-1:]) 
-		feature_list.append('PRF_' + token[:1]) 
-	if len(token) > 2: 
-		feature_list.append('SUF_' + token[-2:])    
-		feature_list.append('PRF_' + token[:2])  
-	if len(token) > 3: 
+		feature_list.append('SUF_' + token[-1:])
+		feature_list.append('PRF_' + token[:1])
+	if len(token) > 2:
+		feature_list.append('SUF_' + token[-2:])
+		feature_list.append('PRF_' + token[:2])
+	if len(token) > 3:
 		feature_list.append('SUF_' + token[-3:])
 		feature_list.append('PRF_' + token[:3])
 
+	# trigramme : le chunk précédent et celui qui vient après l'actuel
 	try :
 		feature_list.append('PRE_' + token[idx - 1])
 	except IndexError :
@@ -122,6 +123,7 @@ def _get_features_customised(tokens, idx):
 		feature_list.append('POST_' + token[idx + 1])
 	except IndexError :
 		feature_list.append('POST_')
+
 	feature_list.append('CURR_' + token )
 
 	return feature_list
@@ -273,7 +275,10 @@ def main():
 		trainer.set_params(tagger._training_options)
 		for sent in train_set:
 			tokens, labels = zip(*sent)
-			features = [_get_features_customised(tokens, i) for i in range(len(tokens))]
+			if args.tone :
+				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
+			else :
+				features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
 			trainer.append(features, labels)
 		trainer.train(model=args.learn)
 		tagger.set_model_file(args.learn)
@@ -291,7 +296,11 @@ def main():
 		#####################################################
 		tagged_sents = []
 		for tokens in [nltk.tag.util.untag(sent) for sent in test_set]:
-			features = [_get_features_customised(tokens,i) for i in range(len(tokens))]
+			if args.tone :
+				features = [_get_features_customised_for_tones(tokens,i) for i in range(len(tokens))]
+			else:
+				features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
+
 			labels = tagger._tagger.tag(features)
                 
 			if len(labels) != len(tokens):
@@ -366,7 +375,11 @@ def main():
 		# We need the list of sentences instead of the list generator for matching the input and output
 		result = []
 		for tokens in allsents:
-			features = [_get_features_customised(tokens,i) for i in range(len(tokens))]
+			if args.tone :
+				features = [_get_features_customised_for_tones(tokens,i) for i in range(len(tokens))]
+			else:
+				features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
+
 			labels = tagger._tagger.tag(features)
 			# fonctions à appeler pour les modes 2 & 3
 			# tagger._tagger.set(features)
