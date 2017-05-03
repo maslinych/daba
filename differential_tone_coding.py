@@ -14,7 +14,6 @@ from syllables import syllabify
 
 # Constant lists
 markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
-markers_pause = [unichr(0x002e)]
 markers_to_be_ignored = u"[]."
 lst_vowels                 = u'aeiouɛəɑœɔø'
 lst_mode_position_caracter = u'$£§#@%'
@@ -34,16 +33,12 @@ lst_mode_position_caracter[5] <-> a caracter to replace after a non-vowel
 class options() :
 	def __init__(self, \
 		REMPLACEMENT_INTERDIT          = False,\
-		DECOMPOSE_OPS_FOR_TONES_PAUSE  = False,\
-		NOT_TO_CODE_CARACTER_TO_DELETE = False,\
+		DECOMPOSE_OPS_FOR_TONES        = False,\
 		ONLY_TONE_PREDICTION           = False,\
-		ONLY_TONE_PAUSE_PREDICTION     = False,\
 		SHAPING_TOKEN_IN               = False) :
 		self.REMPLACEMENT_INTERDIT = REMPLACEMENT_INTERDIT
-		self.DECOMPOSE_OPS_FOR_TONES_PAUSE = DECOMPOSE_OPS_FOR_TONES_PAUSE
-		self.NOT_TO_CODE_CARACTER_TO_DELETE = NOT_TO_CODE_CARACTER_TO_DELETE
+		self.DECOMPOSE_OPS_FOR_TONES = DECOMPOSE_OPS_FOR_TONES
 		self.ONLY_TONE_PREDICTION = ONLY_TONE_PREDICTION
-		self.ONLY_TONE_PAUSE_PREDICTION = ONLY_TONE_PAUSE_PREDICTION
 		self.SHAPING_TOKEN_IN = SHAPING_TOKEN_IN
 
 
@@ -175,9 +170,9 @@ def sprint_cnt(cnt, prefix = "", num = -1, min = -1) :
 		lst = [element for element in lst if element[1] >= min]
 
 	try :
-		return u"".join([prefix + itm[0].encode('utf-8') + u' : ' + str(itm[1]).encode('utf-8') + u'\n' for itm in lst if itm])
+		return u"".join([prefix + ' '  + itm[0].encode('utf-8') + u' : ' + str(itm[1]).encode('utf-8') + u'\n' for itm in lst if itm])
 	except :
-		return u"".join([prefix + itm[0] + u' : ' + str(itm[1]) + u'\n' for itm in lst if itm])
+		return u"".join([prefix + ' ' + itm[0] + u' : ' + str(itm[1]) + u'\n' for itm in lst if itm])
 
 class statistique () :
 	def __init__(self, options) :
@@ -212,10 +207,8 @@ class statistique () :
 		ret += u"sur un ensemble de corpus de {} mot(s)\n".format(str(self.num))
 		ret += u"\nConfigurations\n"
 		ret += u"\tREMPLACEMENT_INTERDIT          = {}\n".format(self.options.REMPLACEMENT_INTERDIT)
-		ret += u"\tDECOMPOSE_OPS_FOR_TONES_PAUSE  = {}\n".format(self.options.DECOMPOSE_OPS_FOR_TONES_PAUSE)
-		ret += u"\tNOT_TO_CODE_CARACTER_TO_DELETE = {}\n".format(self.options.NOT_TO_CODE_CARACTER_TO_DELETE)
+		ret += u"\tDECOMPOSE_OPS_FOR_TONES  = {}\n".format(self.options.DECOMPOSE_OPS_FOR_TONES)
 		ret += u"\tONLY_TONE_PREDICTION           = {}\n".format(self.options.ONLY_TONE_PREDICTION)
-		ret += u"\tONLY_TONE_PAUSE_PREDICTION     = {}\n".format(self.options.ONLY_TONE_PAUSE_PREDICTION)
 		ret += u"\tSHAPING_TOKEN_IN               = {}\n".format(self.options.SHAPING_TOKEN_IN)
 
 		ret += u"Distribution sur : \n"
@@ -245,8 +238,7 @@ class encoder_tones () :
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
 		segment = mp_code
 		caracter_src = self.src[self.p_src]
-		if not self.options.NOT_TO_CODE_CARACTER_TO_DELETE :
-			segment += caracter_src
+		segment += caracter_src
 		self.ret[chunk_id] = segment
 
 		self.stat.cnt_ops += 1
@@ -314,20 +306,15 @@ class encoder_tones () :
 
 			elif mode == "insert" :
 				if not self.options.ONLY_TONE_PREDICTION or \
-				      (self.options.ONLY_TONE_PREDICTION and (self.dst[self.p_dst] in markers_tone)) or \
-  				      (self.options.ONLY_TONE_PAUSE_PREDICTION and (self.dst[self.p_dst] in markers_tone and \
-								       self.dst[self.p_dst] in markers_pause)) :
+				      (self.options.ONLY_TONE_PREDICTION and (self.dst[self.p_dst] in markers_tone)) :
 					self.insert()
 
 			else : # mode == "replace"
 				if not self.options.ONLY_TONE_PREDICTION or \
-				      (self.options.ONLY_TONE_PREDICTION and (self.dst[self.p_dst] in markers_tone)) or \
-  				      (self.options.ONLY_TONE_PAUSE_PREDICTION and (self.dst[self.p_dst] in markers_tone and \
-			                                               self.dst[self.p_dst] in markers_pause)) :
+				      (self.options.ONLY_TONE_PREDICTION and (self.dst[self.p_dst] in markers_tone)) :
 
 					if self.options.REMPLACEMENT_INTERDIT or \
-					   ((self.dst[self.p_dst] in markers_tone or \
-   					     self.dst[self.p_dst] in markers_pause) and self.options.DECOMPOSE_OPS_FOR_TONES_PAUSE) :
+					   (self.dst[self.p_dst] in markers_tone and self.options.DECOMPOSE_OPS_FOR_TONES) :
 
 						self.delete()
 						self.insert()
