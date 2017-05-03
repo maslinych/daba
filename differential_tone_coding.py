@@ -15,6 +15,7 @@ from syllables import syllabify
 # Constant lists
 markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
 markers_pause = [unichr(0x002e)]
+markers_to_be_ignored = u"[]."
 lst_vowels                 = u'aeiouɛəɑœɔø'
 lst_mode_position_caracter = u'$£§#@%'
 mode_id_lst           = ["delete","insert","replace"]
@@ -63,7 +64,9 @@ def reshaping (token, strip_tones = True) :
         token = unicodedata.normalize('NFD', token)
 
 	if strip_tones :
-		token = u"".join(c for c in token if unicodedata.category(c) != 'Mn')
+		token = u"".join(c for c in token if unicodedata.category(c) != 'Mn' and c not in markers_to_be_ignored)
+	else :
+		token = u"".join(c for c in token if c not in markers_to_be_ignored)
 
 	return token.lower()
 
@@ -283,9 +286,9 @@ class encoder_tones () :
 		self.p_dst = -1
 
 		if self.options.SHAPING_TOKEN_IN :
-			self.src = reshaping(form_non_tonal)
+			self.src = reshaping(form_non_tonal, True)
 		else:
-			self.src = form_non_tonal.lower()
+			self.src = reshaping(form_non_tonal, False)
 
 		if not self.src :
 			if seperator:
@@ -296,7 +299,7 @@ class encoder_tones () :
 		self.chunks = chunking(self.src)
 		self.ret = [u"" for i in range(len(self.chunks))]
 
-		self.dst = unicodedata.normalize('NFD', form_tonal.lower())
+		self.dst = reshaping(form_tonal, False)
 		ops = Levenshtein.editops(self.src, self.dst)
 		self.stat.form_non_tonal[self.src] += 1
 		self.stat.form_tonal    [self.dst] += 1
@@ -351,10 +354,10 @@ def main () :
 	options_obj = options(REMPLACEMENT_INTERDIT = True,SHAPING_TOKEN_IN = True)
 
 	if options_obj.SHAPING_TOKEN_IN :
-		print "src (reshaped) : ", reshaping(form_non_tonal)
+		print "src (reshaped) : ", reshaping(form_non_tonal, True)
 	else:
-		print "src            : ", form_non_tonal
-	print "dst            : ", form_tonal
+		print "src            : ", reshaping(form_non_tonal, False)
+	print         "dst            : ", reshaping(form_tonal, False)
 
 	enc = encoder_tones(options_obj)
 	[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
