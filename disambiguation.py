@@ -9,14 +9,15 @@
 # Trois modèles sont possibles : les POS, les tons, les gloses
 
 # todo:
+# 1. implémenter un décoder de tones qui consiste à reconstruire la forme tonal à partir du token et le code tonal qui lui est associé
+#    par l'encodeur précédemment.
 # 4. à propos de l'interface de désambiguisation :
 #	mode 3 : afficher la probabilité pour chacun d'une liste des tokens proposés à la place d'un mot d'une phrase
 #		 une marginalisation est nécessaire pour obtenir la propabilité d'un choix de token sur une phrase. Le but
-#		 est d'ordonner les éléments de chaque liste par leurs probabilités d'apparition en tenant compte du modèle CRF, 
+#		 est d'ordonner les éléments de chaque liste par leurs probabilités d'apparition en tenant compte du modèle CRF,
 #		 qui associe à chaque mot un contexte de phrase, et qui donne l'ensemble des étiquettes pour une phrase
 #
 # des RDV. prévus
-#	le 3 mai à 12 heures
 # 	le 9 mai à 12 heures
 #	le 10 mai à 15 heures
 
@@ -74,20 +75,26 @@ def _get_features_customised_for_tones(tokens, idx):
 	# Chunk IDs using seperator "_" introduced by Tone Encoder
 	for dist_to_head, i in enumerate(range(idx,-2,-1)) :
 		try :
-			if tokens[i] == "_" : 
+			if tokens[i] == "_" :
 				break
-		except IndexError : 
+		except IndexError :
 			pass
 	for dist_to_tail, i in enumerate(range(idx, len(tokens) + 1)) :
 		try :
-			if tokens[i] == "_" : 
-				break 
+			if tokens[i] == "_" :
+				break
 		except IndexError :
 			pass
 	feature_list.append("DIST_DEBUT_" + str(dist_to_head))
 	feature_list.append("DIST_FIN_" + str(dist_to_tail))
 
-	# print str(dist_to_head), str(dist_to_tail)
+	#  préfixe du voable
+	if dist_to_head :
+		feature_list.append('VRAI_PRF_' + tokens[idx - dist_to_head + 1])
+
+	# suffixe du vocable
+	if dist_to_tail :
+		feature_list.append('VRAI_SUF_' + tokens[idx + dist_to_tail - 1])
 
 	# Number
 	if re.search(r'\d', token) is not None:
@@ -102,7 +109,8 @@ def _get_features_customised_for_tones(tokens, idx):
 		if c in lst_vowels:
 			voyelles += c
 	feature_list.append('VOYELLES_'+ voyelles)
-	# Prefix & Suffix up to length 3
+
+	# Prefix & Suffix up to length 3 (du chunk)
 	if len(token) > 1:
 		feature_list.append('SUF_' + token[-1:])
 		feature_list.append('PRF_' + token[:1])
@@ -302,13 +310,13 @@ def main():
 				features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
 
 			labels = tagger._tagger.tag(features)
-                
+
 			if len(labels) != len(tokens):
 				raise Exception(' Predicted Length Not Matched, Expect Errors !')
-            
+
 			tagged_sent = list(zip(tokens,labels))
 			tagged_sents.append(tagged_sent)
-		
+
 		gold_tokens = list(itertools.chain(*test_set))
 		test_tokens = list(itertools.chain(*tagged_sents))
 		paired_tokens = [(g[0], \
