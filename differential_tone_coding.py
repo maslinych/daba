@@ -160,14 +160,17 @@ def entropy (cnt, unit = 'shannon') :
 	return ent
 
 
-def sprint_cnt(cnt, prefix = "", num = -1) :
+def sprint_cnt(cnt, prefix = "", num = -1, min = -1) :
 
 	lst = cnt.most_common()
 	if num > 0 :
 		try :
-			itm = itm[:num]
+			lst = lst[:num]
 		except IndexError :
 			pass
+	if min > 0 :
+		lst = [element for element in lst if element[1] >= min]
+
 	try :
 		return u"".join([prefix + itm[0].encode('utf-8') + u' : ' + str(itm[1]).encode('utf-8') + u'\n' for itm in lst if itm])
 	except :
@@ -213,13 +216,13 @@ class statistique () :
 		ret += u"\tSHAPING_TOKEN_IN               = {}\n".format(self.options.SHAPING_TOKEN_IN)
 
 		ret += u"Distribution sur : \n"
-		ret += u"\tLes opérations d'édition : \n" + sprint_cnt(self.mode, u"\t\t")
-		ret += u"\tL'ensemble des codes par syllabe : \n" + sprint_cnt(self.code, u"\t\t")
-		ret += u"\tL'ensemble des codes par leur segment atomique : \n" + sprint_cnt(self.segment_code, u"\t\t")
-		ret += u"\tL'ensemble des caractères supprimés : \n" + sprint_cnt(self.src_delete, u"\t\t")
-		ret += u"\tL'ensemble des caractères inserés : \n" + sprint_cnt(self.dst_insert, u"\t\t")
-		ret += u"\tL'ensemble des caractères replacés : \n" + sprint_cnt(self.src_replace, u"\t\t")
-		ret += u"\tL'ensemble des caractères replaçants : \n" + sprint_cnt(self.dst_replace, u"\t\t")
+		ret += u"\tLes opérations d'édition : \n" + sprint_cnt(self.mode, u"\t\t",-1,20)
+		ret += u"\tL'ensemble des codes par syllabe : \n" + sprint_cnt(self.code, u"\t\t",-1,20)
+		ret += u"\tL'ensemble des codes par leur segment atomique : \n" + sprint_cnt(self.segment_code, u"\t\t",-1,20)
+		ret += u"\tL'ensemble des caractères supprimés : \n" + sprint_cnt(self.src_delete, u"\t\t",-1,20)
+		ret += u"\tL'ensemble des caractères inserés : \n" + sprint_cnt(self.dst_insert, u"\t\t",-1,20)
+		ret += u"\tL'ensemble des caractères replacés : \n" + sprint_cnt(self.src_replace, u"\t\t",-1,20)
+		ret += u"\tL'ensemble des caractères replaçants : \n" + sprint_cnt(self.dst_replace, u"\t\t",-1,20)
 		return ret
 
 class encoder_tones () :
