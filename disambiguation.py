@@ -11,6 +11,7 @@
 # todo:
 # 1. implémenter un décoder de tones qui consiste à reconstruire la forme tonal à partir du token et le code tonal qui lui est associé
 #    par l'encodeur précédemment.
+# 2. rapport de statistique plus lisible +
 # 4. à propos de l'interface de désambiguisation :
 #	mode 3 : afficher la probabilité pour chacun d'une liste des tokens proposés à la place d'un mot d'une phrase
 #		 une marginalisation est nécessaire pour obtenir la propabilité d'un choix de token sur une phrase. Le but
@@ -20,6 +21,7 @@
 # des RDV. prévus
 # 	le 9 mai à 12 heures
 #	le 10 mai à 15 heures
+# 
 
 import sys, re, codecs, glob, time, os
 import argparse
@@ -64,45 +66,91 @@ def get_duration(t1_secs, t2_secs) :
 
 def _get_features_customised_for_tones(tokens, idx):
 
-	token = tokens[idx]
 	feature_list = []
-	if not token:
+
+	if not tokens:
 		return feature_list
 
-	# Capitalization
+	try :
+		token = tokens[idx]
+	except IndexError :
+		raise
+
+	if token != '_' :
+
+		# positon du syllabe actuel et préfixe et suffixe du même mot
+		lst = []
+		for i in range(idx, len(tokens) + 1, 1) :
+			try :
+				if tokens[i] == "_" :
+					lst.append(i)
+					if len(lst) >= 2 :
+						break
+			except IndexError :
+				lst.append(i)
+				break
+
+		if lst :
+			feature_list.append("SYLLABE_ID1_" + str(lst[0] - idx))
+			try :
+				feature_list.append("SUFFIXE_ACTUEL_" + tokens(lst[0] - 1))
+			except :
+				pass
+
+		lst2 = []
+		for i in range(idx, -2, -1) :
+			try :
+				if tokens[i] == "_" :
+					lst2.append(i)
+					if len(lst2) >= 2 :
+						break
+			except IndexError :
+				lst2.append(i)
+				break
+
+		if lst2 :
+			feature_list.append("SYLLABE_ID2_" + str(idx - lst2[0]))
+			try :
+				feature_list.append("PREFIXE_ACTUEL_" + tokens(lst2[0] + 1))
+			except :
+				pass
+
+		# préfixe et suffixe du mots précédent et suivant dans la même phrase
+		if len(lst) > 1 :
+			try :
+				prefixe_du_mot_suivant = tokens[lst[0] + 1]
+				feature_list.append("PREFIXE_SUIVANT_" + prefixe_du_mot_suivant)
+			except IndexError :
+				pass
+			try :
+				suffixe_du_mot_suivant  = tokens[lst[1] - 1]
+				feature_list.append("SUFFIXE_SUIVANT_" + suffixe_du_mot_suivant)
+			except IndexError :
+				pass
+			try :
+				suffixe_du_mot_precedent = tokens[lst2[0] - 1]
+				feature_list.append("SUFFIXE_PRECEDENT_" + suffixe_du_mot_precedent)
+			except IndexError:
+				pass
+			try :
+				prefixe_du_mot_precedent = tokens[lst2[1] + 1]
+				feature_list.append("PREFIXE_PRECEDENT_" + prefixe_du_mot_precedent)
+			except IndexError :
+				pass
+		
+	# Capitalization 
 	if token[0].isupper():
 		feature_list.append('CAPITALIZATION')
-	# Chunk IDs using seperator "_" introduced by Tone Encoder
-	for dist_to_head, i in enumerate(range(idx,-2,-1)) :
-		try :
-			if tokens[i] == "_" :
-				break
-		except IndexError :
-			pass
-	for dist_to_tail, i in enumerate(range(idx, len(tokens) + 1)) :
-		try :
-			if tokens[i] == "_" :
-				break
-		except IndexError :
-			pass
-	feature_list.append("DIST_DEBUT_" + str(dist_to_head))
-	feature_list.append("DIST_FIN_" + str(dist_to_tail))
-
-	#  préfixe du voable
-	if dist_to_head :
-		feature_list.append('VRAI_PRF_' + tokens[idx - dist_to_head + 1])
-
-	# suffixe du vocable
-	if dist_to_tail :
-		feature_list.append('VRAI_SUF_' + tokens[idx + dist_to_tail - 1])
 
 	# Number
 	if re.search(r'\d', token) is not None:
-		feature_list.append('UN_CHIFFRE')
+		feature_list.append('IL_Y_A_UN_CHIFFRE')
+		
 	# Punctuation
 	punc_cat = set(["Pc", "Pd", "Ps", "Pe", "Pi", "Pf", "Po"])
 	if all (unicodedata.category(x) in punc_cat for x in token):
-		feature_list.append('PUNCTUATION')
+		feature_list.append('PONCTUATION_PURE')
+		
 	# Voyelles
 	voyelles = ""
 	for c in token :
@@ -110,29 +158,30 @@ def _get_features_customised_for_tones(tokens, idx):
 			voyelles += c
 	feature_list.append('VOYELLES_'+ voyelles)
 
-	# Prefix & Suffix up to length 3 (du chunk)
+	# Syllabes précédent et suivant
+	try :
+		feature_list.append('SYLLABE_PRECEDENT_' + token[idx - 1])
+	except IndexError :
+		feature_list.append('SYLLABE_PRECEDENT_NUL')
+
+	try :
+		feature_list.append('SYLLABE_SUIVANT_' + token[idx + 1])
+	except IndexError :
+		feature_list.append('SYLLABE_SUIVANT_NUL')
+
+	feature_list.append('SYLLABE_ACTUEL_' + token)
+	
+	#
+	# Suffix up to length 3
 	if len(token) > 1:
-		feature_list.append('SUF_' + token[-1:])
-		feature_list.append('PRF_' + token[:1])
-	if len(token) > 2:
-		feature_list.append('SUF_' + token[-2:])
-		feature_list.append('PRF_' + token[:2])
-	if len(token) > 3:
+		feature_list.append('SUF_' + token[-1:]) 
+		feature_list.append('PRE_' + token[:1]) 
+	if len(token) > 2: 
+		feature_list.append('SUF_' + token[-2:]) 
+		feature_list.append('PRE_' + token[:2])    
+	if len(token) > 3: 
 		feature_list.append('SUF_' + token[-3:])
-		feature_list.append('PRF_' + token[:3])
-
-	# trigramme : le chunk précédent et celui qui vient après l'actuel
-	try :
-		feature_list.append('PRE_' + token[idx - 1])
-	except IndexError :
-		feature_list.append('PRE_')
-
-	try :
-		feature_list.append('POST_' + token[idx + 1])
-	except IndexError :
-		feature_list.append('POST_')
-
-	feature_list.append('CURR_' + token )
+		feature_list.append('PRE_' + token[:3]) 
 
 	return feature_list
 
@@ -283,10 +332,10 @@ def main():
 		trainer.set_params(tagger._training_options)
 		for sent in train_set:
 			tokens, labels = zip(*sent)
-			if args.tone :
-				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
-			else :
-				features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
+			#if args.tone :
+			features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
+			#else :
+			#	features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
 			trainer.append(features, labels)
 		trainer.train(model=args.learn)
 		tagger.set_model_file(args.learn)
@@ -304,10 +353,10 @@ def main():
 		#####################################################
 		tagged_sents = []
 		for tokens in [nltk.tag.util.untag(sent) for sent in test_set]:
-			if args.tone :
-				features = [_get_features_customised_for_tones(tokens,i) for i in range(len(tokens))]
-			else:
-				features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
+			#if args.tone :
+			features = [_get_features_customised_for_tones(tokens,i) for i in range(len(tokens))]
+			#else:
+			#	features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
 
 			labels = tagger._tagger.tag(features)
 
@@ -383,10 +432,10 @@ def main():
 		# We need the list of sentences instead of the list generator for matching the input and output
 		result = []
 		for tokens in allsents:
-			if args.tone :
-				features = [_get_features_customised_for_tones(tokens,i) for i in range(len(tokens))]
-			else:
-				features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
+			#if args.tone :
+			features = [_get_features_customised_for_tones(tokens,i) for i in range(len(tokens))]
+			#else:
+			#	features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
 
 			labels = tagger._tagger.tag(features)
 			# fonctions à appeler pour les modes 2 & 3
