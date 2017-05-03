@@ -160,21 +160,36 @@ def entropy (cnt, unit = 'shannon') :
 	return ent
 
 
-def sprint_cnt(cnt, prefix = "") :
+def sprint_cnt(cnt, prefix = "", num = -1) :
+
 	lst = cnt.most_common()
-	return "".join([prefix + itm[0].encode('utf-8') + u' : ' + str(itm[1]).encode('utf-8') + u'\n' for itm in lst if itm])
+	if num > 0 :
+		try :
+			itm = itm[:num]
+		except IndexError :
+			pass
+	try :
+		return u"".join([prefix + itm[0].encode('utf-8') + u' : ' + str(itm[1]).encode('utf-8') + u'\n' for itm in lst if itm])
+	except :
+		return u"".join([prefix + itm[0] + u' : ' + str(itm[1]) + u'\n' for itm in lst if itm])
 
 class statistique () :
 	def __init__(self, options) :
 		self.form_non_tonal = Counter()
 		self.form_tonal     = Counter()
 		self.code           = Counter()
+		self.segment_code   = Counter()
 		self.dict_code      = defaultdict()
 		self.dict_form_tonal= defaultdict()
 		self.num   = 0
 		self.cnt_ops = 0
 		self.mode = Counter()
 		self.options = options
+		self.src_replace = Counter()
+		self.dst_replace = Counter()
+		self.src_delete = Counter()
+		self.dst_insert = Counter()
+
 	def __str__(self) :
 
 		ret  = u""
@@ -188,7 +203,6 @@ class statistique () :
                 ret += u"\tE(Code produit) = {:<6.2f} \n".\
 			format(entropy2(self.dict_code, cnty = self.code, cntx = self.form_non_tonal))
 		ret += u"Distance entre une forme tonale et son token (en moyenne) = {:<6.2f} \n".format(self.cnt_ops / float(self.num))
-		ret += u"Distribution des opérations d'édition : \n {}".format(sprint_cnt(self.mode, "\t"))
 		ret += u"sur un ensemble de corpus de {} mot(s)\n".format(str(self.num))
 		ret += u"\nConfigurations\n"
 		ret += u"\tREMPLACEMENT_INTERDIT          = {}\n".format(self.options.REMPLACEMENT_INTERDIT)
@@ -197,6 +211,15 @@ class statistique () :
 		ret += u"\tONLY_TONE_PREDICTION           = {}\n".format(self.options.ONLY_TONE_PREDICTION)
 		ret += u"\tONLY_TONE_PAUSE_PREDICTION     = {}\n".format(self.options.ONLY_TONE_PAUSE_PREDICTION)
 		ret += u"\tSHAPING_TOKEN_IN               = {}\n".format(self.options.SHAPING_TOKEN_IN)
+
+		ret += u"Distribution sur : \n"
+		ret += u"\tLes opérations d'édition : \n" + sprint_cnt(self.mode, u"\t\t")
+		ret += u"\tL'ensemble des codes par syllabe : \n" + sprint_cnt(self.code, u"\t\t")
+		ret += u"\tL'ensemble des codes par leur segment atomique : \n" + sprint_cnt(self.segment_code, u"\t\t")
+		ret += u"\tL'ensemble des caractères supprimés : \n" + sprint_cnt(self.src_delete, u"\t\t")
+		ret += u"\tL'ensemble des caractères inserés : \n" + sprint_cnt(self.dst_insert, u"\t\t")
+		ret += u"\tL'ensemble des caractères replacés : \n" + sprint_cnt(self.src_replace, u"\t\t")
+		ret += u"\tL'ensemble des caractères replaçants : \n" + sprint_cnt(self.dst_replace, u"\t\t")
 		return ret
 
 class encoder_tones () :
@@ -214,25 +237,42 @@ class encoder_tones () :
 	def delete(self) :
 		mode_id = mode_id_lst.index("delete")
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
-		self.ret[chunk_id] += mp_code
+		segment = mp_code
+		caracter_src = self.src[self.p_src]
 		if not self.options.NOT_TO_CODE_CARACTER_TO_DELETE :
-			self.ret[chunk_id] += self.src[self.p_src]
+			segment += caracter_src
+		self.ret[chunk_id] = segment
+
 		self.stat.cnt_ops += 1
 		self.stat.mode["delete"] += 1
+		self.stat.src_delete[caracter_src] += 1
+		self.stat.segment_code[segment] += 1
 
 	def insert(self) :
 		mode_id = mode_id_lst.index("insert")
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks, offset = -1)
-		self.ret[chunk_id] += mp_code + self.dst[self.p_dst]
+		caracter_dst = self.dst[self.p_dst]
+		segment = mp_code + caracter_dst
+		self.ret[chunk_id] = segment
+
 		self.stat.cnt_ops += 1
 		self.stat.mode["insert"] += 1
+		self.stat.dst_insert[caracter_dst] += 1
+		self.stat.segment_code[segment] += 1
 
 	def replace(self) :
 		mode_id = mode_id_lst.index("replace")
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
-		self.ret[chunk_id] += mp_code + self.dst[self.p_dst]
+		caracter_src = self.src[self.p_src]
+		caracter_dst = self.dst[self.p_dst]
+		segment = mp_code + caracter_dst
+		self.ret[chunk_id] += segment
+
 		self.stat.cnt_ops += 1
 		self.stat.mode["replace"] += 1
+		self.stat.src_replace[caracter_src] += 1
+		self.stat.dst_replace[caracter_dst] += 1
+		self.stat.segment_code[segment] += 1
 
 	def differential_encode (self, form_non_tonal, form_tonal, seperator = True) :
 
