@@ -22,7 +22,7 @@
 # des RDV. prévus
 # 	le 9 mai à 12 heures
 #	le 10 mai à 15 heures
-# 
+#
 
 import sys, re, codecs, glob, time, os
 import argparse
@@ -31,7 +31,7 @@ import collections
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
-from differential_tone_coding import encoder_tones, chunking, options, lst_vowels
+from differential_tone_coding import encoder_tones, chunking, options, lst_vowels, reshaping, differential_decode
 import unicodedata
 import pycrfsuite
 import csv
@@ -77,6 +77,7 @@ def _get_features_customised_for_tones(tokens, idx):
 	except IndexError :
 		raise
 
+	
 	# positon du syllabe actuel et préfixe et suffixe du même mot
 	lst = []
 	for i in range(idx, len(tokens) + 1, 1) :
@@ -159,7 +160,7 @@ def _get_features_customised_for_tones(tokens, idx):
 	# Voyelles
 	voyelles = ""
 	for c in token :
-		if c in lst_vowels:
+		if c.lower() in lst_vowels:
 			voyelles += c
 	feature_list.append('VOYELLES_'+ voyelles)
 
@@ -174,7 +175,7 @@ def _get_features_customised_for_tones(tokens, idx):
 	except IndexError :
 		pass
 
-	feature_list.append('SYLLABE_ACTUEL_' + token)
+	feature_list.append('SYLLABE_ACTUEL_' + (token))
 
 	# Suffix & prefix up to length 3
 	if len(token) > 1:
@@ -353,11 +354,7 @@ def main():
 		#####################################################
 		tagged_sents = []
 		for tokens in [nltk.tag.util.untag(sent) for sent in test_set]:
-			#if args.tone :
 			features = [_get_features_customised_for_tones(tokens,i) for i in range(len(tokens))]
-			#else:
-			#	features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
-
 			labels = tagger._tagger.tag(features)
 
 			if len(labels) != len(tokens):
@@ -375,25 +372,52 @@ def main():
 
 		# exportation du résultat d'étiquetage en fichier csv
 		if args.store :
-			try :
-				csvfile = codecs.open(args.store, 'wb')
-				writer = csv.writer(csvfile)
-				writer.writerow(["Token", "Golden", "Prediction", "Consistent"])
-				for g, t in zip(gold_tokens, test_tokens) :
-					row = [\
-						repr(g[0].encode('utf-8')), \
-						repr(g[-1]), \
-						repr(t[-1]), \
-						g[-1] == t[-1]]
-					writer.writerow(row)
-				csvfile.close()
-			except :
-				print "unable to dump result in CSV file to create !"
+			if args.tone :
+				#try :
+				if True :
+					csvfile = codecs.open(args.store, 'wb')
+					writer = csv.writer(csvfile)
+					writer.writerow(["Token", "Golden Form", "Predicted Form","Golden code", "Predicted code", "Same"])
+					for g, t in zip(gold_tokens, test_tokens) :
+						token = g[0]
+						golden_code =  g[-1]
+						predicted_code =  t[-1]
+						golden_form = differential_decode(token, golden_code.decode('utf-8'))
+						predicted_form = differential_decode(token, predicted_code.decode('utf-8'))
+						sameCodes = (golden_code == predicted_code)
+						sameForms = (golden_form == predicted_form)
+						row = [\
+							repr(token.encode('utf-8')), \
+							repr(golden_form.encode('utf-8')), \
+							repr(predicted_form.encode('utf-8')), \
+							repr(golden_code), \
+							repr(predicted_code), \
+							sameCodes]
+
+						#for i in row : print(type(i))
+
+						writer.writerow(row)
+						if (sameCodes == True and sameForms == False) or \
+						   (sameCodes == False and sameForms == True) :
+							print ("Bug")
+							print "token", token
+							print "golden_code",golden_code
+							print "predicted_code",predicted_code
+							print "golden_form",golden_form
+							print "predicted_form",predicted_form
+							print "sameCodes",sameCodes
+							print "sameForms",sameForms
+							exit(1)
+				try:
+					csvfile.close()
+				except :
+					print "unable to dump result in CSV file to create !"
 		print accuracy(gold_tokens, test_tokens)
 
 		# affichage avancé
 		if args.verbose:
-			print 'Compute detailed output'
+			pass 
+			# print 'Compute detailed output'
 
 	elif args.disambiguate and args.mode and args.infile and args.outfile :
 
@@ -479,9 +503,14 @@ def main():
 		except IOError:
 			print "Error : unable to create the output file {}".format(args.outfile)
 
+
 	else :
 		# show script usage
 		aparser.print_help()
+
+	if args.verbose :
+		if args.store : print ("result exported in {}.".format(args.store))
+
 	exit(0)
 
 if __name__ == '__main__':
