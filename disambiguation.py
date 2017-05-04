@@ -31,7 +31,7 @@ import collections
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
-from differential_tone_coding import encoder_tones, chunking, options, lst_vowels, reshaping, differential_decode, rm_sep, code_seperator,repr
+from differential_tone_coding import encoder_tones, chunking, options, lst_vowels, reshaping, differential_decode, rm_sep, code_seperator,repr, token_seperator
 import unicodedata
 import pycrfsuite
 import csv
@@ -77,7 +77,7 @@ def _get_features_customised_for_tones(tokens, idx):
 	lst = []
 	for i in range(idx, len(tokens) + 1, 1) :
 		try :
-			if tokens[i] == "_" :
+			if tokens[i] == token_seperator :
 				lst.append(i)
 				if len(lst) >= 2 :
 					break
@@ -98,7 +98,7 @@ def _get_features_customised_for_tones(tokens, idx):
 	lst2 = []
 	for i in range(idx, -2, -1) :
 		try :
-			if tokens[i] == "_" :
+			if tokens[i] == token_seperator :
 				lst2.append(i)
 				if len(lst2) >= 2 :
 					break
