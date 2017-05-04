@@ -14,20 +14,12 @@ from syllables import syllabify
 
 # Constant lists
 markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
-markers_to_be_ignored = u"[]."
 lst_vowels                 = u'aeiouɛəɑœɔø'
-lst_mode_position_caracter = u'$£§#@%'
-mode_id_lst           = ["delete","insert","replace"]
-caracter_category_lst = ["vowel", "non-vowel"]
 
-""" mode - positon indicator coding
-lst_mode_position_caracter[0] <-> a vowel to delete
-lst_mode_position_caracter[1] <-> a caracter to insert after a vowel
-lst_mode_position_caracter[2] <-> a caracter to be replace after a vowel
-lst_mode_position_caracter[3] <-> a non-vowel to delete
-lst_mode_position_caracter[4] <-> a caracter to insert after non-vowel
-lst_mode_position_caracter[5] <-> a caracter to replace after a non-vowel
-"""
+mode_indicators = u'-+='
+mode_names   = [u"delete",u"insert",u"replace"]
+
+markers_to_be_ignored = u"[]."
 
 # Turning Options
 class options() :
@@ -65,45 +57,24 @@ def reshaping (token, strip_tones = True) :
 
 	return token.lower()
 
-def get_mode_position_table () :
-
-	ret = ""
-	len_mode_id_lst = len(mode_id_lst)
-	len_caracter_category = len(caracter_category_lst)
-	for j in range(len_caracter_category) :
-		for i in range(len_mode_id_lst) :
-			ret += " ".join([lst_mode_position_caracter[i + len_mode_id_lst * j], "<->", \
-				mode_id_lst[i], "+", caracter_category_lst[j], "\n"])
-	return ret
-
-def mode_position_encoder (token, position, mode_id, chunks, offset = 0, lst = lst_vowels) :
+def mode_position_encoder (token, position, mode_id, chunks, offset = 0) :
 
 	position_eff = position + offset
-
-	position_vowels = 0
-	position_others = 0
+	position_caracter = 0
 	position_token = 0
 	chunk_id = 0
 	chunk_position = 0
 	for c in token :
-		if c in lst :
-			caracter_category_id = 0
-			if position_token >= position_eff:
-				mp_code = lst_mode_position_caracter[caracter_category_id * len(mode_id_lst) + mode_id] + str(position_vowels)
-				return [mp_code, chunk_id]
-			position_vowels += 1
-		else :
-			caracter_category_id = 1
-			if position_token >= position_eff:
-				mp_code = lst_mode_position_caracter[caracter_category_id * len(mode_id_lst) + mode_id] + str(position_others)
-				return [mp_code, chunk_id]
-			position_others += 1
+		if position_token >= position_eff:
+			mp_code = mode_indicators[mode_id] + str(position_caracter)
+			return [mp_code, chunk_id]
+		position_caracter += 1
 		position_token += 1
 		chunk_position += 1
 		if chunk_position >= len(chunks[chunk_id]):
 			chunk_id += 1
 			chunk_position = 0
-			position_vowels = 0
+			position_caracter = 0
 			position_others = 0
 	return [None, None]
 
@@ -194,6 +165,7 @@ class statistique () :
 	def __str__(self) :
 
 		ret  = u""
+		ret += u"Sur un ensemble de corpus de {} mot(s)\n".format(str(self.num))
 		ret += u"Entropies globales\n"
 		ret += u"\tE(Token)        = {:<6.2f} \n".format(entropy(self.form_non_tonal))
 		ret += u"\tE(Forme tonale) = {:<6.2f} \n".format(entropy(self.form_tonal))
@@ -204,7 +176,6 @@ class statistique () :
                 ret += u"\tE(Code produit) = {:<6.2f} \n".\
 			format(entropy2(self.dict_code, cnty = self.code, cntx = self.form_non_tonal))
 		ret += u"Distance entre une forme tonale et son token (en moyenne) = {:<6.2f} \n".format(self.cnt_ops / float(self.num))
-		ret += u"sur un ensemble de corpus de {} mot(s)\n".format(str(self.num))
 		ret += u"\nConfigurations\n"
 		ret += u"\tREMPLACEMENT_INTERDIT          = {}\n".format(self.options.REMPLACEMENT_INTERDIT)
 		ret += u"\tDECOMPOSE_OPS_FOR_TONES  = {}\n".format(self.options.DECOMPOSE_OPS_FOR_TONES)
@@ -234,7 +205,7 @@ class encoder_tones () :
 		self.stat = statistique(options)
 
 	def delete(self) :
-		mode_id = mode_id_lst.index("delete")
+		mode_id = mode_names.index("delete")
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
 		segment = mp_code
 		caracter_src = self.src[self.p_src]
@@ -247,7 +218,7 @@ class encoder_tones () :
 		self.stat.segment_code[segment] += 1
 
 	def insert(self) :
-		mode_id = mode_id_lst.index("insert")
+		mode_id = mode_names.index("insert")
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks, offset = -1)
 		caracter_dst = self.dst[self.p_dst]
 		segment = mp_code + caracter_dst
@@ -259,7 +230,7 @@ class encoder_tones () :
 		self.stat.segment_code[segment] += 1
 
 	def replace(self) :
-		mode_id = mode_id_lst.index("replace")
+		mode_id = mode_names.index("replace")
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
 		caracter_src = self.src[self.p_src]
 		caracter_dst = self.dst[self.p_dst]
@@ -338,20 +309,15 @@ def main () :
 
 	form_non_tonal = u'abécëiè'
 	form_tonal     = u'àbèc.eleh'
-	options_obj = options(REMPLACEMENT_INTERDIT = True,SHAPING_TOKEN_IN = True)
+	options_obj = options()
 
-	if options_obj.SHAPING_TOKEN_IN :
-		print "src (reshaped) : ", reshaping(form_non_tonal, True)
-	else:
-		print "src            : ", reshaping(form_non_tonal, False)
-	print         "dst            : ", reshaping(form_tonal, False)
+	print "src : ", reshaping(form_non_tonal, False)
+	print "dst : ", reshaping(form_tonal    , False)
 
 	enc = encoder_tones(options_obj)
 	[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
 
-	for chunk, code in zip(chunks, codes) :
-		sys.stdout.write(u"{} -> {}\n".format(chunk, code));
-	print get_mode_position_table()
+	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"{} -> {}\n".format(chunk, code));
 	enc.report()
 
 if __name__ == "__main__" : main()
