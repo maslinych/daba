@@ -31,7 +31,7 @@ import collections
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
-from differential_tone_coding import encoder_tones, chunking, options, lst_vowels, reshaping, differential_decode, rm_sep, code_seperator
+from differential_tone_coding import encoder_tones, chunking, options, lst_vowels, reshaping, differential_decode, rm_sep, code_seperator,repr
 import unicodedata
 import pycrfsuite
 import csv
@@ -42,10 +42,6 @@ from nltk.metrics.scores import accuracy
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
-
-def repr (c, null = "") :
-	if not c : return null
-	else : return rm_sep(c)
 
 def sampling(allsents, ratio, p) :
 	train_set, test_set = [], []
