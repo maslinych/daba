@@ -63,18 +63,23 @@ def mode_position_encoder (token, position, mode_id, chunks, offset = 0) :
 	position_in_token = 0
 	chunk_id = 0
 	chunk_position = 0
-	for c in token :
+	mode_indicator = mode_indicators[mode_id]
+	for i,c in enumerate(token) :
 		if position_in_token >= position_eff:
-			mp_code = mode_indicators[mode_id] + str(chunk_position)
+			mp_code = mode_indicator + str(chunk_position)
 			return [mp_code, chunk_id]
 		position_in_token += 1
 		chunk_position += 1
+		if i == len(token) - 1:
+			mp_code = mode_indicator + str(chunk_position)
+			return [mp_code, chunk_id - 1]
 		if chunk_position >= len(chunks[chunk_id]):
 			chunk_id += 1
 			chunk_position = 0
 			position_caracter = 0
 			position_others = 0
-	return [None, None]
+
+	return [None,None]
 
 def entropy2 (dic, cnty, cntx, mode = 'token', unit = 'shannon') :
 
@@ -349,8 +354,8 @@ def differential_decode (chunk, code) :
 
 def main () :
 
-	form_non_tonal = u'eeeéee'
-	form_tonal     = u'àeèàée'
+	form_non_tonal = u'eeeée'
+	form_tonal     = u'àeèàé'
 	options_obj = options()
 
 	print "src : ", reshaping(form_non_tonal, False)
