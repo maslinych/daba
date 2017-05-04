@@ -373,8 +373,7 @@ def main():
 		# exportation du résultat d'étiquetage en fichier csv
 		if args.store :
 			if args.tone :
-				#try :
-				if True :
+				try :
 					csvfile = codecs.open(args.store, 'wb')
 					writer = csv.writer(csvfile)
 					writer.writerow(["Token", "Golden Form", "Predicted Form","Golden code", "Predicted code", "Same"])
@@ -394,21 +393,18 @@ def main():
 							repr(predicted_code), \
 							sameCodes]
 
-						#for i in row : print(type(i))
-
 						writer.writerow(row)
-						if (sameCodes == True and sameForms == False) or \
-						   (sameCodes == False and sameForms == True) :
-							print ("Bug")
-							print "token", token
-							print "golden_code",golden_code
-							print "predicted_code",predicted_code
-							print "golden_form",golden_form
-							print "predicted_form",predicted_form
-							print "sameCodes",sameCodes
+						if sameCodes == True and sameForms == False :
+							print "Bug :"
+							print "token", row[0].decode('utf-8')
+							print "golden_form", row[1].decode('utf-8')
+							print "predicted_form", row[2].decode('utf-8')
+							print "golden_code", row[3].decode('utf-8')
+							print "predicted_code", row[4].decode('utf-8')
+							print "sameCodes",row[5]
 							print "sameForms",sameForms
 							exit(1)
-				try:
+
 					csvfile.close()
 				except :
 					print "unable to dump result in CSV file to create !"
