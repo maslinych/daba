@@ -60,16 +60,14 @@ def reshaping (token, strip_tones = True) :
 def mode_position_encoder (token, position, mode_id, chunks, offset = 0) :
 
 	position_eff = position + offset
-	position_caracter = 0
-	position_token = 0
+	position_in_token = 0
 	chunk_id = 0
 	chunk_position = 0
 	for c in token :
-		if position_token >= position_eff:
-			mp_code = mode_indicators[mode_id] + str(position_caracter)
+		if position_in_token >= position_eff:
+			mp_code = mode_indicators[mode_id] + str(chunk_position)
 			return [mp_code, chunk_id]
-		position_caracter += 1
-		position_token += 1
+		position_in_token += 1
 		chunk_position += 1
 		if chunk_position >= len(chunks[chunk_id]):
 			chunk_id += 1
@@ -210,7 +208,7 @@ class encoder_tones () :
 		segment = mp_code
 		caracter_src = self.src[self.p_src]
 		segment += caracter_src
-		self.ret[chunk_id] = segment
+		self.ret[chunk_id] += segment
 
 		self.stat.cnt_ops += 1
 		self.stat.mode["delete"] += 1
@@ -222,7 +220,7 @@ class encoder_tones () :
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks, offset = -1)
 		caracter_dst = self.dst[self.p_dst]
 		segment = mp_code + caracter_dst
-		self.ret[chunk_id] = segment
+		self.ret[chunk_id] += segment
 
 		self.stat.cnt_ops += 1
 		self.stat.mode["insert"] += 1
@@ -307,8 +305,8 @@ class encoder_tones () :
 
 def main () :
 
-	form_non_tonal = u'abécëiè'
-	form_tonal     = u'àbèc.eleh'
+	form_non_tonal = u'abéecëiè'
+	form_tonal     = u'àbèéc.eleh'
 	options_obj = options()
 
 	print "src : ", reshaping(form_non_tonal, False)
