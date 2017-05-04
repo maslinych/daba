@@ -217,9 +217,10 @@ class encoder_tones () :
 
 	def insert(self) :
 		mode_id = mode_names.index("insert")
-		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks, offset = -1)
+		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
+		segment = mp_code
 		caracter_dst = self.dst[self.p_dst]
-		segment = mp_code + caracter_dst
+		segment += caracter_dst
 		self.ret[chunk_id] += segment
 
 		self.stat.cnt_ops += 1
@@ -230,9 +231,10 @@ class encoder_tones () :
 	def replace(self) :
 		mode_id = mode_names.index("replace")
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
+		segment = mp_code
 		caracter_src = self.src[self.p_src]
 		caracter_dst = self.dst[self.p_dst]
-		segment = mp_code + caracter_dst
+		segment += caracter_dst
 		self.ret[chunk_id] += segment
 
 		self.stat.cnt_ops += 1
@@ -329,14 +331,15 @@ def differential_decode (chunk, code) :
 			chunk = l + r
 			p_offset -= 1
 		elif m == mode_indicators[mode_names.index('insert')] :
-			try : l = chunk[: p_eff + 1]
+			try : l = chunk[: p_eff]
 			except IndexError : l = ''
-			try : r = chunk[p_eff + 1 :]
+			try : r = chunk[p_eff  :]
 			except IndexError : r = ''
 			chunk = l + c + r
 			p_offset += 1
+			print p,p_eff,c
 		else : # 'replace'
-			try : l = chunk[: p_eff]
+			try : l = chunk[: p_eff ]
 			except IndexError : l = ''
 			try : r = chunk[p_eff + 1 :]
 			except IndexError : r = ''
@@ -346,8 +349,8 @@ def differential_decode (chunk, code) :
 
 def main () :
 
-	form_non_tonal = u'abéecëiè'
-	form_tonal     = u'àbèéc.eleh'
+	form_non_tonal = u'eeeéee'
+	form_tonal     = u'àeèàée'
 	options_obj = options()
 
 	print "src : ", reshaping(form_non_tonal, False)
@@ -357,5 +360,8 @@ def main () :
 	[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
 	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"'{}' - '{}' -> '{}'\n".format(differential_decode(chunk, code), chunk, code));
 	enc.report()
+
+	print differential_decode(u'ɛ', u'+0́')
+	print differential_decode(u'ɛ', u'+1́')
 
 if __name__ == "__main__" : main()
