@@ -31,7 +31,7 @@ import collections
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
-from differential_tone_coding import encoder_tones, chunking, options, lst_vowels, reshaping, differential_decode
+from differential_tone_coding import encoder_tones, chunking, options, lst_vowels, reshaping, differential_decode, rm_sep, code_seperator
 import unicodedata
 import pycrfsuite
 import csv
@@ -43,9 +43,9 @@ import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
-def repr (c, null = "None") :
+def repr (c, null = "") :
 	if not c : return null
-	else : return c
+	else : return rm_sep(c)
 
 def sampling(allsents, ratio, p) :
 	train_set, test_set = [], []
@@ -77,7 +77,6 @@ def _get_features_customised_for_tones(tokens, idx):
 	except IndexError :
 		raise
 
-	
 	# positon du syllabe actuel et préfixe et suffixe du même mot
 	lst = []
 	for i in range(idx, len(tokens) + 1, 1) :
@@ -280,7 +279,7 @@ def main():
 									chunk_id = 0
 									for chunk, code in zip(chunks, codes) :
 										if args.verbose and args.Debug:
-											sys.stdout.write(u"\tchunk {} : {} -> {}\n".format(chunk_id, chunk, code))
+											sys.stdout.write(u"\tchunk {} : {} -> {}\n".format(chunk_id, chunk, repr(code)))
 										try :
 											sent.append((chunk, code.encode('utf-8')))
 
