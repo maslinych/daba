@@ -253,7 +253,7 @@ class encoder_tones () :
 
 		if not self.src :
 			if seperator:
-				return [u"_", [u"_"]]
+				return [u"", [u"_"]]
 			else :
 				return [u"", []]
 
@@ -295,13 +295,54 @@ class encoder_tones () :
 		self.stat.dict_code.setdefault(self.src, []).append(u"".join(self.ret))
 
 		if seperator :
-			self.ret.append(u'_')
+			self.ret.append(u'')
 			self.chunks.append(u'_')
 
 		return [self.ret, self.chunks]
 
 	def report (self) :
 		print self.stat.__str__()
+
+def differential_decode (chunk, code) :
+
+	if len(code) % 3 != 0 :
+		print ("Error : code incorrect !")
+		exit(1)
+
+	if len(code.strip()) == 0 :
+		return chunk
+
+	p_offset = 0
+	for i in range(0, len(chunk), 3) :
+		try :
+			m, p, c = code[i], code[i+1], code[i+2]
+		except :
+			print ("Bug in differential_decode : {}".format(code))
+			exit(1)
+
+		p_eff = int(p) + p_offset
+		if m == mode_indicators[mode_names.index('delete')] : 
+			try : l = chunk[: p_eff]
+			except IndexError : l = ''
+			try : r = chunk[p_eff + 1 :]
+			except IndexError : r = ''
+			chunk = l + r
+			p_offset -= 1
+		elif m == mode_indicators[mode_names.index('insert')] :
+			try : l = chunk[: p_eff + 1]
+			except IndexError : l = ''
+			try : r = chunk[p_eff + 1 :]
+			except IndexError : r = ''
+			chunk = l + c + r
+			p_offset += 1
+		else : # 'replace'
+			try : l = chunk[: p_eff]
+			except IndexError : l = ''
+			try : r = chunk[p_eff + 1 :]
+			except IndexError : r = ''
+			chunk = l + c + r
+
+	return chunk
 
 def main () :
 
@@ -314,8 +355,7 @@ def main () :
 
 	enc = encoder_tones(options_obj)
 	[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
-
-	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"{} -> {}\n".format(chunk, code));
+	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"'{}' - '{}' -> '{}'\n".format(differential_decode(chunk, code), chunk, code));
 	enc.report()
 
 if __name__ == "__main__" : main()
