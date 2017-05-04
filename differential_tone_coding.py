@@ -22,6 +22,10 @@ mode_names   = [u"delete",u"insert",u"replace"]
 
 markers_to_be_ignored = u"[]." + code_seperator
 
+def repr (c, null = "") :
+	if not c : return null
+	else : return rm_sep(c)
+
 def rm_sep(str_in, seprator_in = code_seperator):
 	try :
 		return str_in.replace(seprator_in, u" ")
@@ -194,7 +198,7 @@ class statistique () :
 		ret += u"Distance entre une forme tonale et son token (en moyenne) = {:<6.2f} \n".format(self.cnt_ops / float(self.num))
 		ret += u"\nConfigurations\n"
 		ret += u"\tREMPLACEMENT_INTERDIT          = {}\n".format(self.options.REMPLACEMENT_INTERDIT)
-		ret += u"\tDECOMPOSE_OPS_FOR_TONES  = {}\n".format(self.options.DECOMPOSE_OPS_FOR_TONES)
+		ret += u"\tDECOMPOSE_OPS_FOR_TONES        = {}\n".format(self.options.DECOMPOSE_OPS_FOR_TONES)
 		ret += u"\tONLY_TONE_PREDICTION           = {}\n".format(self.options.ONLY_TONE_PREDICTION)
 		ret += u"\tSHAPING_TOKEN_IN               = {}\n".format(self.options.SHAPING_TOKEN_IN)
 
@@ -231,7 +235,7 @@ class encoder_tones () :
 		self.stat.cnt_ops += 1
 		self.stat.mode["delete"] += 1
 		self.stat.src_delete[caracter_src] += 1
-		self.stat.segment_code[segment] += 1
+		self.stat.segment_code[repr(segment)] += 1
 
 	def insert(self) :
 		mode_id = mode_names.index("insert")
@@ -244,7 +248,7 @@ class encoder_tones () :
 		self.stat.cnt_ops += 1
 		self.stat.mode["insert"] += 1
 		self.stat.dst_insert[caracter_dst] += 1
-		self.stat.segment_code[segment] += 1
+		self.stat.segment_code[repr(segment)] += 1
 
 	def replace(self) :
 		mode_id = mode_names.index("replace")
@@ -259,7 +263,7 @@ class encoder_tones () :
 		self.stat.mode["replace"] += 1
 		self.stat.src_replace[caracter_src] += 1
 		self.stat.dst_replace[caracter_dst] += 1
-		self.stat.segment_code[segment] += 1
+		self.stat.segment_code[repr(segment)] += 1
 
 	def differential_encode (self, form_non_tonal, form_tonal, seperator = True) :
 
@@ -321,8 +325,9 @@ class encoder_tones () :
                 self.ret = tmp
 
 		self.stat.num += 1
-		self.stat.code[u"".join(self.ret)] += 1
-		self.stat.dict_code.setdefault(self.src, []).append(u"".join(self.ret))
+		repr_code = repr(u"".join(self.ret))
+		self.stat.code[repr_code] += 1
+		self.stat.dict_code.setdefault(self.src, []).append(repr_code)
 
 		if seperator :
 			self.ret.append(u'')
@@ -384,7 +389,7 @@ def main () :
 
 	enc = encoder_tones(options_obj)
 	[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
-	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"'{}' - '{}' -> '{}'\n".format(differential_decode(chunk, code), chunk, rm_sep(code, code_seperator)));
+	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"'{}' - '{}' -> '{}'\n".format(differential_decode(chunk, code), chunk, repr(code)));
 	enc.report()
 
 
