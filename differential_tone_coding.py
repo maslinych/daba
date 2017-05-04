@@ -305,23 +305,23 @@ class encoder_tones () :
 
 def differential_decode (chunk, code) :
 
+	if len(code.strip()) == 0 : return chunk
+
 	if len(code) % 3 != 0 :
-		print ("Error : code incorrect !")
+		print (u"Error : code {} incorrect !".format(code))
 		exit(1)
 
-	if len(code.strip()) == 0 :
-		return chunk
-
 	p_offset = 0
-	for i in range(0, len(chunk), 3) :
+	for i in range(0, len(code), 3) :
 		try :
+			#print i, len(chunk)
 			m, p, c = code[i], code[i+1], code[i+2]
 		except :
-			print ("Bug in differential_decode : {}".format(code))
+			print (u"Bug in differential_decode : {}".format(code))
 			exit(1)
 
 		p_eff = int(p) + p_offset
-		if m == mode_indicators[mode_names.index('delete')] : 
+		if m == mode_indicators[mode_names.index('delete')] :
 			try : l = chunk[: p_eff]
 			except IndexError : l = ''
 			try : r = chunk[p_eff + 1 :]
