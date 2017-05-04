@@ -360,6 +360,11 @@ def main():
 
 		gold_tokens = list(itertools.chain(*test_set))
 		test_tokens = list(itertools.chain(*tagged_sents))
+
+		# not to evalute the token seperators
+		gold_tokens = [x for x in gold_tokens if x[0] != token_seperator]
+		test_tokens = [x for x in test_tokens if x[0] != token_seperator]
+
 		paired_tokens = [(g[0], \
 				g[-1], \
 				test_tokens[i][-1]) \
