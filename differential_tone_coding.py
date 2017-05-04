@@ -22,8 +22,17 @@ mode_names   = [u"delete",u"insert",u"replace"]
 
 markers_to_be_ignored = u"[]." + code_seperator
 
-def rm_sep(str_in, seprator_in=code_seperator):
-	return str_in.replace(seprator_in,"")
+def rm_sep(str_in, seprator_in = code_seperator):
+	try :
+		return str_in.replace(seprator_in, u" ")
+	except:
+		try :
+			return str_in.decode('utf-8').replace(seprator_in,u" ").encode('utf-8')
+		except :
+			try :
+				return str_in.encode('utf-8').replace(seprator_in,u" ").decode('utf-8')
+			except :
+				raise
 
 # Turning Options
 class options() :
@@ -216,7 +225,7 @@ class encoder_tones () :
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
 		segment = mp_code + code_seperator
 		caracter_src = self.src[self.p_src]
-		segment += caracter_src + code_separator
+		segment += caracter_src + code_seperator
 		self.ret[chunk_id] += segment
 
 		self.stat.cnt_ops += 1
@@ -303,8 +312,11 @@ class encoder_tones () :
 
 		tmp = []
                 for ret2 in self.ret :
-                        if ret2[-1] == code_seperator :
-                                ret2 = ret2[:-1]
+			try :
+                        	if ret2[-1] == code_seperator :
+                                	ret2 = ret2[:-1]
+			except IndexError:
+				pass
                         tmp.append(ret2)
                 self.ret = tmp
 
@@ -326,7 +338,7 @@ def differential_decode (chunk, code) :
 	if len(code.strip()) == 0 : return chunk
 
 	code_segments = code.split(code_seperator)
-	if len(code_segments) % 3 != 0 : print ("input code incorrect !"); exit(1)
+	if len(code_segments) % 3 != 0 : print (code_segments) ; print ("input code incorrect !"); exit(1)
 
 	p_offset = 0
 	for i in range(0,len(code_segments),3) :
