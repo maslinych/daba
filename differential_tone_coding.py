@@ -15,11 +15,15 @@ from syllables import syllabify
 # Constant lists
 markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
 lst_vowels                 = u'aeiouɛəɑœɔø'
-
+token_seperator = u'_'
+code_seperator = u'_'
 mode_indicators = u'-+='
 mode_names   = [u"delete",u"insert",u"replace"]
 
-markers_to_be_ignored = u"[]."
+markers_to_be_ignored = u"[]." + code_seperator
+
+def rm_sep(str_in, seprator_in=code_seperator):
+	return str_in.replace(seprator_in,"")
 
 # Turning Options
 class options() :
@@ -57,7 +61,7 @@ def reshaping (token, strip_tones = True) :
 
 	return token.lower()
 
-def mode_position_encoder (token, position, mode_id, chunks, offset = 0) :
+def mode_position_encoder (token, position, mode_id, chunks, offset = 0, code_seperator_in = code_seperator) :
 
 	position_eff = position + offset
 	position_in_token = 0
@@ -66,12 +70,12 @@ def mode_position_encoder (token, position, mode_id, chunks, offset = 0) :
 	mode_indicator = mode_indicators[mode_id]
 	for i,c in enumerate(token) :
 		if position_in_token >= position_eff:
-			mp_code = mode_indicator + str(chunk_position)
+			mp_code = mode_indicator + code_seperator_in  + str(chunk_position)
 			return [mp_code, chunk_id]
 		position_in_token += 1
 		chunk_position += 1
 		if i == len(token) - 1:
-			mp_code = mode_indicator + str(chunk_position)
+			mp_code = mode_indicator + code_seperator_in  + str(chunk_position)
 			return [mp_code, chunk_id - 1]
 		if chunk_position >= len(chunks[chunk_id]):
 			chunk_id += 1
@@ -210,9 +214,9 @@ class encoder_tones () :
 	def delete(self) :
 		mode_id = mode_names.index("delete")
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
-		segment = mp_code
+		segment = mp_code + code_seperator
 		caracter_src = self.src[self.p_src]
-		segment += caracter_src
+		segment += caracter_src + code_separator
 		self.ret[chunk_id] += segment
 
 		self.stat.cnt_ops += 1
@@ -223,9 +227,9 @@ class encoder_tones () :
 	def insert(self) :
 		mode_id = mode_names.index("insert")
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
-		segment = mp_code
+		segment = mp_code + code_seperator
 		caracter_dst = self.dst[self.p_dst]
-		segment += caracter_dst
+		segment += caracter_dst + code_seperator
 		self.ret[chunk_id] += segment
 
 		self.stat.cnt_ops += 1
@@ -236,10 +240,10 @@ class encoder_tones () :
 	def replace(self) :
 		mode_id = mode_names.index("replace")
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
-		segment = mp_code
+		segment = mp_code + code_seperator
 		caracter_src = self.src[self.p_src]
 		caracter_dst = self.dst[self.p_dst]
-		segment += caracter_dst
+		segment += caracter_dst + code_seperator
 		self.ret[chunk_id] += segment
 
 		self.stat.cnt_ops += 1
@@ -260,7 +264,7 @@ class encoder_tones () :
 
 		if not self.src :
 			if seperator:
-				return [u"", [u"_"]]
+				return [u"", [token_seperator]]
 			else :
 				return [u"", []]
 
@@ -297,13 +301,20 @@ class encoder_tones () :
 					else :
 						self.replace()
 
+		tmp = []
+                for ret2 in self.ret :
+                        if ret2[-1] == code_seperator :
+                                ret2 = ret2[:-1]
+                        tmp.append(ret2)
+                self.ret = tmp
+
 		self.stat.num += 1
 		self.stat.code[u"".join(self.ret)] += 1
 		self.stat.dict_code.setdefault(self.src, []).append(u"".join(self.ret))
 
 		if seperator :
 			self.ret.append(u'')
-			self.chunks.append(u'_')
+			self.chunks.append(token_seperator)
 
 		return [self.ret, self.chunks]
 
@@ -314,15 +325,14 @@ def differential_decode (chunk, code) :
 
 	if len(code.strip()) == 0 : return chunk
 
-	if len(code) % 3 != 0 :
-		print (u"Error : code {} incorrect !".format(code))
-		exit(1)
+	code_segments = code.split(code_seperator)
+	if len(code_segments) % 3 != 0 : print ("input code incorrect !"); exit(1)
 
 	p_offset = 0
-	for i in range(0, len(code), 3) :
+	for i in range(0,len(code_segments),3) :
 		try :
 			#print i, len(chunk)
-			m, p, c = code[i], code[i+1], code[i+2]
+			m, p, c = code_segments[i:i+3]
 		except :
 			print (u"Bug in differential_decode : {}".format(code))
 			exit(1)
@@ -362,7 +372,7 @@ def main () :
 
 	enc = encoder_tones(options_obj)
 	[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
-	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"'{}' - '{}' -> '{}'\n".format(differential_decode(chunk, code), chunk, code));
+	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"'{}' - '{}' -> '{}'\n".format(differential_decode(chunk, code), chunk, rm_sep(code, code_seperator)));
 	enc.report()
 
 
