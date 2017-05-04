@@ -342,7 +342,6 @@ def differential_decode (chunk, code) :
 			except IndexError : r = ''
 			chunk = l + c + r
 			p_offset += 1
-			print p,p_eff,c
 		else : # 'replace'
 			try : l = chunk[: p_eff ]
 			except IndexError : l = ''
@@ -366,7 +365,5 @@ def main () :
 	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"'{}' - '{}' -> '{}'\n".format(differential_decode(chunk, code), chunk, code));
 	enc.report()
 
-	print differential_decode(u'ɛ', u'+0́')
-	print differential_decode(u'ɛ', u'+1́')
 
 if __name__ == "__main__" : main()
