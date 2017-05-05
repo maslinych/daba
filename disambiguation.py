@@ -328,10 +328,7 @@ def main():
 		trainer.set_params(tagger._training_options)
 		for sent in train_set:
 			tokens, labels = zip(*sent)
-			#if args.tone :
 			features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
-			#else :
-			#	features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
 			trainer.append(features, labels)
 		trainer.train(model=args.learn)
 		tagger.set_model_file(args.learn)
@@ -395,7 +392,7 @@ def main():
 
 						writer.writerow(row)
 						if sameCodes == True and sameForms == False :
-							print "Bug :"
+							print "Bug !!! "
 							print "token", row[0].decode('utf-8')
 							print "golden_form", row[1].decode('utf-8')
 							print "predicted_form", row[2].decode('utf-8')
@@ -412,96 +409,91 @@ def main():
 
 		# affichage avancé
 		if args.verbose:
-			pass 
+			pass
 			# print 'Compute detailed output'
 
-	elif args.disambiguate and args.mode and args.infile and args.outfile :
+	elif args.disambiguate and args.mode and args.infile and args.outfile and args.pos :
 
+		# Lecture de texte en .HTML
 		html_parser = FileParser()
 		tagger = CRFTagger()
 		try :
 			tagger.set_model_file(args.disambiguate)
 		except IOError:
 			print "Error : unable to open the model {} !".format(args.infile)
-                        exit(1)
+			exit(1)
 		try :
 			html_parser.read_file(args.infile)
 		except IOError:
 			print "Error : unable to open the input file {} !".format(args.infile)
 			exit(1)
 
-		# construction des données à être étiqueter
-		allsents = []
-		for sentence in html_parser.glosses :
-			sent = []
-			for token in sentence[2] :
-				sent.append(token.token)
-			allsents.append(sent)
+		# Étiquetage
+		
+		# désambiguïsation par la catégorie morphosyntaxique 
+		# mode 1 : une désambigïsation qui consiste à utiliser les étiquettes morphosyntaxiques prédites 
+		#          par un modèle CRF dont le fichier est précisé, pour ne conserver dans la liste d'options 
+		#          de gloses que celles contiennent la catégorie morphsyntaxique renseignée par la CRF
+		if int(args.mode) == 1 :
+			allsents = []
+			for sentence in html_parser.glosses :
+				sent = []
+				for token in sentence[2] :
+					sent.append(token.token)
+				allsents.append(sent)
 
-		# étiquettage par CRF
-		#######################################################
-		# code source de la méthode tag_sents(self, allsents) #
-		# de la classe CRFTagger(TaggerI)                     #
-		# du parquet nltk.tag.crf                             #
-		#                                                     #
-		# http://www.nltk.org/_modules/nltk/tag/crf.html      #
-		#######################################################
-		if tagger._model_file == '':
-			raise Exception(' No model file is found !! Please use train or set_model_file function')
+			result = []
+			for tokens in allsents:
+				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
+				labels = tagger._tagger.tag(features)
+				if len(labels) != len(tokens):
+					raise Exception(' Predicted Length Not Matched, Expect Errors !')
 
-		# We need the list of sentences instead of the list generator for matching the input and output
-		result = []
-		for tokens in allsents:
-			#if args.tone :
-			features = [_get_features_customised_for_tones(tokens,i) for i in range(len(tokens))]
-			#else:
-			#	features = [tagger._get_features(tokens, i) for i in range(len(tokens))]
+				tagged_sent = list(zip(tokens,labels))
+				result.append(tagged_sent)
+			tagged_sents = result
 
-			labels = tagger._tagger.tag(features)
-			# fonctions à appeler pour les modes 2 & 3
-			# tagger._tagger.set(features)
-			# tagger._tagger.probability(tags)
+			# Exportation du résultat de désambiguïsation en .HTML
+			for snum, sentence in enumerate(html_parser.glosses) :
+				if args.Debug :
+					sys.stdout.write(u"Phrase °" + str(snum) + "\n")
+				for tnum, token in enumerate(sentence[2]) :
+					if args.Debug :
+						sys.stdout.write(u"\t token °{}:\'{}\', \'{}\'".\
+							format(tnum,token.token, token.gloss) + "\n")
+					options_to_conserve = list()
+					ps_predicted =  (tagged_sents[snum][tnum][1].decode('utf-8'),)
+					if token.value and len(token.value) > 2:
+						for nopt, option in enumerate(token.value[2]) :
+							if args.Debug :
+								sys.stdout.write(u"\t\t")
+							if option.ps == ps_predicted : 
+								options_to_conserve.append(option)
+								if args.Debug :
+									sys.stdout.write('*')
+							else : 
+								if args.Debug :
+									sys.stdout.write(' ')
+							if args.Debug :
+								sys.stdout.write(u"option °{}\'{}\',\'{}\',\'{}\'\n".\
+									format(nopt, option.ps, option.form, option.gloss))
+						if options_to_conserve :
+							html_parser.glosses[snum][1][tnum] = options_to_conserve
+				print ""
 
-			if len(labels) != len(tokens):
-				raise Exception(' Predicted Length Not Matched, Expect Errors !')
+			try :
+				html_parser.write(args.outfile)
+			except IOError:
+				print "Error : unable to create the output file {}".format(args.outfile)
 
-			tagged_sent = list(zip(tokens,labels))
-			result.append(tagged_sent)
-		tagged_sents = result
-
-		# sauvergardage
-		for snum, sentence in enumerate(html_parser.glosses) :
-			#print u"phrase °" + str(snum)
-			for tnum, token in enumerate(sentence[2]) :
-				#sys.stdout.write(u"\t token °{}:\'{}\', \'{}\'".\
-				#	format(tnum,token.token, token.gloss.ps) + "\n")
-				if token.value and len(token.value) > 2:
-					for nopt, option in enumerate(token.value[2]) :
-						pass
-					 	#sys.stdout.write(u"\t\t option °{}\'{}\',\'{}\',\'{}\'\n".\
-						#	format(nopt, option.ps, option.form, option.gloss))
-					# ceci est un exemple qui montre comment intégrer un résultat de désambiguïsation
-					# dans un fichier HTML de sortie, en soumettant à l'objet une nouvelle liste des
-					# gloses pour chaque token donnée
-					#option2 = Gloss(token.token, 'x', '', '')
-					ps =  (tagged_sents[snum][tnum][1].decode('utf-8'),)
-					# format Gloss (token, pos, glose, morpheme)
-
-					# print type(token.token), type(ps[0]); input()
-
-					option2 = Gloss(token.token, ps, '', '')
-					print option2, option
-					html_parser.glosses[snum][1][tnum] = [option2]
-			print ""
-
-		try :
-			html_parser.write(args.outfile)
-		except IOError:
-			print "Error : unable to create the output file {}".format(args.outfile)
-
+		else :
+			if args.mode == 2 or args.mode == 3 :
+				print ("Warning : modes 2 & 3 in developement ... ")
+			else :
+				print ("Error : the disambiguation mode you choosed is inexistant !")
+				exit(1)
 
 	else :
-		# show script usage
 		aparser.print_help()
 
 	if args.verbose :
