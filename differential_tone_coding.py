@@ -28,7 +28,7 @@ def repr (c, null = "") :
 
 def rm_sep(str_in, seprator_in = code_seperator):
 	try :
-		return str_in.replace(seprator_in, u" ")
+		return str_in.replace(seprator_in, u"")
 	except:
 		try :
 			return str_in.decode('utf-8').replace(seprator_in,u" ").encode('utf-8')
@@ -76,27 +76,28 @@ def reshaping (token, strip_tones = True) :
 
 def mode_position_encoder (token, position, mode_id, chunks, offset = 0, code_seperator_in = code_seperator) :
 
-	position_eff = position + offset
-	position_in_token = 0
-	chunk_id = 0
-	chunk_position = 0
 	mode_indicator = mode_indicators[mode_id]
-	for i,c in enumerate(token) :
-		if position_in_token >= position_eff:
-			mp_code = mode_indicator + code_seperator_in  + str(chunk_position)
-			return [mp_code, chunk_id]
-		position_in_token += 1
-		chunk_position += 1
-		if i == len(token) - 1:
-			mp_code = mode_indicator + code_seperator_in  + str(chunk_position)
-			return [mp_code, chunk_id - 1]
-		if chunk_position >= len(chunks[chunk_id]):
-			chunk_id += 1
-			chunk_position = 0
-			position_caracter = 0
-			position_others = 0
+	caracter_position_in_token = position + offset
+	caracter_position_in_chunk = 0
+	chunk_id = 0
+	if mode_id == mode_names.index('insert') :
+		chunk_position_limit_offset = 1
+	else :
+		chunk_position_limit_offset = 0
+	chunk_position_limit = len(chunks[chunk_id]) + chunk_position_limit_offset
 
-	return [None,None]
+	for i in range(len(token) + 1):
+		if i == caracter_position_in_token:
+			mp_code = mode_indicator + code_seperator_in + str(caracter_position_in_chunk)
+			return [mp_code, chunk_id]
+
+		caracter_position_in_chunk += 1
+		if caracter_position_in_chunk == chunk_position_limit :
+			chunk_id += 1
+			caracter_position_in_chunk = chunk_position_limit_offset
+			chunk_position_limit = len(chunks[chunk_id]) + chunk_position_limit_offset
+
+	return [None, None]
 
 def entropy2 (dic, cnty, cntx, mode = 'token', unit = 'shannon') :
 
@@ -380,8 +381,8 @@ def differential_decode (chunk, code) :
 
 def main () :
 
-	form_non_tonal = u'eeeée'
-	form_tonal     = u'àeèàé'
+	form_non_tonal = u'éce'
+	form_tonal     = u'àcé'
 	options_obj = options()
 
 	print "src : ", reshaping(form_non_tonal, False)
@@ -389,6 +390,17 @@ def main () :
 
 	enc = encoder_tones(options_obj)
 	[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
+	form_tonal_reproduit = repr(''.join([differential_decode(chunk, code) for code,chunk in zip(codes,chunks)]))
+
+	print form_tonal_reproduit
+
+	if unicodedata.normalize('NFC', form_tonal_reproduit) == \
+	   unicodedata.normalize('NFC', form_tonal) :
+		print "Oui, le codage marche !"
+	else:
+		print "Héhé, un problème de codage !"
+		print form_tonal,len(form_tonal)
+		print form_tonal_reproduit,len(form_tonal)
 	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"'{}' - '{}' -> '{}'\n".format(differential_decode(chunk, code), chunk, repr(code)));
 	enc.report()
 
