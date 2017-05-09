@@ -9,15 +9,22 @@
 # Trois modèles sont possibles : les POS, les tons, les gloses
 
 # todo:
-# 1. implémenter un décoder de tones qui consiste à reconstruire la forme tonal à partir du token et le code tonal qui lui est associé
-#    par l'encodeur précédemment.
-# 2. rapport de statistique plus lisible +
-# 3. tableau de sortie .csv auquel une collone de form_tonal est ajouté
-# 4. à propos de l'interface de désambiguisation :
+# * à propos de l'interface de désambiguisation :
 #	mode 3 : afficher la probabilité pour chacun d'une liste des tokens proposés à la place d'un mot d'une phrase
 #		 une marginalisation est nécessaire pour obtenir la propabilité d'un choix de token sur une phrase. Le but
 #		 est d'ordonner les éléments de chaque liste par leurs probabilités d'apparition en tenant compte du modèle CRF,
 #		 qui associe à chaque mot un contexte de phrase, et qui donne l'ensemble des étiquettes pour une phrase
+# * petit rapport sur les distributions de caractères et leurs natures dans le corpus
+# * mode désambiguïsation --order, --select
+#   (afin de pouvoir choisir entre la suppression des options et la réordonnance par pertinence des options)
+# * réaliser le mode 3
+# * expérimentaiton sur l'apprentissage joint du ton et des PdD (POS an anglais)
+# * désambiguïsation des tons et de PdD
+#
+# * enregistrement et téléverser
+# * models produits /models/pos_exactitude_0p92.mod
+# * models produits /models/tone_exactitude_0p91.mod
+# * avec un fihier in et un fichier out
 #
 # des RDV. prévus
 # mercredi 17 mai à 14 : 30
@@ -73,8 +80,8 @@ def main():
 	aparser.add_argument('-m', '--mode'        , help='Disambuigation mode' , default=1)
 	# les trois modes de désambiugisation sont
 	# mode 1 : étiquetage par la sortie CRF
-	# mode 2 : séléctionne la phrase la plus probable (d'après la CRF) de la liste des glosses
-	# mode 3 : présenter toutes les possibilités avec leur probabilité donnée par la CRF
+	# mode 2 : séléctionner la phrase la plus probable (d'après la CRF) de la liste des glosses
+	# mode 3 : présenter toutes les possibilités avec leur probabilité donnée par la CRF puis ordonner la liste
 
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
