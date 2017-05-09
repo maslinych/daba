@@ -14,27 +14,27 @@ from syllables import syllabify
 
 # Constant lists
 markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
-lst_vowels                 = u'aeiouɛəɑœɔø'
 token_seperator = u'_'
 code_seperator = u'_'
 mode_indicators = u'-+='
 mode_names   = [u"delete",u"insert",u"replace"]
 
-markers_to_be_ignored = u"[]." + code_seperator
+
+markers_to_be_ignored = u"[]. ̀’'-" + code_seperator
 
 def repr (c, null = "") :
 	if not c : return null
 	else : return rm_sep(c)
 
-def rm_sep(str_in, seprator_in = code_seperator):
+def rm_sep(str_in, seprator_in = code_seperator, replacing = u''):
 	try :
 		return str_in.replace(seprator_in, u"")
 	except:
 		try :
-			return str_in.decode('utf-8').replace(seprator_in,u" ").encode('utf-8')
+			return str_in.decode('utf-8').replace(seprator_in, replacing).encode('utf-8')
 		except :
 			try :
-				return str_in.encode('utf-8').replace(seprator_in,u" ").decode('utf-8')
+				return str_in.encode('utf-8').replace(seprator_in, replacing).decode('utf-8')
 			except :
 				raise
 
