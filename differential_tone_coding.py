@@ -16,7 +16,7 @@ token_seperator = u'_'
 code_seperator = u'_'
 mode_indicators = u'-+='
 mode_names   = [u"delete",u"insert",u"replace"]
-markers_to_be_ignored = u"[]. ̀-" + code_seperator
+markers_to_be_ignored = u"[].-" + code_seperator
 markers_to_be_replaced = {u"’":u"'"}
 
 def _get_features_customised_for_tones(tokens, idx):

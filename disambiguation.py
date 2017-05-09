@@ -20,9 +20,7 @@
 #		 qui associe à chaque mot un contexte de phrase, et qui donne l'ensemble des étiquettes pour une phrase
 #
 # des RDV. prévus
-# 	le 9 mai à 12 heures
-#	le 10 mai à 15 heures
-#
+# mercredi 17 mai à 14 : 30
 
 import sys, re, codecs, glob, time, os
 import argparse
@@ -31,14 +29,13 @@ import collections
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
-from differential_tone_coding import encoder_tones, chunking, options, reshaping, differential_decode, rm_sep, code_seperator,repr, token_seperator
+from differential_tone_coding import encoder_tones, options, reshaping, repr, token_seperator, _get_features_customised_for_tones
 import unicodedata
 import pycrfsuite
 import csv
 import nltk.tag.util
 import itertools
 from nltk.metrics.scores import accuracy
-from syllables import vowels
 
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
@@ -61,130 +58,6 @@ def get_duration(t1_secs, t2_secs) :
 	minutes = secs // 60 - hours * 60 - days * 60 * 24
 	secondes = int(secs) % 60
 	return '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(days, hours, minutes, secondes)
-
-def _get_features_customised_for_tones(tokens, idx):
-
-	feature_list = []
-
-	if not tokens:
-		return feature_list
-
-	try :
-		token = tokens[idx]
-	except IndexError :
-		raise
-
-	# positon du syllabe actuel et préfixe et suffixe du même mot
-	lst = []
-	for i in range(idx, len(tokens) + 1, 1) :
-		try :
-			if tokens[i] == token_seperator :
-				lst.append(i)
-				if len(lst) >= 2 :
-					break
-		except IndexError :
-			lst.append(i)
-			break
-
-	try :
-		feature_list.append("SYLLABE_ID1_" + str(lst[0] - idx))
-	except :
-		pass
-
-	try :
-		feature_list.append("SUFFIXE_ACTUEL_" + tokens(lst[0] - 1))
-	except :
-		pass
-
-	lst2 = []
-	for i in range(idx, -2, -1) :
-		try :
-			if tokens[i] == token_seperator :
-				lst2.append(i)
-				if len(lst2) >= 2 :
-					break
-		except IndexError :
-			lst2.append(i)
-			break
-
-	try :
-		feature_list.append("SYLLABE_ID2_" + str(idx - lst2[0]))
-	except :
-		pass
-
-	try :
-		feature_list.append("PREFIXE_ACTUEL_" + tokens(lst2[0] + 1))
-	except :
-		pass
-
-	# préfixe et suffixe du mots précédent et suivant dans la même phrase
-	try :
-		prefixe_du_mot_suivant = tokens[lst[0] + 1]
-		feature_list.append("PREFIXE_SUIVANT_" + prefixe_du_mot_suivant)
-	except IndexError :
-		pass
-	try :
-		suffixe_du_mot_precedent = tokens[lst2[0] - 1]
-		feature_list.append("SUFFIXE_PRECEDENT_" + suffixe_du_mot_precedent)
-	except IndexError:
-		pass
-
-	try :
-		suffixe_du_mot_suivant  = tokens[lst[1] - 1]
-		feature_list.append("SUFFIXE_SUIVANT_" + suffixe_du_mot_suivant)
-	except IndexError :
-		pass
-	try :
-		prefixe_du_mot_precedent = tokens[lst2[1] + 1]
-		feature_list.append("PREFIXE_PRECEDENT_" + prefixe_du_mot_precedent)
-	except IndexError :
-		pass
-
-	# Capitalization
-	if token[0].isupper():
-		feature_list.append('CAPITALIZATION')
-
-	# Number
-	if re.search(r'\d', token) is not None:
-		feature_list.append('IL_Y_A_UN_CHIFFRE')
-
-	# Punctuation
-	punc_cat = set(["Pc", "Pd", "Ps", "Pe", "Pi", "Pf", "Po"])
-	if all (unicodedata.category(x) in punc_cat for x in token):
-		feature_list.append('PONCTUATION_PURE')
-
-	# Voyelles
-	voyelles = ""
-	for c in token :
-		if c.lower() in vowels:
-			voyelles += c
-	feature_list.append('VOYELLES_'+ voyelles)
-
-	# Syllabes précédent et suivant
-	try :
-		feature_list.append('SYLLABE_PRECEDENT_' + token[idx - 1])
-	except IndexError :
-		pass
-
-	try :
-		feature_list.append('SYLLABE_SUIVANT_' + token[idx + 1])
-	except IndexError :
-		pass
-
-	feature_list.append('SYLLABE_ACTUEL_' + (token))
-
-	# Suffix & prefix up to length 3
-	if len(token) > 1:
-		feature_list.append('SUF_' + token[-1:])
-		feature_list.append('PRE_' + token[:1])
-	if len(token) > 2:
-		feature_list.append('SUF_' + token[-2:])
-		feature_list.append('PRE_' + token[:2])
-	if len(token) > 3:
-		feature_list.append('SUF_' + token[-3:])
-		feature_list.append('PRE_' + token[:3])
-
-	return feature_list
 
 def main():
 
@@ -379,8 +252,8 @@ def main():
 						token = g[0]
 						golden_code =  g[-1]
 						predicted_code =  t[-1]
-						golden_form = differential_decode(token, golden_code.decode('utf-8'))
-						predicted_form = differential_decode(token, predicted_code.decode('utf-8'))
+						golden_form = enc.differential_decode(token, golden_code.decode('utf-8'))
+						predicted_form = enc.differential_decode(token, predicted_code.decode('utf-8'))
 						sameCodes = (golden_code == predicted_code)
 						sameForms = (golden_form == predicted_form)
 
@@ -501,7 +374,7 @@ def main():
 		aparser.print_help()
 
 	if args.verbose :
-		if args.store : print ("result exported in {}.".format(args.store))
+		if args.store : print ("result exported in {}".format(args.store))
 
 	exit(0)
 
