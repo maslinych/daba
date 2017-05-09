@@ -4,13 +4,11 @@
 import sys, math, unicodedata
 from collections import Counter, defaultdict
 import Levenshtein
-from syllables import syllabify
+from syllables import syllabify, vowels
+import re
 
 # Installation of prerequisites
 # sudo pip install python-Levenshtein
-
-# todo :
-# implement a new version of tone decoder
 
 # Constant lists
 markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
@@ -18,7 +16,132 @@ token_seperator = u'_'
 code_seperator = u'_'
 mode_indicators = u'-+='
 mode_names   = [u"delete",u"insert",u"replace"]
-markers_to_be_ignored = u"[]. ̀’'-" + code_seperator
+markers_to_be_ignored = u"[]. ̀-" + code_seperator
+markers_to_be_replaced = {u"’":u"'"}
+
+def _get_features_customised_for_tones(tokens, idx):
+
+	feature_list = []
+
+	if not tokens:
+		return feature_list
+
+	try :
+		token = tokens[idx]
+	except IndexError :
+		raise
+
+	# positon du syllabe actuel et préfixe et suffixe du même mot
+	lst = []
+	for i in range(idx, len(tokens) + 1, 1) :
+		try :
+			if tokens[i] == token_seperator :
+				lst.append(i)
+				if len(lst) >= 2 :
+					break
+		except IndexError :
+			lst.append(i)
+			break
+
+	try :
+		feature_list.append("SYLLABE_ID1_" + str(lst[0] - idx))
+	except :
+		pass
+
+	try :
+		feature_list.append("SUFFIXE_ACTUEL_" + tokens(lst[0] - 1))
+	except :
+		pass
+
+	lst2 = []
+	for i in range(idx, -2, -1) :
+		try :
+			if tokens[i] == token_seperator :
+				lst2.append(i)
+				if len(lst2) >= 2 :
+					break
+		except IndexError :
+			lst2.append(i)
+			break
+
+	try :
+		feature_list.append("SYLLABE_ID2_" + str(idx - lst2[0]))
+	except :
+		pass
+
+	try :
+		feature_list.append("PREFIXE_ACTUEL_" + tokens(lst2[0] + 1))
+	except :
+		pass
+
+	# préfixe et suffixe du mots précédent et suivant dans la même phrase
+	try :
+		prefixe_du_mot_suivant = tokens[lst[0] + 1]
+		feature_list.append("PREFIXE_SUIVANT_" + prefixe_du_mot_suivant)
+	except IndexError :
+		pass
+	try :
+		suffixe_du_mot_precedent = tokens[lst2[0] - 1]
+		feature_list.append("SUFFIXE_PRECEDENT_" + suffixe_du_mot_precedent)
+	except IndexError:
+		pass
+
+	try :
+		suffixe_du_mot_suivant  = tokens[lst[1] - 1]
+		feature_list.append("SUFFIXE_SUIVANT_" + suffixe_du_mot_suivant)
+	except IndexError :
+		pass
+	try :
+		prefixe_du_mot_precedent = tokens[lst2[1] + 1]
+		feature_list.append("PREFIXE_PRECEDENT_" + prefixe_du_mot_precedent)
+	except IndexError :
+		pass
+
+	# Capitalization
+	if token[0].isupper():
+		feature_list.append('CAPITALIZATION')
+
+	# Number
+	if re.search(r'\d', token) is not None:
+		feature_list.append('IL_Y_A_UN_CHIFFRE')
+
+	# Punctuation
+	punc_cat = set(["Pc", "Pd", "Ps", "Pe", "Pi", "Pf", "Po"])
+	if all (unicodedata.category(x) in punc_cat for x in token):
+		feature_list.append('PONCTUATION_PURE')
+
+	# Voyelles
+	voyelles = ""
+	for c in token :
+		if c.lower() in vowels:
+			voyelles += c
+	feature_list.append('VOYELLES_'+ voyelles)
+
+	# Syllabes précédent et suivant
+	try :
+		feature_list.append('SYLLABE_PRECEDENT_' + token[idx - 1])
+	except IndexError :
+		pass
+
+	try :
+		feature_list.append('SYLLABE_SUIVANT_' + token[idx + 1])
+	except IndexError :
+		pass
+
+	feature_list.append('SYLLABE_ACTUEL_' + (token))
+
+	# Suffix & prefix up to length 3
+	if len(token) > 1:
+		feature_list.append('SUF_' + token[-1:])
+		feature_list.append('PRE_' + token[:1])
+	if len(token) > 2:
+		feature_list.append('SUF_' + token[-2:])
+		feature_list.append('PRE_' + token[:2])
+	if len(token) > 3:
+		feature_list.append('SUF_' + token[-3:])
+		feature_list.append('PRE_' + token[:3])
+
+	return feature_list
 
 def repr (c, null = "") :
 	if not c : return null
@@ -63,6 +186,8 @@ def reshaping (token, strip_tones = True) :
 	référence :
 	http://stackoverflow.com/questions/517923/what-is-the-best-way-to-remove-accents-in-a-python-unicode-string
 	"""
+
+	for k in markers_to_be_replaced.keys() : token = token.replace(k, markers_to_be_replaced[k])
         token = unicodedata.normalize('NFD', token)
 
 	if strip_tones :
@@ -337,52 +462,57 @@ class encoder_tones () :
 	def report (self) :
 		print self.stat.__str__()
 
-def differential_decode (chunk, code) :
+	def differential_decode (self, chunk, code) :
 
-	chunk = u"".join([c for c in chunk if c not in markers_to_be_ignored])
+		if self.options.SHAPING_TOKEN_IN :
+			chunk = reshaping(chunk, True)
+		else:
+			chunk = reshaping(chunk, False)
 
-	if len(code.strip()) == 0 : return chunk
+		chunk = reshaping(chunk, False)
 
-	code_segments = code.split(code_seperator)
-	if len(code_segments) % 3 != 0 : print (code_segments) ; print ("input code incorrect !"); exit(1)
+		if len(code.strip()) == 0 : return chunk
 
-	p_offset = 0
-	for i in range(0,len(code_segments),3) :
-		try :
-			#print i, len(chunk)
-			m, p, c = code_segments[i:i+3]
-		except :
-			print (u"Bug in differential_decode : {}".format(code))
-			exit(1)
+		code_segments = code.split(code_seperator)
+		if len(code_segments) % 3 != 0 : print (code_segments) ; print ("input code incorrect !"); exit(1)
 
-		p_eff = int(p) + p_offset
-		if m == mode_indicators[mode_names.index('delete')] :
-			try : l = chunk[: p_eff]
-			except IndexError : l = ''
-			try : r = chunk[p_eff + 1 :]
-			except IndexError : r = ''
-			chunk = l + r
-			p_offset -= 1
-		elif m == mode_indicators[mode_names.index('insert')] :
-			try : l = chunk[: p_eff]
-			except IndexError : l = ''
-			try : r = chunk[p_eff  :]
-			except IndexError : r = ''
-			chunk = l + c + r
-			p_offset += 1
-		else : # 'replace'
-			try : l = chunk[: p_eff ]
-			except IndexError : l = ''
-			try : r = chunk[p_eff + 1 :]
-			except IndexError : r = ''
-			chunk = l + c + r
+		p_offset = 0
+		for i in range(0,len(code_segments),3) :
+			try :
+				#print i, len(chunk)
+				m, p, c = code_segments[i:i+3]
+			except :
+				print (u"Bug in differential_decode : {}".format(code))
+				exit(1)
 
-	return chunk
+			p_eff = int(p) + p_offset
+			if m == mode_indicators[mode_names.index('delete')] :
+				try : l = chunk[: p_eff]
+				except IndexError : l = ''
+				try : r = chunk[p_eff + 1 :]
+				except IndexError : r = ''
+				chunk = l + r
+				# p_offset -= 1
+			elif m == mode_indicators[mode_names.index('insert')] :
+				try : l = chunk[: p_eff]
+				except IndexError : l = ''
+				try : r = chunk[p_eff  :]
+				except IndexError : r = ''
+				chunk = l + c + r
+				p_offset += 1
+			else : # 'replace'
+				try : l = chunk[: p_eff ]
+				except IndexError : l = ''
+				try : r = chunk[p_eff + 1 :]
+				except IndexError : r = ''
+				chunk = l + c + r
+
+		return chunk
 
 def main () :
 
-	form_non_tonal = u'éce'
-	form_tonal     = u'àcé'
+	form_non_tonal = u'yere'
+	form_tonal     = u'yɛrɛ̂'
 	options_obj = options()
 
 	print "src : ", reshaping(form_non_tonal, False)
@@ -390,7 +520,9 @@ def main () :
 
 	enc = encoder_tones(options_obj)
 	[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
-	form_tonal_reproduit = repr(''.join([differential_decode(chunk, code) for code,chunk in zip(codes,chunks)]))
+
+	form_tonal_reproduit = repr(''.join([enc.differential_decode(chunk, code) for code,chunk in zip(codes,chunks)]))
+
 
 	print form_tonal_reproduit
 
@@ -401,7 +533,7 @@ def main () :
 		print "Héhé, un problème de codage !"
 		print form_tonal,len(form_tonal)
 		print form_tonal_reproduit,len(form_tonal)
-	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"'{}' - '{}' -> '{}'\n".format(differential_decode(chunk, code), chunk, repr(code)));
+	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"'{}' - '{}' -> '{}'\n".format(enc.differential_decode(chunk, code), chunk, repr(code)));
 	enc.report()
 
 
