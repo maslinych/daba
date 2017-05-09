@@ -18,8 +18,6 @@ token_seperator = u'_'
 code_seperator = u'_'
 mode_indicators = u'-+='
 mode_names   = [u"delete",u"insert",u"replace"]
-
-
 markers_to_be_ignored = u"[]. ̀’'-" + code_seperator
 
 def repr (c, null = "") :
@@ -340,6 +338,8 @@ class encoder_tones () :
 		print self.stat.__str__()
 
 def differential_decode (chunk, code) :
+
+	chunk = u"".join([c for c in chunk if c not in markers_to_be_ignored])
 
 	if len(code.strip()) == 0 : return chunk
 
