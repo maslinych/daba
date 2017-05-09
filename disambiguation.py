@@ -31,13 +31,14 @@ import collections
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
-from differential_tone_coding import encoder_tones, chunking, options, lst_vowels, reshaping, differential_decode, rm_sep, code_seperator,repr, token_seperator
+from differential_tone_coding import encoder_tones, chunking, options, reshaping, differential_decode, rm_sep, code_seperator,repr, token_seperator
 import unicodedata
 import pycrfsuite
 import csv
 import nltk.tag.util
 import itertools
 from nltk.metrics.scores import accuracy
+from syllables import vowels
 
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
@@ -155,7 +156,7 @@ def _get_features_customised_for_tones(tokens, idx):
 	# Voyelles
 	voyelles = ""
 	for c in token :
-		if c.lower() in lst_vowels:
+		if c.lower() in vowels:
 			voyelles += c
 	feature_list.append('VOYELLES_'+ voyelles)
 
@@ -359,8 +360,8 @@ def main():
 		test_tokens = list(itertools.chain(*tagged_sents))
 
 		# not to evalute the token seperators
-		gold_tokens = [x for x in gold_tokens if x[0] != token_seperator]
-		test_tokens = [x for x in test_tokens if x[0] != token_seperator]
+		gold_tokens_eval = [x for x in gold_tokens if x[0] != token_seperator]
+		test_tokens_eval = [x for x in test_tokens if x[0] != token_seperator]
 
 		paired_tokens = [(g[0], \
 				g[-1], \
@@ -382,6 +383,9 @@ def main():
 						predicted_form = differential_decode(token, predicted_code.decode('utf-8'))
 						sameCodes = (golden_code == predicted_code)
 						sameForms = (golden_form == predicted_form)
+
+						if not repr(token.encode('utf-8')) :
+							sameCodes = u''
 						row = [\
 							repr(token.encode('utf-8')), \
 							repr(golden_form.encode('utf-8')), \
@@ -405,7 +409,7 @@ def main():
 					csvfile.close()
 				except :
 					print "unable to dump result in CSV file to create !"
-		print accuracy(gold_tokens, test_tokens)
+		print accuracy(gold_tokens_eval, test_tokens_eval)
 
 		# affichage avancé
 		if args.verbose:
