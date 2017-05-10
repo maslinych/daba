@@ -151,7 +151,7 @@ def main():
 
 								if '|' not in token.gloss.form :
 									[codes, chunks] = enc.differential_encode(token.token, token.gloss.form)
-									if args.verbose and args.Debug:
+									if args.verbose and args.Debug :
 										sys.stdout.write(u"{} -> {}\n".format(token.token, token.gloss.form))
 									chunk_id = 0
 									for chunk, code in zip(chunks, codes) :
@@ -240,14 +240,29 @@ def main():
 		test_tokens = list(itertools.chain(*tagged_sents))
 
 		# not to evalute the token seperators
-		gold_tokens_eval = [x for x in gold_tokens if x[0] != token_seperator]
-		test_tokens_eval = [x for x in test_tokens if x[0] != token_seperator]
+		gold_tokens_eval = []
+		test_tokens_eval = []
+		gold_buf = ""
+		test_buf = ""
+		for x,y in zip(gold_tokens, test_tokens) :
+			if x[0] != token_seperator :
+				gold_buf += x[1]
+				test_buf += y[1]
+			else :
+				gold_tokens_eval.append(gold_buf)
+				test_tokens_eval.append(test_buf)
+				gold_buf = ""
+				test_buf = ""
+		if gold_buf :
+			gold_tokens_eval.append(gold_buf)
+			test_tokens_eval.append(test_buf)
 
+		"""
 		paired_tokens = [(g[0], \
 				g[-1], \
 				test_tokens[i][-1]) \
 				for i, g in enumerate(gold_tokens)]
-
+		"""
 		# exportation du résultat d'étiquetage en fichier csv
 		if args.store :
 			if args.tone :
