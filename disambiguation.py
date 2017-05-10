@@ -91,7 +91,7 @@ def main():
 	aparser.add_argument('-R', '--Ratio', help='Percent of total data to use for training and test', default=1)
 	aparser.add_argument('-D', '--Debug', help='Verbose output for debug', default=False, action='store_true')
 	#aparser.add_argument('--no_replacement', help='REMPLACEMENT_INTERDIT', default=False, action='store_true')
-	#aparser.add_argument('--decompose', help='DECOMPOSE_OPS_FOR_TONES', default=False, action='store_true')
+	aparser.add_argument('--decompose', help='DECOMPOSE_OPS_FOR_TONES', default=False, action='store_true')
 	aparser.add_argument('--only_tones', help='ONLY_TONE_PREDICTION', default=False, action='store_true')
 	#aparser.add_argument('--shaping_token', help='SHAPING_TOKEN_IN', default=False, action='store_true')
 
@@ -118,7 +118,7 @@ def main():
 			try :
 				options_obj = options(\
 					False,\
-					False,\
+					args.decompose,\
 					args.only_tones,\
 					False)
 				enc = encoder_tones(options_obj)
@@ -126,8 +126,6 @@ def main():
 				enc = None
 				print ("error : unable to initialize the tone encoder !")
 		# verbose :
-		if args.verbose :
-			cnt_ambiguity_phonetic = 0
 		print 'Open files and find features / supervision tags'
 		for infile in allfiles.split(','):
 			if(len(infile)) :
@@ -166,14 +164,6 @@ def main():
 
 									if args.verbose and args.Debug:
 										print ""
-								else :
-									cnt_ambiguity_phonetic += 1
-
-								# debug
-								motcle = "daminè"
-								if u"damin" in token.token :
-									sys.stdout.write(u"{} -> {}\n".format(token.token, token.gloss.form))
-									#exit()
 
 							elif args.gloss:
 								tags += token.gloss.gloss.encode('utf-8')
@@ -186,7 +176,6 @@ def main():
 		if args.verbose :
 			if args.tone :
 				enc.report()
-			print u"Nombre de token ayant une forme tonale phonétiquement variée ou ambiguë :", cnt_ambiguity_phonetic
 			print u"Cette expérience porte sur {:>4.2f} % de l'ensembles des corpus diponibles".format(float(args.Ratio)*100.0)
 			print ""
 			print args
@@ -292,8 +281,8 @@ def main():
 							repr(token.encode('utf-8')), \
 							repr(golden_form.encode('utf-8')), \
 							repr(predicted_form.encode('utf-8')), \
-							" " + repr(golden_code), \
-							" " + repr(predicted_code), \
+							repr(golden_code, spaces=True), \
+							repr(predicted_code, spaces=True), \
 							sameCodes]
 
 						writer.writerow(row)
@@ -373,11 +362,11 @@ def main():
 						for nopt, option in enumerate(token.value[2]) :
 							if args.Debug :
 								sys.stdout.write(u"\t\t")
-							if option.ps == ps_predicted : 
+							if option.ps == ps_predicted :
 								options_to_conserve.append(option)
 								if args.Debug :
 									sys.stdout.write('*')
-							else : 
+							else :
 								if args.Debug :
 									sys.stdout.write(' ')
 							if args.Debug :
