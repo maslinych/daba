@@ -90,10 +90,10 @@ def main():
 	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for research purposes', default=None)
 	aparser.add_argument('-R', '--Ratio', help='Percent of total data to use for training and test', default=1)
 	aparser.add_argument('-D', '--Debug', help='Verbose output for debug', default=False, action='store_true')
-	aparser.add_argument('--no_replacement', help='REMPLACEMENT_INTERDIT', default=False, action='store_true')
-	aparser.add_argument('--decompose', help='DECOMPOSE_OPS_FOR_TONES', default=False, action='store_true')
+	#aparser.add_argument('--no_replacement', help='REMPLACEMENT_INTERDIT', default=False, action='store_true')
+	#aparser.add_argument('--decompose', help='DECOMPOSE_OPS_FOR_TONES', default=False, action='store_true')
 	aparser.add_argument('--only_tones', help='ONLY_TONE_PREDICTION', default=False, action='store_true')
-	aparser.add_argument('--shaping_token', help='SHAPING_TOKEN_IN', default=False, action='store_true')
+	#aparser.add_argument('--shaping_token', help='SHAPING_TOKEN_IN', default=False, action='store_true')
 
 	args = aparser.parse_args()
 	if args.verbose :
@@ -117,10 +117,10 @@ def main():
 		if args.tone :
 			try :
 				options_obj = options(\
-					args.no_replacement,\
-					args.decompose,\
+					False,\
+					False,\
 					args.only_tones,\
-					args.shaping_token)
+					False)
 				enc = encoder_tones(options_obj)
 			except :
 				enc = None
