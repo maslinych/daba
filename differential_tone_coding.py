@@ -431,10 +431,11 @@ class encoder_tones () :
 				      (self.options.ONLY_TONE_PREDICTION and (self.dst[self.p_dst] in markers_tone)) :
 
 					if self.options.REMPLACEMENT_INTERDIT or \
-					   (self.dst[self.p_dst] in markers_tone and self.options.DECOMPOSE_OPS_FOR_TONES) :
+					   ((self.dst[self.p_dst] in markers_tone or \
+					     self.src[self.p_src] in markers_tone) and self.options.DECOMPOSE_OPS_FOR_TONES) :
 
-						self.delete()
 						self.insert()
+						self.delete()
 					else :
 						self.replace()
 
@@ -492,7 +493,7 @@ class encoder_tones () :
 				try : r = chunk[p_eff + 1 :]
 				except IndexError : r = ''
 				chunk = l + r
-				# p_offset -= 1
+				p_offset -= 1
 			elif m == mode_indicators[mode_names.index('insert')] :
 				try : l = chunk[: p_eff]
 				except IndexError : l = ''
@@ -501,40 +502,47 @@ class encoder_tones () :
 				chunk = l + c + r
 				p_offset += 1
 			else : # 'replace'
-				try : l = chunk[: p_eff ]
+				try : l = chunk[: p_eff]
 				except IndexError : l = ''
 				try : r = chunk[p_eff + 1 :]
 				except IndexError : r = ''
+
 				chunk = l + c + r
 
 		return chunk
 
 def main () :
 
-	form_non_tonal = u'yere'
-	form_tonal     = u'yɛrɛ̂'
-	options_obj = options()
+	forms_non_tonal = [u'tò',u'yerehré',u'ò',u'e', u'òhehòhe', u'òhòh',u'ohoh',u'ehe', u'tò',u'hééh',u'heeh',u'hèé']
+	forms_tonal     = [u'tɔ',u'yɛrɛ̂hre',u'o',u'é', u'ohéhohé', u'ohoh',u'òhòh',u'ebe',u'tɔ',u'heeh',u'hééh',u'héè']
 
-	print "src : ", reshaping(form_non_tonal, False)
-	print "dst : ", reshaping(form_tonal    , False)
-
+	options_obj = options(DECOMPOSE_OPS_FOR_TONES=False)
 	enc = encoder_tones(options_obj)
-	[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
+	
+	cnt_fail = 0
+	for form_non_tonal,form_tonal in zip(forms_non_tonal, forms_tonal) : 
+		print "src : ", reshaping(form_non_tonal, False)
+		print "dst : ", reshaping(form_tonal    , False)
+		[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
+		form_tonal_reproduit = repr(''.join([enc.differential_decode(chunk, code) for code,chunk in zip(codes,chunks)]))
 
-	form_tonal_reproduit = repr(''.join([enc.differential_decode(chunk, code) for code,chunk in zip(codes,chunks)]))
+		print form_tonal_reproduit
 
-
-	print form_tonal_reproduit
-
-	if unicodedata.normalize('NFC', form_tonal_reproduit) == \
-	   unicodedata.normalize('NFC', form_tonal) :
-		print "Oui, le codage marche !"
-	else:
-		print "Héhé, un problème de codage !"
-		print form_tonal,len(form_tonal)
-		print form_tonal_reproduit,len(form_tonal)
-	for chunk, code in zip(chunks, codes) : sys.stdout.write(u"'{}' - '{}' -> '{}'\n".format(enc.differential_decode(chunk, code), chunk, repr(code)));
+		if unicodedata.normalize('NFC', form_tonal_reproduit) == \
+		   unicodedata.normalize('NFC', form_tonal) :
+			print "Oui, le codage marche !"
+		else:
+			print "Héhé, un problème de codage !"
+			cnt_fail += 1
+			print form_tonal,len(form_tonal)
+			print form_tonal_reproduit,len(form_tonal)
+		for chunk, code in zip(chunks, codes) : 
+			sys.stdout.write(u"'{}' - '{}' -> '{}'\n\n".format(enc.differential_decode(chunk, code), chunk, repr(code)));
 	enc.report()
-
+	if cnt_fail :
+		print "cnt_fail : ", cnt_fail
+		print "Erruer : le codeur et le décodeur ont échoué dans quelques tests du codage !"
+	else :
+		print "Ok, vérifié, c'est bon !"
 
 if __name__ == "__main__" : main()
