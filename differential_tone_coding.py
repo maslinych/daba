@@ -143,9 +143,13 @@ def _get_features_customised_for_tones(tokens, idx):
 
 	return feature_list
 
-def repr (c, null = "") :
+def repr (c, null = "", spaces = False) :
 	if not c : return null
-	else : return rm_sep(c)
+	else :
+		if spaces :
+			return " " + rm_sep(c) + " "
+		else:
+			return rm_sep(c)
 
 def rm_sep(str_in, seprator_in = code_seperator, replacing = u''):
 	try :
@@ -416,6 +420,7 @@ class encoder_tones () :
 
 		for op in ops :
 
+			print op
 			mode, self.p_src, self.p_dst = op
 			if mode == "delete" :
 				if not self.options.ONLY_TONE_PREDICTION :
@@ -513,14 +518,14 @@ class encoder_tones () :
 
 def main () :
 
-	forms_non_tonal = [u'tò',u'yerehré',u'ò',u'e', u'òhehòhe', u'òhòh',u'ohoh',u'ehe', u'tò',u'hééh',u'heeh',u'hèé']
-	forms_tonal     = [u'tɔ',u'yɛrɛ̂hre',u'o',u'é', u'ohéhohé', u'ohoh',u'òhòh',u'ebe',u'tɔ',u'heeh',u'hééh',u'héè']
+	forms_non_tonal = [u'tò',u'yerehré',u'ò',u'e', u'òhehòhe', u'òhòh',u'ohoh',u'ehe', u'tò',u'hééh',u'heeh',u'hèé', u'narè']
+	forms_tonal     = [u'tɔ',u'yɛrɛ̂hre',u'o',u'é', u'ohéhohé', u'ohoh',u'òhòh',u'ebe',u'tɔ',u'heeh',u'hééh',u'héè', u'nàrɛ']
 
-	options_obj = options(DECOMPOSE_OPS_FOR_TONES=False)
+	options_obj = options(DECOMPOSE_OPS_FOR_TONES=True)
 	enc = encoder_tones(options_obj)
-	
+
 	cnt_fail = 0
-	for form_non_tonal,form_tonal in zip(forms_non_tonal, forms_tonal) : 
+	for form_non_tonal,form_tonal in zip(forms_non_tonal, forms_tonal) :
 		print "src : ", reshaping(form_non_tonal, False)
 		print "dst : ", reshaping(form_tonal    , False)
 		[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
@@ -536,7 +541,7 @@ def main () :
 			cnt_fail += 1
 			print form_tonal,len(form_tonal)
 			print form_tonal_reproduit,len(form_tonal)
-		for chunk, code in zip(chunks, codes) : 
+		for chunk, code in zip(chunks, codes) :
 			sys.stdout.write(u"'{}' - '{}' -> '{}'\n\n".format(enc.differential_decode(chunk, code), chunk, repr(code)));
 	enc.report()
 	if cnt_fail :
