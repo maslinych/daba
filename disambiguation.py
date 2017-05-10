@@ -168,6 +168,13 @@ def main():
 										print ""
 								else :
 									cnt_ambiguity_phonetic += 1
+
+								# debug
+								motcle = "daminè"
+								if u"damin" in token.token :
+									sys.stdout.write(u"{} -> {}\n".format(token.token, token.gloss.form))
+									#exit()
+
 							elif args.gloss:
 								tags += token.gloss.gloss.encode('utf-8')
 								sent.append((token.token, tags))
@@ -285,8 +292,8 @@ def main():
 							repr(token.encode('utf-8')), \
 							repr(golden_form.encode('utf-8')), \
 							repr(predicted_form.encode('utf-8')), \
-							repr(golden_code), \
-							repr(predicted_code), \
+							" " + repr(golden_code), \
+							" " + repr(predicted_code), \
 							sameCodes]
 
 						writer.writerow(row)
