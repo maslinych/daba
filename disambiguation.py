@@ -36,7 +36,7 @@ import collections
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
-from differential_tone_coding import encoder_tones, options, reshaping, repr, token_seperator, _get_features_customised_for_tones
+from differential_tone_coding import encoder_tones, repr, token_seperator, _get_features_customised_for_tones
 import unicodedata
 import pycrfsuite
 import csv
@@ -90,10 +90,6 @@ def main():
 	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for research purposes', default=None)
 	aparser.add_argument('-R', '--Ratio', help='Percent of total data to use for training and test', default=1)
 	aparser.add_argument('-D', '--Debug', help='Verbose output for debug', default=False, action='store_true')
-	#aparser.add_argument('--no_replacement', help='REMPLACEMENT_INTERDIT', default=False, action='store_true')
-	aparser.add_argument('--decompose', help='DECOMPOSE_OPS_FOR_TONES', default=False, action='store_true')
-	aparser.add_argument('--only_tones', help='ONLY_TONE_PREDICTION', default=False, action='store_true')
-	#aparser.add_argument('--shaping_token', help='SHAPING_TOKEN_IN', default=False, action='store_true')
 
 	args = aparser.parse_args()
 	if args.verbose :
@@ -116,12 +112,7 @@ def main():
 
 		if args.tone :
 			try :
-				options_obj = options(\
-					False,\
-					args.decompose,\
-					args.only_tones,\
-					False)
-				enc = encoder_tones(options_obj)
+				enc = encoder_tones()
 			except :
 				enc = None
 				print ("error : unable to initialize the tone encoder !")
@@ -253,12 +244,6 @@ def main():
 			gold_tokens_eval.append(gold_buf)
 			test_tokens_eval.append(test_buf)
 
-		"""
-		paired_tokens = [(g[0], \
-				g[-1], \
-				test_tokens[i][-1]) \
-				for i, g in enumerate(gold_tokens)]
-		"""
 		# exportation du résultat d'étiquetage en fichier csv
 		if args.store :
 			if args.tone :
