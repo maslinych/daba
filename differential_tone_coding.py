@@ -302,6 +302,7 @@ class statistique () :
 		self.dict_code      = defaultdict()
 		self.dict_form_tonal= defaultdict()
 		self.num   = 0
+		self.err_cnt = 0
 		self.cnt_ops = 0
 		self.mode = Counter()
 		self.options = options
@@ -338,6 +339,9 @@ class statistique () :
 		ret += u"\tL'ensemble des caractères inserés : \n" + sprint_cnt(self.dst_insert, u"\t\t",-1,20)
 		ret += u"\tL'ensemble des caractères replacés : \n" + sprint_cnt(self.src_replace, u"\t\t",-1,20)
 		ret += u"\tL'ensemble des caractères replaçants : \n" + sprint_cnt(self.dst_replace, u"\t\t",-1,20)
+
+		if self.err_cnt :
+			ret += u"\nErreur : nombre d'erreurs rencontrés dans le codage = {}\n".format(self.err_cnt)
 		return ret
 
 class encoder_tones () :
@@ -420,10 +424,10 @@ class encoder_tones () :
 
 		for op in ops :
 
-			print op
 			mode, self.p_src, self.p_dst = op
 			if mode == "delete" :
-				if not self.options.ONLY_TONE_PREDICTION :
+				if not self.options.ONLY_TONE_PREDICTION or \
+				      (self.options.ONLY_TONE_PREDICTION and (self.src[self.p_src] in markers_tone)) :
 					self.delete()
 
 			elif mode == "insert" :
@@ -433,7 +437,8 @@ class encoder_tones () :
 
 			else : # mode == "replace"
 				if not self.options.ONLY_TONE_PREDICTION or \
-				      (self.options.ONLY_TONE_PREDICTION and (self.dst[self.p_dst] in markers_tone)) :
+				      (self.options.ONLY_TONE_PREDICTION and (self.dst[self.p_dst] in markers_tone)) or \
+				      (self.options.ONLY_TONE_PREDICTION and (self.src[self.p_src] in markers_tone)) :
 
 					if self.options.REMPLACEMENT_INTERDIT or \
 					   ((self.dst[self.p_dst] in markers_tone or \
@@ -458,6 +463,12 @@ class encoder_tones () :
 		repr_code = repr(u"".join(self.ret))
 		self.stat.code[repr_code] += 1
 		self.stat.dict_code.setdefault(self.src, []).append(repr_code)
+
+		# internal auto-check
+		form_tonal_reproduced = repr(''.join([self.differential_decode(chunk, code) for code, chunk in zip(self.ret,self.chunks)]))
+		if unicodedata.normalize('NFC', form_tonal_reproduced) != \
+                   unicodedata.normalize('NFC', form_tonal) :
+			self.stat.err_cnt += 1
 
 		if seperator :
 			self.ret.append(u'')
@@ -485,7 +496,6 @@ class encoder_tones () :
 		p_offset = 0
 		for i in range(0,len(code_segments),3) :
 			try :
-				#print i, len(chunk)
 				m, p, c = code_segments[i:i+3]
 			except :
 				print (u"Bug in differential_decode : {}".format(code))
@@ -524,30 +534,17 @@ def main () :
 	options_obj = options(DECOMPOSE_OPS_FOR_TONES=True)
 	enc = encoder_tones(options_obj)
 
-	cnt_fail = 0
-	for form_non_tonal,form_tonal in zip(forms_non_tonal, forms_tonal) :
-		print "src : ", reshaping(form_non_tonal, False)
-		print "dst : ", reshaping(form_tonal    , False)
+	for form_non_tonal, form_tonal in zip(forms_non_tonal, forms_tonal) :
+		print u"Source      {}".format(reshaping(form_non_tonal, False))
+		print u"Destination {}".format(reshaping(form_tonal, False))
 		[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
-		form_tonal_reproduit = repr(''.join([enc.differential_decode(chunk, code) for code,chunk in zip(codes,chunks)]))
-
-		print form_tonal_reproduit
-
-		if unicodedata.normalize('NFC', form_tonal_reproduit) == \
-		   unicodedata.normalize('NFC', form_tonal) :
-			print "Oui, le codage marche !"
-		else:
-			print "Héhé, un problème de codage !"
-			cnt_fail += 1
-			print form_tonal,len(form_tonal)
-			print form_tonal_reproduit,len(form_tonal)
+		i = 0
 		for chunk, code in zip(chunks, codes) :
-			sys.stdout.write(u"'{}' - '{}' -> '{}'\n\n".format(enc.differential_decode(chunk, code), chunk, repr(code)));
+			sys.stdout.write(u"Syllabe_{} '{}' - '{}' -> '{}'\n".format(i, enc.differential_decode(chunk, code), chunk, repr(code)));
+			i += 1
+		print ""
+
+
 	enc.report()
-	if cnt_fail :
-		print "cnt_fail : ", cnt_fail
-		print "Erruer : le codeur et le décodeur ont échoué dans quelques tests du codage !"
-	else :
-		print "Ok, vérifié, c'est bon !"
 
 if __name__ == "__main__" : main()
