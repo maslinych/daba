@@ -14,10 +14,19 @@ import re
 markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
 token_seperator = u'_'
 code_seperator = u'_'
-mode_indicators = u'-+='
-mode_names   = [u"delete",u"insert",u"replace"]
+mode_indicators = u'-+'
+mode_names   = [u"delete",u"insert"]
 markers_to_be_ignored = u"[].-" + code_seperator
 markers_to_be_replaced = {u"’":u"'"}
+
+# todo : decomposition en opérations - opérands
+def code_dispatcher(code) :
+
+	pass
+
+def code_resort(code) :
+
+	pass
 
 def _get_features_customised_for_tones(tokens, idx):
 
@@ -163,19 +172,6 @@ def rm_sep(str_in, seprator_in = code_seperator, replacing = u''):
 			except :
 				raise
 
-# Turning Options
-class options() :
-	def __init__(self, \
-		REMPLACEMENT_INTERDIT          = False,\
-		DECOMPOSE_OPS_FOR_TONES        = False,\
-		ONLY_TONE_PREDICTION           = False,\
-		SHAPING_TOKEN_IN               = False) :
-		self.REMPLACEMENT_INTERDIT = REMPLACEMENT_INTERDIT
-		self.DECOMPOSE_OPS_FOR_TONES = DECOMPOSE_OPS_FOR_TONES
-		self.ONLY_TONE_PREDICTION = ONLY_TONE_PREDICTION
-		self.SHAPING_TOKEN_IN = SHAPING_TOKEN_IN
-
-
 def chunking (token) :
 
 	chunks = []
@@ -294,7 +290,7 @@ def sprint_cnt(cnt, prefix = "", num = -1, min = -1) :
 		return u"".join([prefix + ' ' + itm[0] + u' : ' + str(itm[1]) + u'\n' for itm in lst if itm])
 
 class statistique () :
-	def __init__(self, options) :
+	def __init__(self) :
 		self.form_non_tonal = Counter()
 		self.form_tonal     = Counter()
 		self.code           = Counter()
@@ -305,9 +301,6 @@ class statistique () :
 		self.err_cnt = 0
 		self.cnt_ops = 0
 		self.mode = Counter()
-		self.options = options
-		self.src_replace = Counter()
-		self.dst_replace = Counter()
 		self.src_delete = Counter()
 		self.dst_insert = Counter()
 
@@ -325,11 +318,6 @@ class statistique () :
                 ret += u"\tE(Code produit) = {:<6.2f} \n".\
 			format(entropy2(self.dict_code, cnty = self.code, cntx = self.form_non_tonal))
 		ret += u"Distance entre une forme tonale et son token (en moyenne) = {:<6.2f} \n".format(self.cnt_ops / float(self.num))
-		ret += u"\nConfigurations\n"
-		ret += u"\tREMPLACEMENT_INTERDIT          = {}\n".format(self.options.REMPLACEMENT_INTERDIT)
-		ret += u"\tDECOMPOSE_OPS_FOR_TONES        = {}\n".format(self.options.DECOMPOSE_OPS_FOR_TONES)
-		ret += u"\tONLY_TONE_PREDICTION           = {}\n".format(self.options.ONLY_TONE_PREDICTION)
-		ret += u"\tSHAPING_TOKEN_IN               = {}\n".format(self.options.SHAPING_TOKEN_IN)
 
 		ret += u"Distribution sur : \n"
 		ret += u"\tLes opérations d'édition : \n" + sprint_cnt(self.mode, u"\t\t",-1,20)
@@ -337,8 +325,6 @@ class statistique () :
 		ret += u"\tL'ensemble des codes par leur segment atomique : \n" + sprint_cnt(self.segment_code, u"\t\t",-1,20)
 		ret += u"\tL'ensemble des caractères supprimés : \n" + sprint_cnt(self.src_delete, u"\t\t",-1,20)
 		ret += u"\tL'ensemble des caractères inserés : \n" + sprint_cnt(self.dst_insert, u"\t\t",-1,20)
-		ret += u"\tL'ensemble des caractères replacés : \n" + sprint_cnt(self.src_replace, u"\t\t",-1,20)
-		ret += u"\tL'ensemble des caractères replaçants : \n" + sprint_cnt(self.dst_replace, u"\t\t",-1,20)
 
 		if self.err_cnt :
 			ret += u"\nErreur : nombre d'erreurs rencontrés dans le codage = {}\n".format(self.err_cnt)
@@ -346,15 +332,14 @@ class statistique () :
 
 class encoder_tones () :
 
-	def __init__ (self, options) :
+	def __init__ (self) :
 		self.src = ""
 		self.dst = ""
 		self.p_src = 0
 		self.p_dst = 0
 		self.ret = ""
 		self.chunks = []
-		self.options = options
-		self.stat = statistique(options)
+		self.stat = statistique()
 
 	def delete(self) :
 		mode_id = mode_names.index("delete")
@@ -382,6 +367,7 @@ class encoder_tones () :
 		self.stat.dst_insert[caracter_dst] += 1
 		self.stat.segment_code[repr(segment)] += 1
 
+	"""
 	def replace(self) :
 		mode_id = mode_names.index("replace")
 		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
@@ -396,16 +382,14 @@ class encoder_tones () :
 		self.stat.src_replace[caracter_src] += 1
 		self.stat.dst_replace[caracter_dst] += 1
 		self.stat.segment_code[repr(segment)] += 1
+	"""
 
 	def differential_encode (self, form_non_tonal, form_tonal, seperator = True) :
 
 		self.p_src = -1
 		self.p_dst = -1
 
-		if self.options.SHAPING_TOKEN_IN :
-			self.src = reshaping(form_non_tonal, True)
-		else:
-			self.src = reshaping(form_non_tonal, False)
+		self.src = reshaping(form_non_tonal, False)
 
 		if not self.src :
 			if seperator:
@@ -426,29 +410,16 @@ class encoder_tones () :
 
 			mode, self.p_src, self.p_dst = op
 			if mode == "delete" :
-				if not self.options.ONLY_TONE_PREDICTION or \
-				      (self.options.ONLY_TONE_PREDICTION and (self.src[self.p_src] in markers_tone)) :
-					self.delete()
+				self.delete()
 
 			elif mode == "insert" :
-				if not self.options.ONLY_TONE_PREDICTION or \
-				      (self.options.ONLY_TONE_PREDICTION and (self.dst[self.p_dst] in markers_tone)) :
-					self.insert()
+				self.insert()
 
 			else : # mode == "replace"
-				if not self.options.ONLY_TONE_PREDICTION or \
-				      (self.options.ONLY_TONE_PREDICTION and (self.dst[self.p_dst] in markers_tone)) or \
-				      (self.options.ONLY_TONE_PREDICTION and (self.src[self.p_src] in markers_tone)) :
+				self.insert()
+				self.delete()
 
-					if self.options.REMPLACEMENT_INTERDIT or \
-					   ((self.dst[self.p_dst] in markers_tone or \
-					     self.src[self.p_src] in markers_tone) and self.options.DECOMPOSE_OPS_FOR_TONES) :
-
-						self.insert()
-						self.delete()
-					else :
-						self.replace()
-
+		# enlèvement du séparateur du code à la fin du chunk
 		tmp = []
                 for ret2 in self.ret :
 			try :
@@ -466,11 +437,11 @@ class encoder_tones () :
 
 		# internal auto-check
 		form_tonal_reproduced = repr(''.join([self.differential_decode(chunk, code) for code, chunk in zip(self.ret,self.chunks)]))
-		x = reshaping(repr(unicodedata.normalize('NFC', form_tonal_reproduced)), False)
-		y = reshaping(repr(unicodedata.normalize('NFC', form_tonal)),False)
-                if x != y :
-			print x,"\n",y,"\n"
-			self.stat.err_cnt += 1
+		if form_tonal_reproduced :
+			form1 = reshaping(repr(unicodedata.normalize('NFD', form_tonal_reproduced)), False)
+			form2 = reshaping(repr(unicodedata.normalize('NFD', form_tonal)),False)
+			if form1 != form2 :
+				self.stat.err_cnt += 1
 
 		if seperator :
 			self.ret.append(u'')
@@ -482,11 +453,6 @@ class encoder_tones () :
 		print self.stat.__str__()
 
 	def differential_decode (self, chunk, code) :
-
-		if self.options.SHAPING_TOKEN_IN :
-			chunk = reshaping(chunk, True)
-		else:
-			chunk = reshaping(chunk, False)
 
 		chunk = reshaping(chunk, False)
 
@@ -511,20 +477,13 @@ class encoder_tones () :
 				except IndexError : r = ''
 				chunk = l + r
 				p_offset -= 1
-			elif m == mode_indicators[mode_names.index('insert')] :
+			else : # elif m == mode_indicators[mode_names.index('insert')] :
 				try : l = chunk[: p_eff]
 				except IndexError : l = ''
 				try : r = chunk[p_eff  :]
 				except IndexError : r = ''
 				chunk = l + c + r
 				p_offset += 1
-			else : # 'replace'
-				try : l = chunk[: p_eff]
-				except IndexError : l = ''
-				try : r = chunk[p_eff + 1 :]
-				except IndexError : r = ''
-
-				chunk = l + c + r
 
 		return chunk
 
@@ -533,8 +492,7 @@ def main () :
 	forms_non_tonal = [u'tò',u'yerehré',u'ò',u'e', u'òhehòhe', u'òhòh',u'ohoh',u'ehe', u'tò',u'hééh',u'heeh',u'hèé', u'narè']
 	forms_tonal     = [u'tɔ',u'yɛrɛ̂hre',u'o',u'é', u'ohéhohé', u'ohoh',u'òhòh',u'ebe',u'tɔ',u'heeh',u'hééh',u'héè', u'nàrɛ']
 
-	options_obj = options(DECOMPOSE_OPS_FOR_TONES=True)
-	enc = encoder_tones(options_obj)
+	enc = encoder_tones()
 
 	for form_non_tonal, form_tonal in zip(forms_non_tonal, forms_tonal) :
 		print u"Source      {}".format(reshaping(form_non_tonal, False))
@@ -543,9 +501,7 @@ def main () :
 		i = 0
 		for chunk, code in zip(chunks, codes) :
 			sys.stdout.write(u"Syllabe_{} '{}' - '{}' -> '{}'\n".format(i, enc.differential_decode(chunk, code), chunk, repr(code)));
-			i += 1
 		print ""
-
 
 	enc.report()
 
