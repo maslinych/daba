@@ -466,8 +466,10 @@ class encoder_tones () :
 
 		# internal auto-check
 		form_tonal_reproduced = repr(''.join([self.differential_decode(chunk, code) for code, chunk in zip(self.ret,self.chunks)]))
-		if unicodedata.normalize('NFC', form_tonal_reproduced) != \
-                   unicodedata.normalize('NFC', form_tonal) :
+		x = reshaping(repr(unicodedata.normalize('NFC', form_tonal_reproduced)), False)
+		y = reshaping(repr(unicodedata.normalize('NFC', form_tonal)),False)
+                if x != y :
+			print x,"\n",y,"\n"
 			self.stat.err_cnt += 1
 
 		if seperator :
