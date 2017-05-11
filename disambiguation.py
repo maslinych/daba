@@ -36,7 +36,7 @@ import collections
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
-from differential_tone_coding import encoder_tones, repr, token_seperator, _get_features_customised_for_tones
+from differential_tone_coding_polyphase import encoder_tones, repr, token_seperator, _get_features_customised_for_tones, code_dispatcher, code_resort, mode_indicators
 import unicodedata
 import pycrfsuite
 import csv
@@ -147,7 +147,7 @@ def main():
 										if args.verbose and args.Debug:
 											sys.stdout.write(u"\tchunk {} : {} -> {}\n".format(chunk_id, chunk, repr(code)))
 										try :
-											sent.append((chunk, code.encode('utf-8')))
+											sent.append((chunk, [c.encode('utf-8') for c in code_dispatcher(code)]))
 
 										except LookupError:
 											pass
@@ -189,17 +189,19 @@ def main():
 		#							  #
 		# http://www.nltk.org/_modules/nltk/tag/crf.html	  #
 		###########################################################
-		try :
-			trainer = pycrfsuite.Trainer(verbose=tagger._verbose)
-		except :
-			print ("Error : unable to initialize pycrfsuite !")
-		trainer.set_params(tagger._training_options)
-		for sent in train_set:
-			tokens, labels = zip(*sent)
-			features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
-			trainer.append(features, labels)
-		trainer.train(model=args.learn)
-		tagger.set_model_file(args.learn)
+		#phase = 1
+		for phase in range(2 * len(mode_indicators)) :
+			try :
+				trainer = pycrfsuite.Trainer(verbose=tagger._verbose)
+			except :
+				print ("Error : unable to initialize pycrfsuite !")
+			trainer.set_params(tagger._training_options)
+			for sent in train_set:
+				tokens, labels = zip(*sent)
+				labels = [x[phase] for x in labels]
+				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
+				trainer.append(features, labels)
+			trainer.train(model=args.learn + '.' + str(phase))
 
 		# on vient de terminer l'entraînement d'un modèle en affichant le temps passé
 		print "... done in", get_duration(t1_secs = t1, t2_secs = time.time())
@@ -212,80 +214,83 @@ def main():
 		#                                                   #
 		# http://www.nltk.org/_modules/nltk/tag/api.html    #
 		#####################################################
-		tagged_sents = []
-		for tokens in [nltk.tag.util.untag(sent) for sent in test_set]:
-			features = [_get_features_customised_for_tones(tokens,i) for i in range(len(tokens))]
-			labels = tagger._tagger.tag(features)
+		
+		for phase in range(2 * len(mode_indicators)) :
+			tagged_sents = []
+			tagger.set_model_file(args.learn + '.' + str(phases))
+			for j, tokens in [nltk.tag.util.untag(sent) for sent in test_set]:
+				features = [_get_features_customised_for_tones(tokens,i) for i in range(len(tokens))]
+				labels = tagger._tagger.tag(features)
 
-			if len(labels) != len(tokens):
-				raise Exception(' Predicted Length Not Matched, Expect Errors !')
+				if len(labels) != len(tokens):
+					raise Exception(' Predicted Length Not Matched, Expect Errors !')
 
-			tagged_sent = list(zip(tokens,labels))
-			tagged_sents.append(tagged_sent)
+				tagged_sent = list(zip(tokens,labels))
+				tagged_sents.append(tagged_sent)
 
-		gold_tokens = list(itertools.chain(*test_set))
-		test_tokens = list(itertools.chain(*tagged_sents))
+			gold_tokens = list(itertools.chain(*test_set))
+			test_tokens = list(itertools.chain(*tagged_sents))
 
-		# not to evalute the token seperators
-		gold_tokens_eval = []
-		test_tokens_eval = []
-		gold_buf = ""
-		test_buf = ""
-		for x,y in zip(gold_tokens, test_tokens) :
-			if x[0] != token_seperator :
-				gold_buf += x[1]
-				test_buf += y[1]
-			else :
+			# not to evalute the token seperators
+			gold_tokens_eval = []
+			test_tokens_eval = []
+			gold_buf = ""
+			test_buf = ""
+			for g,t in zip(gold_tokens, test_tokens) :
+				if t[0] != token_seperator :
+					gold_buf += g[-1][phase]
+					test_buf += t[-1]
+				else :
+					gold_tokens_eval.append(gold_buf)
+					test_tokens_eval.append(test_buf)
+					gold_buf = ""
+					test_buf = ""
+			if gold_buf :
 				gold_tokens_eval.append(gold_buf)
 				test_tokens_eval.append(test_buf)
-				gold_buf = ""
-				test_buf = ""
-		if gold_buf :
-			gold_tokens_eval.append(gold_buf)
-			test_tokens_eval.append(test_buf)
 
-		# exportation du résultat d'étiquetage en fichier csv
-		if args.store :
-			if args.tone :
-				try :
-					csvfile = codecs.open(args.store, 'wb')
-					writer = csv.writer(csvfile)
-					writer.writerow(["Token", "Golden Form", "Predicted Form","Golden code", "Predicted code", "Same"])
-					for g, t in zip(gold_tokens, test_tokens) :
-						token = g[0]
-						golden_code =  g[-1]
-						predicted_code =  t[-1]
-						golden_form = enc.differential_decode(token, golden_code.decode('utf-8'))
-						predicted_form = enc.differential_decode(token, predicted_code.decode('utf-8'))
-						sameCodes = (golden_code == predicted_code)
-						sameForms = (golden_form == predicted_form)
+			# exportation du résultat d'étiquetage en fichier csv
+			if args.store :
+				if args.tone :
+					try :
+						csvfile = codecs.open(args.store, 'wb')
+						writer = csv.writer(csvfile + '.' + str(phase))
+						writer.writerow(["Token", "Golden Form", "Predicted Form","Golden code", "Predicted code", "Same"])
+						for g, t in zip(gold_tokens, test_tokens) :
+							token = g[0]
+							golden_code    = g[-1][phase]
+							predicted_code = t[-1]
+							golden_form = enc.differential_decode(token, golden_code.decode('utf-8'))
+							predicted_form = enc.differential_decode(token, predicted_code.decode('utf-8'))
+							sameCodes = (golden_code == predicted_code)
+							sameForms = (golden_form == predicted_form)
 
-						if not repr(token.encode('utf-8')) :
-							sameCodes = u''
-						row = [\
-							repr(token.encode('utf-8')), \
-							repr(golden_form.encode('utf-8')), \
-							repr(predicted_form.encode('utf-8')), \
-							repr(golden_code, spaces=True), \
-							repr(predicted_code, spaces=True), \
-							sameCodes]
+							if not repr(token.encode('utf-8')) :
+								sameCodes = u''
+							row = [\
+								repr(token.encode('utf-8')), \
+								repr(golden_form.encode('utf-8')), \
+								repr(predicted_form.encode('utf-8')), \
+								repr(golden_code, spaces=True), \
+								repr(predicted_code, spaces=True), \
+								sameCodes]
 
-						writer.writerow(row)
-						if sameCodes == True and sameForms == False :
-							print "Bug !!! "
-							print "token", row[0].decode('utf-8')
-							print "golden_form", row[1].decode('utf-8')
-							print "predicted_form", row[2].decode('utf-8')
-							print "golden_code", row[3].decode('utf-8')
-							print "predicted_code", row[4].decode('utf-8')
-							print "sameCodes",row[5]
-							print "sameForms",sameForms
-							exit(1)
+							writer.writerow(row)
+							if sameCodes == True and sameForms == False :
+								print "Bug !!! "
+								print "token", row[0].decode('utf-8')
+								print "golden_form", row[1].decode('utf-8')
+								print "predicted_form", row[2].decode('utf-8')
+								print "golden_code", row[3].decode('utf-8')
+								print "predicted_code", row[4].decode('utf-8')
+								print "sameCodes",row[5]
+								print "sameForms",sameForms
+								exit(1)
 
-					csvfile.close()
-				except :
-					print "unable to dump result in CSV file to create !"
-		print accuracy(gold_tokens_eval, test_tokens_eval)
+						csvfile.close()
+					except :
+						print "unable to dump result in CSV file to create !"
+			print accuracy(gold_tokens_eval, test_tokens_eval)
 
 		# affichage avancé
 		if args.verbose:
@@ -329,7 +334,7 @@ def main():
 				if len(labels) != len(tokens):
 					raise Exception(' Predicted Length Not Matched, Expect Errors !')
 
-				tagged_sent = list(zip(tokens,labels))
+				tagged_sent = list(zip(tokens, labels))
 				result.append(tagged_sent)
 			tagged_sents = result
 
