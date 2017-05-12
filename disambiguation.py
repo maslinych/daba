@@ -48,15 +48,63 @@ import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
+def unzip(input) :
+	return [list(li) for li in zip(*input)]
+
+# dataset : list((str,str))
+def getTag(dataset) :
+	ret = []
+	buf = str()
+	for data in dataset :
+		if data[0] != token_seperator :
+			buf += data[1]
+		else :
+			ret.append(buf)
+			buf = str()
+	if buf :
+		ret.append(buf)
+	return ret
+
+def csv_export(enc, filename, gold_tokens, test_tokens):
+
+	try :
+		csvfile = codecs.open(filename, 'wb')
+		writer = csv.writer(csvfile)
+		writer.writerow(["Token", "Golden Form", "Predicted Form","Golden code", "Predicted code", "Same"])
+		for g, t in zip(gold_tokens, test_tokens) :
+			token          = g[0]
+			golden_code    = g[-1]
+			predicted_code = t[-1]
+			golden_form    = enc.differential_decode(token, golden_code.decode('utf-8'))
+			predicted_form = enc.differential_decode(token, predicted_code.decode('utf-8'))
+			sameCodes = (golden_code == predicted_code)
+			sameForms = (golden_form == predicted_form)
+
+			if not repr(token.encode('utf-8')) :
+				sameCodes = u''
+			row = [\
+				repr(token.encode('utf-8')), \
+				repr(golden_form.encode('utf-8')), \
+				repr(predicted_form.encode('utf-8')), \
+				repr(golden_code, spaces=True), \
+				repr(predicted_code, spaces=True), \
+				sameCodes]
+
+			writer.writerow(row)
+		csvfile.close()
+	except :
+		raise
+		print "unable to dump result in CSV file to create !"
+
 def sampling(allsents, ratio, p) :
-	train_set, test_set = [], []
+	train_set, eval_set = [], []
 	for i, sent in enumerate(allsents[0 : : int(1/float(ratio))]) :
-		p_approx = float(len(train_set) + 1) / float(len(test_set) + len(train_set) + 1)
+		p_approx = float(len(train_set) + 1) / float(len(eval_set) + len(train_set) + 1)
 		if p_approx <= p :
 			train_set.append(sent)
 		else:
-			test_set.append(sent)
-	return [train_set, test_set]
+			eval_set.append(sent)
+	return [train_set, eval_set]
 
 def get_duration(t1_secs, t2_secs) :
 	secs = abs(t1_secs - t2_secs)
@@ -137,24 +185,18 @@ def main():
 									tags += ps.encode('utf-8')
 								sent.append((token.token, tags))
 							elif args.tone:
-
 								if '|' not in token.gloss.form :
 									[codes, chunks] = enc.differential_encode(token.token, token.gloss.form)
 									if args.verbose and args.Debug :
 										sys.stdout.write(u"{} -> {}\n".format(token.token, token.gloss.form))
-									chunk_id = 0
+										chunk_id = 0
 									for chunk, code in zip(chunks, codes) :
 										if args.verbose and args.Debug:
 											sys.stdout.write(u"\tchunk {} : {} -> {}\n".format(chunk_id, chunk, repr(code)))
-										try :
-											sent.append((chunk, [c.encode('utf-8') for c in code_dispatcher(code)]))
-
-										except LookupError:
-											pass
-										chunk_id += 1
-
-									if args.verbose and args.Debug:
-										print ""
+											chunk_id += 1
+										try : sent.append((chunk, code.encode('utf-8')))
+										except LookupError: pass
+									if args.verbose and args.Debug: print ""
 
 							elif args.gloss:
 								tags += token.gloss.gloss.encode('utf-8')
@@ -174,128 +216,71 @@ def main():
 
 		# Constitution des ensmebles d'entraînement de d'évaluation
 		p = (1 - args.evalsize / 100.0)
-		train_set, test_set = sampling(allsents, args.Ratio, p)
-		print 'Split the data in train (', len(train_set),' sentences) / test (', len(test_set),' sentences)'
+		train_set, eval_set = sampling(allsents, args.Ratio, p)
+		print 'Split the data in train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
 
 		print 'Building classifier (CRF/NLTK)'
-		tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
+
+		# Initialization
 		t1 = time.time()
+		num_phases = len([False, True]) * len(mode_indicators)
+		tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
+		trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
+		trainer.set_params(tagger._training_options)
 
 		# Training
-		###########################################################
-		# code source de la méthode train(train_data, model_file) #
-		# de la classe CRFTagger                                  #
-		# du parquet nltk.tag.crf                                 #
-		#							  #
-		# http://www.nltk.org/_modules/nltk/tag/crf.html	  #
-		###########################################################
-		#phase = 1
-		for phase in range(2 * len(mode_indicators)) :
-			try :
-				trainer = pycrfsuite.Trainer(verbose=tagger._verbose)
-			except :
-				print ("Error : unable to initialize pycrfsuite !")
-			trainer.set_params(tagger._training_options)
+		print ("Model learned is exported in")
+		for phase in range(num_phases) :
+			model_name = args.learn + '.' + str(phase)
+			print ("\t{}".format(model_name))
+			# train_set : list(list((str,list(str))))
 			for sent in train_set:
-				tokens, labels = zip(*sent)
-				labels = [x[phase] for x in labels]
+				tokens = unzip(sent)[0]
+				labels = unzip(sent)[1]
+				labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
 				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
 				trainer.append(features, labels)
-			trainer.train(model=args.learn + '.' + str(phase))
+			trainer.train(model = model_name)
 
-		# on vient de terminer l'entraînement d'un modèle en affichant le temps passé
 		print "... done in", get_duration(t1_secs = t1, t2_secs = time.time())
 
+		# Evaluation
 		print 'Evaluating classifier'
-		#####################################################
-		# code source de la méthode evaluate(gold=test_set) #
-		# de la classe TaggerI                              #
-		# du parquet nltk.tag.api                           #
-		#                                                   #
-		# http://www.nltk.org/_modules/nltk/tag/api.html    #
-		#####################################################
-		
-		for phase in range(2 * len(mode_indicators)) :
-			tagged_sents = []
-			tagger.set_model_file(args.learn + '.' + str(phases))
-			for j, tokens in [nltk.tag.util.untag(sent) for sent in test_set]:
-				features = [_get_features_customised_for_tones(tokens,i) for i in range(len(tokens))]
+		# gold_set, predicted_set : list(list((str, str)))
+		# input_set, output_gold_set : list(list(str))
+		gold_set = eval_set
+		input_set = [unzip(sent)[0] for sent in gold_set]
+		predicted_set = [list() for sent in gold_set]
+		for phase in range(num_phases) :
+			model_name = args.learn + '.' + str(phase)
+			tagger.set_model_file(model_name)
+			for i, sent in enumerate(input_set) :
+				features = [_get_features_customised_for_tones(sent,j) for j in range(len(sent))]
 				labels = tagger._tagger.tag(features)
-
-				if len(labels) != len(tokens):
-					raise Exception(' Predicted Length Not Matched, Expect Errors !')
-
-				tagged_sent = list(zip(tokens,labels))
-				tagged_sents.append(tagged_sent)
-
-			gold_tokens = list(itertools.chain(*test_set))
-			test_tokens = list(itertools.chain(*tagged_sents))
-
-			# not to evalute the token seperators
-			gold_tokens_eval = []
-			test_tokens_eval = []
-			gold_buf = ""
-			test_buf = ""
-			for g,t in zip(gold_tokens, test_tokens) :
-				if t[0] != token_seperator :
-					gold_buf += g[-1][phase]
-					test_buf += t[-1]
+				labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
+				tagged_sent = list(zip(sent, labels))
+				if not predicted_set[i] :
+					predicted_set[i] = tagged_sent
 				else :
-					gold_tokens_eval.append(gold_buf)
-					test_tokens_eval.append(test_buf)
-					gold_buf = ""
-					test_buf = ""
-			if gold_buf :
-				gold_tokens_eval.append(gold_buf)
-				test_tokens_eval.append(test_buf)
+					sent_acc, labels_acc = unzip(predicted_set[i])
+					labels_acc = [label_acc + label for label_acc, label in zip(labels_acc, labels)]
+					predicted_set[i] = list(zip(sent_acc, labels_acc))
 
-			# exportation du résultat d'étiquetage en fichier csv
-			if args.store :
-				if args.tone :
-					try :
-						csvfile = codecs.open(args.store, 'wb')
-						writer = csv.writer(csvfile + '.' + str(phase))
-						writer.writerow(["Token", "Golden Form", "Predicted Form","Golden code", "Predicted code", "Same"])
-						for g, t in zip(gold_tokens, test_tokens) :
-							token = g[0]
-							golden_code    = g[-1][phase]
-							predicted_code = t[-1]
-							golden_form = enc.differential_decode(token, golden_code.decode('utf-8'))
-							predicted_form = enc.differential_decode(token, predicted_code.decode('utf-8'))
-							sameCodes = (golden_code == predicted_code)
-							sameForms = (golden_form == predicted_form)
+		# gold_tokens, predicted_tokens : list((str,str))
+		predicted_tokens = list(itertools.chain(*predicted_set))
+		predicted_tokens = [ tuple([pair[0], code_resort(pair[1].decode('utf-8')).encode('utf-8')]) for pair  in predicted_tokens]
+		gold_tokens = list(itertools.chain(*gold_set))
+		# gold_tokens_eval, predicted_tokens_eval : list(str)
+		gold_tokens_eval = getTag(gold_tokens)
+		predicted_tokens_eval = getTag(predicted_tokens)
 
-							if not repr(token.encode('utf-8')) :
-								sameCodes = u''
-							row = [\
-								repr(token.encode('utf-8')), \
-								repr(golden_form.encode('utf-8')), \
-								repr(predicted_form.encode('utf-8')), \
-								repr(golden_code, spaces=True), \
-								repr(predicted_code, spaces=True), \
-								sameCodes]
+		if args.store and args.tone :
+			stored_filename = args.store
+			csv_export(enc, stored_filename, gold_tokens, predicted_tokens)
 
-							writer.writerow(row)
-							if sameCodes == True and sameForms == False :
-								print "Bug !!! "
-								print "token", row[0].decode('utf-8')
-								print "golden_form", row[1].decode('utf-8')
-								print "predicted_form", row[2].decode('utf-8')
-								print "golden_code", row[3].decode('utf-8')
-								print "predicted_code", row[4].decode('utf-8')
-								print "sameCodes",row[5]
-								print "sameForms",sameForms
-								exit(1)
+		# for x,y in zip(gold_tokens_eval, predicted_tokens_eval) : print x.decode('utf-8'),' -> ',y.decode('utf-8')
 
-						csvfile.close()
-					except :
-						print "unable to dump result in CSV file to create !"
-			print accuracy(gold_tokens_eval, test_tokens_eval)
-
-		# affichage avancé
-		if args.verbose:
-			pass
-			# print 'Compute detailed output'
+		print "Exactitude : {:>5.3f}".format(accuracy(gold_tokens_eval, predicted_tokens_eval))
 
 	elif args.disambiguate and args.mode and args.infile and args.outfile and args.pos :
 
@@ -314,10 +299,10 @@ def main():
 			exit(1)
 
 		# Étiquetage
-		
-		# désambiguïsation par la catégorie morphosyntaxique 
-		# mode 1 : une désambigïsation qui consiste à utiliser les étiquettes morphosyntaxiques prédites 
-		#          par un modèle CRF dont le fichier est précisé, pour ne conserver dans la liste d'options 
+
+		# désambiguïsation par la catégorie morphosyntaxique
+		# mode 1 : une désambigïsation qui consiste à utiliser les étiquettes morphosyntaxiques prédites
+		#          par un modèle CRF dont le fichier est précisé, pour ne conserver dans la liste d'options
 		#          de gloses que celles contiennent la catégorie morphsyntaxique renseignée par la CRF
 		if int(args.mode) == 1 :
 			allsents = []
@@ -381,8 +366,10 @@ def main():
 	else :
 		aparser.print_help()
 
-	if args.verbose :
-		if args.store : print ("result exported in {}".format(args.store))
+	if args.verbose and args.store :
+		print ("Annotated result is exported in")
+		stored_filename = args.store
+		print ("\t{}".format(stored_filename))
 
 	exit(0)
 
