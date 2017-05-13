@@ -159,7 +159,7 @@ def main():
 			allfiles += file1+','+file2+','
 		allsents = []
 
-		# allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
+		allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
 
 		if args.tone :
 			try :
@@ -230,12 +230,12 @@ def main():
 			num_phases = len([False, True]) * len(mode_indicators)
 		else :
 			num_phases = 1
-		tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
-		trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
-		trainer.set_params(tagger._training_options)
 
 		# Training
 		for phase in range(num_phases) :
+			tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
+			trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
+			trainer.set_params(tagger._training_options)
 			if num_phases > 1 :
 				model_name = args.learn + '.' + str(phase)
 			else:
@@ -246,6 +246,9 @@ def main():
 				tokens = unzip(sent)[0]
 				labels = unzip(sent)[1]
 				if num_phases > 1 :
+					for lab in labels :
+						pass
+						# sys.stdout.write(u"[{} -> {}] ".format(lab.decode('utf-8'), code_dispatcher(lab.decode('utf-8'))[phase]))
 					labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
 				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
 				trainer.append(features, labels)
@@ -261,6 +264,9 @@ def main():
 		input_set = [unzip(sent)[0] for sent in gold_set]
 		predicted_set = [list() for sent in gold_set]
 		for phase in range(num_phases) :
+			tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
+			trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
+			trainer.set_params(tagger._training_options)
 			if num_phases > 1:
 				model_name = args.learn + '.' + str(phase)
 			else :
