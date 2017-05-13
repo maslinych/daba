@@ -135,6 +135,7 @@ def main():
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
 
 	# experimental parameters with relation to tone learning
+	aparser.add_argument('-P', '--polyphase', help='Polyphase decomposiiton for tone learning', default=None)
 	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for research purposes', default=None)
 	aparser.add_argument('-R', '--Ratio', help='Percent of total data to use for training and test', default=1)
 	aparser.add_argument('-D', '--Debug', help='Verbose output for debug', default=False, action='store_true')
@@ -157,6 +158,8 @@ def main():
 		for file1, file2 in zip(files1, files2):
 			allfiles += file1+','+file2+','
 		allsents = []
+
+		# allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
 
 		if args.tone :
 			try :
@@ -223,21 +226,27 @@ def main():
 
 		# Initialization
 		t1 = time.time()
-		num_phases = len([False, True]) * len(mode_indicators)
+		if args.tone and args.polyphase :
+			num_phases = len([False, True]) * len(mode_indicators)
+		else :
+			num_phases = 1
 		tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
 		trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
 		trainer.set_params(tagger._training_options)
 
 		# Training
-		print ("Model learned is exported in")
 		for phase in range(num_phases) :
-			model_name = args.learn + '.' + str(phase)
-			print ("\t{}".format(model_name))
+			if num_phases > 1 :
+				model_name = args.learn + '.' + str(phase)
+			else:
+				model_name = args.learn
+
 			# train_set : list(list((str,list(str))))
 			for sent in train_set:
 				tokens = unzip(sent)[0]
 				labels = unzip(sent)[1]
-				labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
+				if num_phases > 1 :
+					labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
 				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
 				trainer.append(features, labels)
 			trainer.train(model = model_name)
@@ -252,12 +261,16 @@ def main():
 		input_set = [unzip(sent)[0] for sent in gold_set]
 		predicted_set = [list() for sent in gold_set]
 		for phase in range(num_phases) :
-			model_name = args.learn + '.' + str(phase)
+			if num_phases > 1:
+				model_name = args.learn + '.' + str(phase)
+			else :
+				model_name = args.learn
 			tagger.set_model_file(model_name)
 			for i, sent in enumerate(input_set) :
 				features = [_get_features_customised_for_tones(sent,j) for j in range(len(sent))]
 				labels = tagger._tagger.tag(features)
-				labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
+				if num_phases > 1 :
+					labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
 				tagged_sent = list(zip(sent, labels))
 				if not predicted_set[i] :
 					predicted_set[i] = tagged_sent
@@ -268,17 +281,20 @@ def main():
 
 		# gold_tokens, predicted_tokens : list((str,str))
 		predicted_tokens = list(itertools.chain(*predicted_set))
-		predicted_tokens = [ tuple([pair[0], code_resort(pair[1].decode('utf-8')).encode('utf-8')]) for pair  in predicted_tokens]
+		if num_phases > 1 :
+			predicted_tokens = [ tuple([pair[0], code_resort(pair[1].decode('utf-8')).encode('utf-8')]) for pair  in predicted_tokens]
 		gold_tokens = list(itertools.chain(*gold_set))
 		# gold_tokens_eval, predicted_tokens_eval : list(str)
-		gold_tokens_eval = getTag(gold_tokens)
-		predicted_tokens_eval = getTag(predicted_tokens)
+		if args.tone :
+			gold_tokens_eval = getTag(gold_tokens)
+			predicted_tokens_eval = getTag(predicted_tokens)
+		else :
+			gold_tokens_eval = gold_tokens
+			predicted_tokens_eval = predicted_tokens
 
 		if args.store and args.tone :
 			stored_filename = args.store
 			csv_export(enc, stored_filename, gold_tokens, predicted_tokens)
-
-		# for x,y in zip(gold_tokens_eval, predicted_tokens_eval) : print x.decode('utf-8'),' -> ',y.decode('utf-8')
 
 		print "Exactitude : {:>5.3f}".format(accuracy(gold_tokens_eval, predicted_tokens_eval))
 
