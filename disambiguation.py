@@ -159,7 +159,7 @@ def main():
 			allfiles += file1+','+file2+','
 		allsents = []
 
-		allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
+		#allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
 
 		if args.tone :
 			try :
