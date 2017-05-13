@@ -135,7 +135,7 @@ def main():
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
 
 	# experimental parameters with relation to tone learning
-	aparser.add_argument('-P', '--polyphase', help='Polyphase decomposiiton for tone learning', default=None)
+	aparser.add_argument('-P', '--polyphase', help='Polyphase decomposiiton for tone learning', default=False, action='store_true')
 	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for research purposes', default=None)
 	aparser.add_argument('-R', '--Ratio', help='Percent of total data to use for training and test', default=1)
 	aparser.add_argument('-D', '--Debug', help='Verbose output for debug', default=False, action='store_true')
