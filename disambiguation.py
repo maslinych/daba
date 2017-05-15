@@ -96,7 +96,7 @@ def csv_export(enc, filename, gold_tokens, test_tokens):
 		raise
 		print "unable to dump result in CSV file to create !"
 
-def sampling(allsents, ratio, p) :
+def sampling(allsents, p, ratio = 1) :
 	train_set, eval_set = [], []
 	for i, sent in enumerate(allsents[0 : : int(1/float(ratio))]) :
 		p_approx = float(len(train_set) + 1) / float(len(eval_set) + len(train_set) + 1)
@@ -127,18 +127,14 @@ def main():
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data', default=None)
 	aparser.add_argument('-m', '--mode'        , help='Disambuigation mode' , default=1)
 	# les trois modes de désambiugisation sont
-	# mode 1 : étiquetage par la sortie CRF
+	# mode 1 : désambiguïser la liste de glosses en ne concervant que celles correspondent à la sortie prédite par la CRF
+
 	# mode 2 : séléctionner la phrase la plus probable (d'après la CRF) de la liste des glosses
 	# mode 3 : présenter toutes les possibilités avec leur probabilité donnée par la CRF puis ordonner la liste
 
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
-
-	# experimental parameters with relation to tone learning
-	aparser.add_argument('-P', '--polyphase', help='Polyphase decomposiiton for tone learning', default=False, action='store_true')
-	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for research purposes', default=None)
-	aparser.add_argument('-R', '--Ratio', help='Percent of total data to use for training and test', default=1)
-	aparser.add_argument('-D', '--Debug', help='Verbose output for debug', default=False, action='store_true')
+	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for further research purpose', default=None)
 
 	args = aparser.parse_args()
 	if args.verbose :
@@ -159,15 +155,16 @@ def main():
 			allfiles += file1+','+file2+','
 		allsents = []
 
-		#allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
+		# pour le débogage
+		allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
 
 		if args.tone :
 			try :
 				enc = encoder_tones()
 			except :
 				enc = None
-				print ("error : unable to initialize the tone encoder !")
-		# verbose :
+				print ("Error : unable to initialize the tone encoder !")
+
 		print 'Open files and find features / supervision tags'
 		for infile in allfiles.split(','):
 			if(len(infile)) :
@@ -177,56 +174,48 @@ def main():
 				html_parser = FileParser()
 				html_parser.read_file(infile)
 
-				# for token in in_handler:
 				for snum, sentence in enumerate(html_parser.glosses) :
 					for tnum, token in enumerate(sentence[2]) :
 						tag = ''
 						if token.type == 'w' or token.type == 'c':
 							tags = ''
 							if args.pos:
-								for ps in token.gloss.ps  :
-									tags += ps.encode('utf-8')
+								for ps in token.gloss.ps : tags += ps.encode('utf-8')
 								sent.append((token.token, tags))
 							elif args.tone:
+								# Pourquoi ne pas apprendre la forme tonale contenant une barre veticale ?
+								# Parce que dans l'ensemble des corpus désambiguïsés, son occurrence est
+								# au dessous de 10, ce cas de figure semble trop peu fréquent pour apporter
+								# une réélle amélioration dans la modélisation de tonalisation. Néanmoins,
+								# dans la conception du cadre logiciel, rien n'interdit de l'inclure dans
+								# les données d'entraînement et d'observer son apport
 								if '|' not in token.gloss.form :
 									[codes, chunks] = enc.differential_encode(token.token, token.gloss.form)
-									if args.verbose and args.Debug :
-										sys.stdout.write(u"{} -> {}\n".format(token.token, token.gloss.form))
-										chunk_id = 0
 									for chunk, code in zip(chunks, codes) :
-										if args.verbose and args.Debug:
-											sys.stdout.write(u"\tchunk {} : {} -> {}\n".format(chunk_id, chunk, repr(code)))
-											chunk_id += 1
 										try : sent.append((chunk, code.encode('utf-8')))
 										except LookupError: pass
-									if args.verbose and args.Debug: print ""
-
+							"""
 							elif args.gloss:
 								tags += token.gloss.gloss.encode('utf-8')
 								sent.append((token.token, tags))
+							"""
 
 					if len(sent) > 1:
 						allsents.append(sent)
 						sent = []
 
-		if args.verbose :
-			if args.tone :
-				enc.report()
-			print u"Cette expérience porte sur {:>4.2f} % de l'ensembles des corpus diponibles".format(float(args.Ratio)*100.0)
-			print ""
-			print args
-			print ""
+		if args.verbose and args.tone :
+			enc.report()
 
 		# Constitution des ensmebles d'entraînement de d'évaluation
 		p = (1 - args.evalsize / 100.0)
-		train_set, eval_set = sampling(allsents, args.Ratio, p)
+		train_set, eval_set = sampling(allsents, p)
 		print 'Split the data in train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
 
 		print 'Building classifier (CRF/NLTK)'
-
 		# Initialization
 		t1 = time.time()
-		if args.tone and args.polyphase :
+		if args.tone  :
 			num_phases = len([False, True]) * len(mode_indicators)
 		else :
 			num_phases = 1
@@ -248,7 +237,6 @@ def main():
 				if num_phases > 1 :
 					for lab in labels :
 						pass
-						# sys.stdout.write(u"[{} -> {}] ".format(lab.decode('utf-8'), code_dispatcher(lab.decode('utf-8'))[phase]))
 					labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
 				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
 				trainer.append(features, labels)
@@ -320,12 +308,6 @@ def main():
 			print "Error : unable to open the input file {} !".format(args.infile)
 			exit(1)
 
-		# Étiquetage
-
-		# désambiguïsation par la catégorie morphosyntaxique
-		# mode 1 : une désambigïsation qui consiste à utiliser les étiquettes morphosyntaxiques prédites
-		#          par un modèle CRF dont le fichier est précisé, pour ne conserver dans la liste d'options
-		#          de gloses que celles contiennent la catégorie morphsyntaxique renseignée par la CRF
 		if int(args.mode) == 1 :
 			allsents = []
 			for sentence in html_parser.glosses :
@@ -347,32 +329,15 @@ def main():
 
 			# Exportation du résultat de désambiguïsation en .HTML
 			for snum, sentence in enumerate(html_parser.glosses) :
-				if args.Debug :
-					sys.stdout.write(u"Phrase °" + str(snum) + "\n")
 				for tnum, token in enumerate(sentence[2]) :
-					if args.Debug :
-						sys.stdout.write(u"\t token °{}:\'{}\', \'{}\'".\
-							format(tnum,token.token, token.gloss) + "\n")
 					options_to_conserve = list()
 					ps_predicted =  (tagged_sents[snum][tnum][1].decode('utf-8'),)
 					if token.value and len(token.value) > 2:
 						for nopt, option in enumerate(token.value[2]) :
-							if args.Debug :
-								sys.stdout.write(u"\t\t")
 							if option.ps == ps_predicted :
 								options_to_conserve.append(option)
-								if args.Debug :
-									sys.stdout.write('*')
-							else :
-								if args.Debug :
-									sys.stdout.write(' ')
-							if args.Debug :
-								sys.stdout.write(u"option °{}\'{}\',\'{}\',\'{}\'\n".\
-									format(nopt, option.ps, option.form, option.gloss))
 						if options_to_conserve :
 							html_parser.glosses[snum][1][tnum] = options_to_conserve
-				print ""
-
 			try :
 				html_parser.write(args.outfile)
 			except IOError:
