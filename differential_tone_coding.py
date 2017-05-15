@@ -14,19 +14,44 @@ import re
 markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
 token_seperator = u'_'
 code_seperator = u'_'
-mode_indicators = u'-+'
-mode_names   = [u"delete",u"insert"]
+mode_indicators = u'+-'
+mode_names   = [u"insert",u"delete"]
 markers_to_be_ignored = u"[].-" + code_seperator
 markers_to_be_replaced = {u"’":u"'"}
 
 # todo : decomposition en opérations - opérands
 def code_dispatcher(code) :
 
-	pass
+	lst = []
+	for i in mode_indicators :
+		lst.append("")
+		lst.append("")
+
+	if not code : return lst
+	if code[-1] == code_seperator : code = code[: -1]
+	code_segments = code.split(code_seperator)
+	for i in range(0, len(code_segments), 3) :
+		m, p, c = code_segments[i : i + 3]
+		lst[mode_indicators.index(m) + len(mode_indicators) * int(c in markers_tone)] += \
+			u"{}{}{}{}{}{}".format(m, code_seperator, p, code_seperator, c, code_seperator)
+
+	return lst
 
 def code_resort(code) :
 
-	pass
+	ret = []
+	if not code : return code
+	if code[-1] == code_seperator : code = code[: -1]
+	code_segments = code.split(code_seperator)
+	for i in range(0, len(code_segments), 3) :
+		m, p, c = code_segments[i : i + 3]
+		ret.append(u"{}{}{}{}{}{}".format(m, code_seperator, p, code_seperator, c, code_seperator))
+
+	ret = sorted(ret, key=lambda x : int(mode_indicators.index(m))+2*int(x.split(code_seperator)[1]))
+	ret = ''.join(ret)
+	if ret : ret = ret[:-1]
+
+	return ret
 
 def _get_features_customised_for_tones(tokens, idx):
 
@@ -458,8 +483,9 @@ class encoder_tones () :
 
 		if len(code.strip()) == 0 : return chunk
 
+		if code[-1] == code_seperator : code = code[: -1]
 		code_segments = code.split(code_seperator)
-		if len(code_segments) % 3 != 0 : print (code_segments) ; print ("input code incorrect !"); exit(1)
+		if len(code_segments) % 3 != 0 : print code ; print (code_segments) ; print ("input code incorrect !"); exit(1)
 
 		p_offset = 0
 		for i in range(0,len(code_segments),3) :
@@ -501,7 +527,14 @@ def main () :
 		i = 0
 		for chunk, code in zip(chunks, codes) :
 			sys.stdout.write(u"Syllabe_{} '{}' - '{}' -> '{}'\n".format(i, enc.differential_decode(chunk, code), chunk, repr(code)));
+			sys.stdout.write(u"Syllabe_{} '{}' - '{}' -> '{}'\n".format(i, enc.differential_decode(chunk, code_resort(''.join(code_dispatcher(code)))), chunk, repr(code_resort(''.join(code_dispatcher(code))))));
+			pass
 		print ""
+
+		form1 = repr(''.join([enc.differential_decode(chunk, code) for code, chunk in zip(codes, chunks)]))
+		form2 = repr(''.join([enc.differential_decode(chunk, code_resort(''.join(code_dispatcher(code)))) for code, chunk in zip(codes, chunks)]))
+		if form1 != form2 :
+			print form1, form2
 
 	enc.report()
 
