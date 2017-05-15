@@ -9,19 +9,8 @@
 # Trois modèles sont possibles : les POS, les tons, les gloses
 
 # todo:
-# * à propos de l'interface de désambiguisation :
-#	mode 3 : afficher la probabilité pour chacun d'une liste des tokens proposés à la place d'un mot d'une phrase
-#		 une marginalisation est nécessaire pour obtenir la propabilité d'un choix de token sur une phrase. Le but
-#		 est d'ordonner les éléments de chaque liste par leurs probabilités d'apparition en tenant compte du modèle CRF,
-#		 qui associe à chaque mot un contexte de phrase, et qui donne l'ensemble des étiquettes pour une phrase
 # * petit rapport sur les distributions de caractères et leurs natures dans le corpus
-# * mode désambiguïsation --order, --select
-#   (afin de pouvoir choisir entre la suppression des options et la réordonnance par pertinence des options)
-# * réaliser le mode 3
-# * expérimentaiton sur l'apprentissage joint du ton et des PdD (POS an anglais)
-# * désambiguïsation des tons et de PdD
-#
-# * enregistrement et téléverser
+## * enregistrement et téléverser
 # * models produits /models/pos_exactitude_0p92.mod
 # * models produits /models/tone_exactitude_0p91.mod
 # * avec un fihier in et un fichier out
@@ -121,17 +110,10 @@ def main():
 	aparser.add_argument('-l', '--learn', help='Learn model from data (and save as F if provided)', default=None)
 	aparser.add_argument('-p', '--pos', help='Prediction for POS', default=False, action='store_true')
 	aparser.add_argument('-t', '--tone', help='Prediction for tones', default=False, action='store_true')
-	aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
+	# aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
 	aparser.add_argument('-e', '--evalsize', help='Percent of training data with respect to training and test one (default 10)', default=10)
-
-	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data', default=None)
-	aparser.add_argument('-m', '--mode'        , help='Disambuigation mode' , default=1)
-	# les trois modes de désambiugisation sont
-	# mode 1 : désambiguïser la liste de glosses en ne concervant que celles correspondent à la sortie prédite par la CRF
-
-	# mode 2 : séléctionner la phrase la plus probable (d'après la CRF) de la liste des glosses
-	# mode 3 : présenter toutes les possibilités avec leur probabilité donnée par la CRF puis ordonner la liste
-
+	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data, the gloss list will be ordered by the probability growth order', default=None)
+	aparser.add_argument('--select', help = 'Option that will be taken into account only with the use of -d, which specifies the disambiguation modality is to select only the most likely gloss in each list.', action='store_true')
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
 	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for further research purpose', default=None)
@@ -292,7 +274,7 @@ def main():
 
 		print "Exactitude : {:>5.3f}".format(accuracy(gold_tokens_eval, predicted_tokens_eval))
 
-	elif args.disambiguate and args.mode and args.infile and args.outfile and args.pos :
+	elif args.disambiguate and args.infile and args.outfile and args.pos :
 
 		# Lecture de texte en .HTML
 		html_parser = FileParser()
@@ -308,47 +290,30 @@ def main():
 			print "Error : unable to open the input file {} !".format(args.infile)
 			exit(1)
 
-		if int(args.mode) == 1 :
-			allsents = []
-			for sentence in html_parser.glosses :
-				sent = []
-				for token in sentence[2] :
-					sent.append(token.token)
-				allsents.append(sent)
+		# Exportation du résultat de désambiguïsation en .HTML
+		for snum, sentence in enumerate(html_parser.glosses) :
+			tokens = [token.token for token in sentence[2]]
+			features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
+			tagger._tagger.set(features)
+			for tnum, token in enumerate(sentence[2]) :
+				options = list()
+				if token.value and len(token.value) > 2:
+					for nopt, option in enumerate(token.value[2]) :
+						try: tag = option.ps[0]
+						except IndexError : tag = ''
+						prob = tagger._tagger.marginal(tag, tnum)
+						options.append((prob, option))
 
-			result = []
-			for tokens in allsents:
-				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
-				labels = tagger._tagger.tag(features)
-				if len(labels) != len(tokens):
-					raise Exception(' Predicted Length Not Matched, Expect Errors !')
+					reordered_probs, reordered_options = unzip(sorted(options, reverse = True))
+					if args.select :
+						prob_max = reordered_probs[0]
+						reordered_options = tuple([reordered_options[i] for i, p in enumerate(reordered_probs) if p >= prob_max])
 
-				tagged_sent = list(zip(tokens, labels))
-				result.append(tagged_sent)
-			tagged_sents = result
-
-			# Exportation du résultat de désambiguïsation en .HTML
-			for snum, sentence in enumerate(html_parser.glosses) :
-				for tnum, token in enumerate(sentence[2]) :
-					options_to_conserve = list()
-					ps_predicted =  (tagged_sents[snum][tnum][1].decode('utf-8'),)
-					if token.value and len(token.value) > 2:
-						for nopt, option in enumerate(token.value[2]) :
-							if option.ps == ps_predicted :
-								options_to_conserve.append(option)
-						if options_to_conserve :
-							html_parser.glosses[snum][1][tnum] = options_to_conserve
-			try :
-				html_parser.write(args.outfile)
-			except IOError:
-				print "Error : unable to create the output file {}".format(args.outfile)
-
-		else :
-			if args.mode == 2 or args.mode == 3 :
-				print ("Warning : modes 2 & 3 in developement ... ")
-			else :
-				print ("Error : the disambiguation mode you choosed is inexistant !")
-				exit(1)
+					html_parser.glosses[snum][1][tnum] = reordered_options
+		try :
+			html_parser.write(args.outfile)
+		except IOError:
+			print "Error : unable to create the output file {}".format(args.outfile)
 
 	else :
 		aparser.print_help()
