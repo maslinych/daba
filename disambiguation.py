@@ -170,7 +170,7 @@ def main():
 								# au dessous de 10, ce cas de figure semble trop peu fréquent pour apporter
 								# une réélle amélioration dans la modélisation de tonalisation. Néanmoins,
 								# dans la conception du cadre logiciel, rien n'interdit de l'inclure dans
-								# les données d'entraînement et d'observer son apport
+								# les données d'entraînement et d'en observer le apport
 								if '|' not in token.gloss.form :
 									[codes, chunks] = enc.differential_encode(token.token, token.gloss.form)
 									for chunk, code in zip(chunks, codes) :
@@ -274,54 +274,55 @@ def main():
 
 		print "Exactitude : {:>5.3f}".format(accuracy(gold_tokens_eval, predicted_tokens_eval))
 
-	elif args.disambiguate and args.infile and args.outfile and args.pos :
+		if args.verbose and args.store :
+			print ("Tagged result is exported in {}".format(args.store))
 
+	elif args.disambiguate and args.infile and args.outfile :
 		# Lecture de texte en .HTML
 		html_parser = FileParser()
 		tagger = CRFTagger()
-		try :
-			tagger.set_model_file(args.disambiguate)
-		except IOError:
-			print "Error : unable to open the model {} !".format(args.infile)
-			exit(1)
-		try :
-			html_parser.read_file(args.infile)
-		except IOError:
-			print "Error : unable to open the input file {} !".format(args.infile)
-			exit(1)
 
-		# Exportation du résultat de désambiguïsation en .HTML
-		for snum, sentence in enumerate(html_parser.glosses) :
-			tokens = [token.token for token in sentence[2]]
-			features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
-			tagger._tagger.set(features)
-			for tnum, token in enumerate(sentence[2]) :
-				options = list()
-				if token.value and len(token.value) > 2:
-					for nopt, option in enumerate(token.value[2]) :
-						try: tag = option.ps[0]
-						except IndexError : tag = ''
-						prob = tagger._tagger.marginal(tag, tnum)
-						options.append((prob, option))
+		if args.pos :
+			try :
+				tagger.set_model_file(args.disambiguate)
+			except IOError:
+				print "Error : unable to open the model {} !".format(args.infile)
+				exit(1)
+			try :
+				html_parser.read_file(args.infile)
+			except IOError:
+				print "Error : unable to open the input file {} !".format(args.infile)
+				exit(1)
 
-					reordered_probs, reordered_options = unzip(sorted(options, reverse = True))
-					if args.select :
-						prob_max = reordered_probs[0]
-						reordered_options = tuple([reordered_options[i] for i, p in enumerate(reordered_probs) if p >= prob_max])
+			# Exportation du résultat de désambiguïsation en .HTML
+			for snum, sentence in enumerate(html_parser.glosses) :
+				tokens = [token.token for token in sentence[2]]
+				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
+				tagger._tagger.set(features)
+				for tnum, token in enumerate(sentence[2]) :
+					options = list()
+					if token.value and len(token.value) > 2:
+						for nopt, option in enumerate(token.value[2]) :
+							try: tag = option.ps[0]
+							except IndexError : tag = ''
+							prob = tagger._tagger.marginal(tag, tnum)
+							options.append((prob, option))
+						reordered_probs, reordered_options = unzip(sorted(options, reverse = True))
+						if args.select :
+							prob_max = reordered_probs[0]
+							reordered_options = tuple([reordered_options[i] for i, p in enumerate(reordered_probs) if p >= prob_max])
+						html_parser.glosses[snum][1][tnum] = reordered_options
 
-					html_parser.glosses[snum][1][tnum] = reordered_options
-		try :
-			html_parser.write(args.outfile)
-		except IOError:
-			print "Error : unable to create the output file {}".format(args.outfile)
+		elif args.tone :
+			pass
+
+		try : html_parser.write(args.outfile)
+		except IOError: print "Error : unable to create the output file {}".format(args.outfile)
 
 	else :
 		aparser.print_help()
 
-	if args.verbose and args.store :
-		print ("Annotated result is exported in")
-		stored_filename = args.store
-		print ("\t{}".format(stored_filename))
+
 
 	exit(0)
 
