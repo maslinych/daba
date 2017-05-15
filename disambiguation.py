@@ -32,6 +32,7 @@ import csv
 import nltk.tag.util
 import itertools
 from nltk.metrics.scores import accuracy
+import zipfile
 
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
@@ -199,6 +200,7 @@ def main():
 		t1 = time.time()
 		if args.tone  :
 			num_phases = len([False, True]) * len(mode_indicators)
+			myzip = zipfile.ZipFile(args.learn + '.zip', 'w')
 		else :
 			num_phases = 1
 
@@ -223,6 +225,11 @@ def main():
 				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
 				trainer.append(features, labels)
 			trainer.train(model = model_name)
+			if num_phases > 1 :
+				myzip.write(model_name)
+				os.remove(model_name)
+		if num_phases > 1 :
+			myzip.close()
 
 		print "... done in", get_duration(t1_secs = t1, t2_secs = time.time())
 
@@ -233,12 +240,15 @@ def main():
 		gold_set = eval_set
 		input_set = [unzip(sent)[0] for sent in gold_set]
 		predicted_set = [list() for sent in gold_set]
+		if num_phases > 1 :
+			myzip = zipfile.ZipFile(args.learn + '.zip', 'r')
 		for phase in range(num_phases) :
 			tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
 			trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
 			trainer.set_params(tagger._training_options)
 			if num_phases > 1:
 				model_name = args.learn + '.' + str(phase)
+				myzip.extract(model_name)
 			else :
 				model_name = args.learn
 			tagger.set_model_file(model_name)
@@ -254,6 +264,9 @@ def main():
 					sent_acc, labels_acc = unzip(predicted_set[i])
 					labels_acc = [label_acc + label for label_acc, label in zip(labels_acc, labels)]
 					predicted_set[i] = list(zip(sent_acc, labels_acc))
+			if num_phases > 1 :
+				os.remove(model_name)
+		myzip.close()
 
 		# gold_tokens, predicted_tokens : list((str,str))
 		predicted_tokens = list(itertools.chain(*predicted_set))
