@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 import re
-from orthograph import detone
+#from orthograph import detone
 import unicodedata
 
 #consonants = 'klbmsrdtgfjchzpɲŋ'
