@@ -15,8 +15,7 @@
 # * models produits /models/tone_exactitude_0p91.mod
 # * avec un fihier in et un fichier out
 #
-# des RDV. prévus
-# mercredi 17 mai à 14 : 30
+
 
 import sys, re, codecs, glob, time, os
 import argparse
@@ -25,7 +24,7 @@ import collections
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
-from differential_tone_coding import get_features_customised, chunking, encoder_tones, repr, token_seperator, _get_features_customised_for_tones, code_dispatcher, code_resort, mode_indicators
+from differential_tone_coding import is_a_good_code, code_seperator, get_features_customised, chunking, encoder_tones, repr, get_features_customised_tone, code_dispatcher, code_resort, mode_indicators
 import unicodedata
 import pycrfsuite
 import csv
@@ -38,24 +37,20 @@ import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
+def inspector_tokens(gold_tokens, predicted_tokens) :
+	for x,y in zip(gold_tokens, predicted_tokens) :
+		try :
+			if x[1] != y[1] :
+				print x[0],":",x[1].decode('utf-8'),"->",y[1].decode('utf-8') # ,"(",len(x[1]), len(y[1]),")"
+			else :
+				print "*",x[0],":",x[1].decode('utf-8'),"->",y[1].decode('utf-8') # ,"(",len(x[1]), len(y[1]),")"
+		except :
+			print type(x[0]),":",type(x[1]),"->",type(y[1])
+
 def unzip(input) :
 	return [list(li) for li in zip(*input)]
 
-# dataset : list((str,str))
-def getTag(dataset) :
-	ret = []
-	buf = str()
-	for data in dataset :
-		if data[0] != token_seperator :
-			buf += data[1]
-		else :
-			ret.append(buf)
-			buf = str()
-	if buf :
-		ret.append(buf)
-	return ret
-
-def csv_export(enc, filename, gold_tokens, test_tokens):
+def csv_export_tone(enc, filename, gold_tokens, test_tokens):
 
 	try :
 		csvfile = codecs.open(filename, 'wb')
@@ -86,7 +81,7 @@ def csv_export(enc, filename, gold_tokens, test_tokens):
 		raise
 		print "unable to dump result in CSV file to create !"
 
-def csv_export2(filename, gold_tokens, test_tokens):
+def csv_export(filename, gold_tokens, test_tokens):
 
 	try :
 		csvfile = codecs.open(filename, 'wb')
@@ -111,7 +106,6 @@ def csv_export2(filename, gold_tokens, test_tokens):
 	except :
 		raise
 		print "unable to dump result in CSV file to create !"
-
 
 def sampling(allsents, p, ratio = 1) :
 	train_set, eval_set = [], []
@@ -173,13 +167,13 @@ def main():
 		allsents = []
 
 		# pour le débogage
-		allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
+		# allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
+		R = 0.1
 
 		if args.tone :
 			try    :
 				enc = encoder_tones()
 			except :
-				enc = None
 				print ("Error : unable to initialize the tone encoder !")
 				exit()
 
@@ -224,115 +218,182 @@ def main():
 
 		print 'Split the data in '
 		p = (1 - args.evalsize / 100.0)
-		train_set, eval_set = sampling(allsents, p)
+		train_set, eval_set = sampling(allsents, p, R)
 		print '\t train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
 
 		print 'Building classifier (pyCRFsuite)'
 		# Initialization
 		t1 = time.time()
-		if args.tone  :
+		if args.tone :
 			num_phases = len([False, True]) * len(mode_indicators)
 			myzip = zipfile.ZipFile(args.learn + '.zip', 'w')
 		else :
 			num_phases = 1
 
-		# Training
+		# A. Entrâinement des modèles
 		for phase in range(num_phases) :
+			# A.1. Initialiser un nouveau modèle CRF
 			tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
 			trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
 			trainer.set_params(tagger._training_options)
-			if num_phases > 1 :
+			if args.tone :
 				model_name = args.learn + '.' + str(phase)
 			else:
 				model_name = args.learn
 
+			# A.2. Mettre à plat les structures de données pour préparer l'entrâinement contextuel
 			for sent in train_set :
-				if not args.tone :
-					# train_set : list(list(str,str)))
+				if args.tone :
+					# features_syllabe tokens, labels_syllabe : list(list(str))
+					# features, labels : list(str)
+					tokens = list()
+
+					# A.2.1 Fabrication des features à partr des données d'entrâinement
+					for token in sent :
+						tokens.append(unzip(token)[0])
+					labels_syllabe = list()
+					features_syllabe = list()
+
+					# A.2.2 Préparer l'annotation à apprendre syllabe par syllabe
+					# phase par phase
+					for i, token in enumerate(sent) :
+						label = list()
+						feature = list()
+						for j, syllabe_code in enumerate(token) :
+							syllabe, code = syllabe_code
+							code2 = code_dispatcher(code.decode('utf-8'))[phase].encode('utf-8')
+							label.append(code2)
+							feature.append(get_features_customised_tone(tokens, i, j, phase))
+						labels_syllabe.append(label)
+						features_syllabe.append(feature)
+
+					labels = list(itertools.chain(*labels_syllabe))
+					features = list(itertools.chain(*features_syllabe))
+				else :
+					# A.2.1 Fabrication des features à partr des données d'entrâinement
+					# A.2.2 Préparer l'annotation à apprendre token par token
 					# tokens, labels : list(str)
 					tokens = unzip(sent)[0]
 					labels = unzip(sent)[1]
-					features = [get_features_customised(tokens, i) for i in range(len(tokens))]
-				else :
-					# train_set : list(list(list(str,str)))
-					# tokens : list(list(str))
-					# labels : list(list(list(str)))
-					labels = list()
-					for token in sent :
-						label = [code_dispatcher(syllabe.decode('utf-8'))[phase].encode('utf-8') for syllabe in token]
-						labels.append(label)
+					features = list()
+					for i, token in enumerate(tokens) :
+						features.append(get_features_customised(tokens, i))
 
 				trainer.append(features, labels)
 			trainer.train(model = model_name)
 
-			if num_phases > 1 :
+			if args.tone :
 				myzip.write(model_name)
 				os.remove(model_name)
-		if num_phases > 1 :
+
+		if args.tone :
 			myzip.close()
 
 		print "... done in", get_duration(t1_secs = t1, t2_secs = time.time())
 
-		# Evaluation
+		# B. Evaluation
 		print 'Evaluating classifier'
-		# gold_set, predicted_set : list(list((str, str)))
-		# input_set, output_gold_set : list(list(str))
 		gold_set = eval_set
-		input_set = [unzip(sent)[0] for sent in gold_set]
-		predicted_set = [list() for sent in gold_set]
-		if num_phases > 1 :
+
+		# debug
+		# gold_set = train_set
+
+		if args.tone :
 			myzip = zipfile.ZipFile(args.learn + '.zip', 'r')
-		for phase in range(num_phases) :
+			predicted_set_acc = list()
+			for phase in range(num_phases) :
+
+				# B.1. Charger le modèle CRF pour une des quatre phases d'annoation tonale
+				tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
+				trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
+				trainer.set_params(tagger._training_options)
+				model_name = args.learn + '.' + str(phase)
+				myzip.extract(model_name)
+				tagger.set_model_file(model_name)
+
+				# B.2 Annotation automatique syllabe par syllabe pour une phrase
+				predicted_set = list()
+				for p, sent in enumerate(gold_set) :
+					tokens = list()
+					features = list()
+					for i, token in enumerate(sent) :
+						syllabes = list()
+						for j, syllabe_tag in enumerate(token) :
+							syllabe, tag = syllabe_tag
+							syllabes.append(syllabe)
+						tokens.append(syllabes)
+					predicted_tokens = list()
+					for i, token in enumerate(sent) :
+						for j, syllabe in enumerate(token) :
+							features.append(get_features_customised_tone(tokens, i, j, phase))
+						labels = tagger._tagger.tag(features)
+
+						predicted_tokens.append(map(list, zip(tokens[i], labels)))
+					predicted_set.append(predicted_tokens)
+
+
+				# B.3 Accumuler en ordonner l'annotation syllabique
+				if not predicted_set_acc :
+					predicted_set_acc = [[[['',''] for syllabe in token] for token in sent] for sent in predicted_set]
+
+				for p, sent in enumerate(predicted_set_acc) :
+					for i, token in enumerate(sent) :
+						for j, syllabe_tag_acc in enumerate(token) :
+							syllabe_acc, tag_acc = syllabe_tag_acc
+							syllabe, tag = predicted_set[p][i][j]
+
+							if tag_acc and tag :
+								tag_acc += code_seperator.encode('utf-8') + tag
+							else :
+								tag_acc += tag
+
+							predicted_set_acc[p][i][j] = \
+								tuple([syllabe, code_resort(tag_acc.decode('utf-8')).encode('utf-8')])
+
+			# B.4 Mettre à plat les structures complexes pour préparer l'évaluation
+			gold_tokens = list(itertools.chain(*gold_set))
+			predicted_tokens = list(itertools.chain(*predicted_set_acc))
+			gold_tokens = list(itertools.chain(*gold_tokens))
+			predicted_tokens = list(itertools.chain(*predicted_tokens))
+
+			inspector_tokens(gold_tokens,predicted_tokens )
+
+		else :
+			# B.1. Charger le modèle CRF pour l'annoation tonale
 			tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
 			trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
 			trainer.set_params(tagger._training_options)
-			if num_phases > 1:
-				model_name = args.learn + '.' + str(phase)
-				myzip.extract(model_name)
-			else :
-				model_name = args.learn
+			model_name = args.learn
 			tagger.set_model_file(model_name)
-			for i, sent in enumerate(input_set) :
-				features = [get_features_customised(sent, j) for j in range(len(sent))]
-				labels = tagger._tagger.tag(features)
-				if num_phases > 1 :
-					labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
-				tagged_sent = list(zip(sent, labels))
-				if not predicted_set[i] :
-					predicted_set[i] = tagged_sent
-				else :
-					sent_acc, labels_acc = unzip(predicted_set[i])
-					labels_acc = [label_acc + label for label_acc, label in zip(labels_acc, labels)]
-					predicted_set[i] = list(zip(sent_acc, labels_acc))
-			if num_phases > 1 :
-				os.remove(model_name)
-		if num_phases > 1 :
-			myzip.close()
 
-		# gold_tokens, predicted_tokens : list((str,str))
-		predicted_tokens = list(itertools.chain(*predicted_set))
-		if num_phases > 1 :
-			predicted_tokens = [ tuple([pair[0], code_resort(pair[1].decode('utf-8')).encode('utf-8')]) for pair  in predicted_tokens]
-		gold_tokens = list(itertools.chain(*gold_set))
-		# gold_tokens_eval, predicted_tokens_eval : list(str)
-		if args.tone :
-			gold_tokens_eval = getTag(gold_tokens)
-			predicted_tokens_eval = getTag(predicted_tokens)
-		else :
-			gold_tokens_eval = gold_tokens
-			predicted_tokens_eval = predicted_tokens
+			# B.2. Annotation automatique token par token
+			predicted_set = list()
+			for sent in gold_set :
+				tokens = list()
+				features = list()
+				for token_tag in sent :
+					token, tag = token_tag
+					tokens.append(token)
+				for j in range(len(sent)) :
+					features.append(get_features_customised(tokens, j))
+				labels = tagger._tagger.tag(features)
+				predicted_set.append(zip(tokens, labels))
+
+			# B.4 Mettre à plat les structures complexes pour préparer l'évaluation
+			gold_tokens  = list(itertools.chain(*gold_set))
+			predicted_tokens = list(itertools.chain(*predicted_set))
 
 		if args.store :
 			stored_filename = args.store
-			csv_export2(stored_filename, gold_tokens, predicted_tokens)
+			csv_export(stored_filename, gold_tokens, predicted_tokens)
 
-		print "Exactitude : {:>5.3f}".format(accuracy(gold_tokens_eval, predicted_tokens_eval))
+		print "Exactitude : {:>5.3f}".format(accuracy(gold_tokens, predicted_tokens))
 
 		if args.verbose and args.store :
 			print ("Tagged result is exported in {}".format(args.store))
 
 	elif args.disambiguate and args.infile and args.outfile :
-		# Lecture de texte en .HTML
+
 		html_parser = FileParser()
 		tagger = CRFTagger()
 
@@ -350,7 +411,7 @@ def main():
 
 			for snum, sentence in enumerate(html_parser.glosses) :
 				tokens = [token.token for token in sentence[2]]
-				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
+				features = [_get_features_customised_tone(tokens, i) for i in range(len(tokens))]
 				tagger._tagger.set(features)
 				for tnum, token in enumerate(sentence[2]) :
 					options = list()
@@ -367,79 +428,13 @@ def main():
 						html_parser.glosses[snum][1][tnum] = reordered_options
 
 		elif args.tone :
-			try :
-				pass
-				#tagger.set_model_file(args.disambiguate)
-			except IOError:
-				print "Error : unable to open the model {} !".format(args.infile)
-				exit(1)
-			try :
-				html_parser.read_file(args.infile)
-			except IOError:
-				print "Error : unable to open the input file {} !".format(args.infile)
-				exit(1)
-
-			try :
-				enc = encoder_tones()
-			except :
-				enc = None
-				print ("Error : unable to initialize the tone encoder !")
-
-			# 1. convertir chacune des formes tonales proposées dans une liste en
-			# code différentiel, divisé en segments syllabiques -> enc.differential_encode
-			for snum, sentence in enumerate(html_parser.glosses) :
-				tokens = [token.token for token in sentence[2]]
-				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
-				#tagger._tagger.set(features)
-				x = [chunking(token.token) for token in sentence[2]]
-				print x
-				for tnum, token in enumerate(sentence[2]) :
-					options = list()
-					if token.value and len(token.value) > 2:
-						for nopt, option in enumerate(token.value[2]) :
-							try: tag = option.form
-							except IndexError : tag = ''
-							if '|' not in option.form :
-								[codes, chunks] = enc.differential_encode(token.token, option.form)
-							else :
-								codes = u""
-								chunks = []
-
-							# ici, les codes syllabiques sont désormais disponbiles
-
-						"""
-							#prob = tagger._tagger.marginal(tag, tnum)
-							options.append((prob, option))
-						reordered_probs, reordered_options = unzip(sorted(options, reverse = True))
-						if args.select :
-							prob_max = reordered_probs[0]
-							reordered_options = tuple([reordered_options[i] for i, p in enumerate(reordered_probs) if p >= prob_max])
-						html_parser.glosses[snum][1][tnum] = reordered_options
-						"""
-
-			# 2. diviser chaque segment syllabique par 4 phases, il s'agit de
-			# insertion des alphabets, insertion des marqueurs tonales,
-			# suppression des alphabets et suppresion des marqueurs tonales,
-			# -> code_dispatcher
-
-			# 3. évaluer la prbabilité de présence de chaque sous-segment syllabico-phsial
-			# avec leur modèle respectif -> tagger._tagger.marginal
-
-			# 4. obtenir la probalitié totale en multiplier
-			# toutes les 4 probabilités "phasiales"
-			# (en supposant que les quatres phases sont statistiquements indépendantes)
-
-			# 5. réordonner la liste par la décroissance de probabilité totale de forme tonales
-			# ainsi obtenue
-
+			pass
 
 		try : html_parser.write(args.outfile)
-		except IOError: print "Error : unable to create the output file {}".format(args.outfile)
+		except IOError: print "Error : unable to create the output file {} !".format(args.outfile)
 
 	else :
 		aparser.print_help()
-
-
 
 	exit(0)
 

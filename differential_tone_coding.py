@@ -12,12 +12,27 @@ import re
 
 # Constant lists
 markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
-token_seperator = u'_'
 code_seperator = u'_'
 mode_indicators = u'+-'
 mode_names   = [u"insert",u"delete"]
 markers_to_be_ignored = u"[].-" + code_seperator
 markers_to_be_replaced = {u"’":u"'"}
+
+def is_a_good_code(code) :
+
+	if not code : return True
+
+	code2 = code
+
+	if code2[-1] == code_seperator.decode('utf-8') or code2[-1] == code_seperator:
+		return False
+
+
+	code3 = code2.split(code_seperator.decode('utf-8'))
+	if len(code3) % 3 != 0 :
+		return False
+	else :
+		return True
 
 # todo : decomposition en opérations - opérands
 def code_dispatcher(code) :
@@ -32,10 +47,21 @@ def code_dispatcher(code) :
 	code_segments = code.split(code_seperator)
 	for i in range(0, len(code_segments), 3) :
 		m, p, c = code_segments[i : i + 3]
-		lst[mode_indicators.index(m) + len(mode_indicators) * int(c in markers_tone)] += \
+		phase = mode_indicators.index(m) + len(mode_indicators) * int(c in markers_tone)
+		lst[phase] += \
 			u"{}{}{}{}{}{}".format(m, code_seperator, p, code_seperator, c, code_seperator)
 
-	return lst
+	lst2 = list()
+	for element in lst :
+		try :
+			if element[-1] == code_seperator :
+				lst2.append(element[:-1])
+			else :
+				lst2.append(element)
+		except :
+			lst2.append(element)
+
+	return lst2
 
 def code_resort(code) :
 
@@ -44,7 +70,13 @@ def code_resort(code) :
 	if code[-1] == code_seperator : code = code[: -1]
 	code_segments = code.split(code_seperator)
 	for i in range(0, len(code_segments), 3) :
-		m, p, c = code_segments[i : i + 3]
+		try :
+			m, p, c = code_segments[i : i + 3]
+		except :
+			print code_segments;
+			print "Bug !"
+			exit()
+
 		ret.append(u"{}{}{}{}{}{}".format(m, code_seperator, p, code_seperator, c, code_seperator))
 
 	ret = sorted(ret, key=lambda x : int(mode_indicators.index(m))+2*int(x.split(code_seperator)[1]))
@@ -53,7 +85,62 @@ def code_resort(code) :
 
 	return ret
 
-def _get_features_customised_for_tones(tokens, idx):
+def get_features_customised(tokens, idx):
+
+	feature_list = []
+
+	if not tokens:
+		return feature_list
+
+	token = tokens[idx]
+
+	# Capitalization
+	if token[0].isupper():
+		feature_list.append(u'CAPITALIZATION')
+
+	# Number
+	if re.search(r'\d', token) is not None:
+		feature_list.append(u'IL_Y_A_UN_CHIFFRE')
+
+	# Punctuation
+	punc_cat = set([u"Pc", u"Pd", u"Ps", u"Pe", u"Pi", u"Pf", u"Po"])
+	if all (unicodedata.category(x) in punc_cat for x in token):
+		feature_list.append(u'PONCTUATION_PURE')
+
+	# Voyelles
+	voyelles = u""
+	for c in token :
+		if c.lower() in vowels:
+			voyelles += c
+	feature_list.append(u'VOYELLES_'+ voyelles)
+
+	# Syllabes précédent et suivant
+	try :
+		feature_list.append(u'TOKEN_PRECEDENT_' + token[idx - 1])
+	except IndexError :
+		pass
+
+	try :
+		feature_list.append(u'TOKEN_SUIVANT_' + token[idx + 1])
+	except IndexError :
+		pass
+
+	feature_list.append(u'TOKEN_ACTUEL_' + (token))
+
+	# Suffix & prefix up to length 3
+	if len(token) > 1:
+		feature_list.append(u'SUF_' + token[-1:])
+		feature_list.append(u'PRE_' + token[:1])
+	if len(token) > 2:
+		feature_list.append(u'SUF_' + token[-2:])
+		feature_list.append(u'PRE_' + token[:2])
+	if len(token) > 3:
+		feature_list.append(u'SUF_' + token[-3:])
+		feature_list.append(u'PRE_' + token[:3])
+
+	return feature_list
+
+def get_features_customised_tone(tokens, i, j, phase) :
 
 	feature_list = []
 
@@ -61,119 +148,65 @@ def _get_features_customised_for_tones(tokens, idx):
 		return feature_list
 
 	try :
-		token = tokens[idx]
+	 	syllabes = tokens[i]
+		syllabe = syllabes[j]
 	except IndexError :
 		raise
 
-	# positon du syllabe actuel et préfixe et suffixe du même mot
-	lst = []
-	for i in range(idx, len(tokens) + 1, 1) :
-		try :
-			if tokens[i] == token_seperator :
-				lst.append(i)
-				if len(lst) >= 2 :
-					break
-		except IndexError :
-			lst.append(i)
-			break
+	# phases
+	feature_list.append(u'PHASE_ID_' + str(phase))
 
-	try :
-		feature_list.append("SYLLABE_ID1_" + str(lst[0] - idx))
-	except :
-		pass
+	# Positions
+	feature_list.append(u'SYLLABE_ID_POSITIF_' + str(j))
+	feature_list.append(u'SYLLABE_ID_NEGATIF_' + str(len(syllabes) - j - 1))
+	feature_list.append(u'TOKEN_ID_POSITIF_' + str(i))
+	feature_list.append(u'TOKEN_ID_NEGATIF_' + str(len(tokens) - i - 1))
 
-	try :
-		feature_list.append("SUFFIXE_ACTUEL_" + tokens(lst[0] - 1))
-	except :
-		pass
+	# Châine de caractères au niveau du vocable actuel
+	feature_list.append(u'SYLLABE_ACTUELLE_' + syllabe)
+	feature_list.append(u'PREFIXE_ACTUEL_' + syllabes[0])
+	feature_list.append(u'SUFFIXE_ACTUEL_' + syllabes[-1])
+	try    : feature_list.append(u'SYLLABE_QUI_PRECEDE_' + syllabes[j - 1])
+	except : pass
+	try    : feature_list.append(u'SYLLABE_QUI_SUIT_' + syllabes[j + 1])
+	except : pass
 
-	lst2 = []
-	for i in range(idx, -2, -1) :
-		try :
-			if tokens[i] == token_seperator :
-				lst2.append(i)
-				if len(lst2) >= 2 :
-					break
-		except IndexError :
-			lst2.append(i)
-			break
+	# châine de caractères au niveau du vocable qui précède et celui qui suit
+	try : feature_list.append(u'PREFIXE_DU_TOKEN_QUI_PRECEDE_' + tokens[i-1][0])
+	except : pass
+	try : feature_list.append(u'SUFFIXE_DU_TOKEN_QUI_PRECEDE_' + tokens[i-1][-1])
+	except : pass
+	try : ffeature_list.append(u'PREFIXE_DU_TOKEN_QUI_SUIT_' + tokens[i+1][0])
+	except : pass
+	try : ffeature_list.append(u'SUFFIXE_DU_TOKEN_QUI_SUIT_' + tokens[i+1][-1])
+	except : pass
 
-	try :
-		feature_list.append("SYLLABE_ID2_" + str(idx - lst2[0]))
-	except :
-		pass
-
-	try :
-		feature_list.append("PREFIXE_ACTUEL_" + tokens(lst2[0] + 1))
-	except :
-		pass
-
-	# préfixe et suffixe du mots précédent et suivant dans la même phrase
-	try :
-		prefixe_du_mot_suivant = tokens[lst[0] + 1]
-		feature_list.append("PREFIXE_SUIVANT_" + prefixe_du_mot_suivant)
-	except IndexError :
-		pass
-	try :
-		suffixe_du_mot_precedent = tokens[lst2[0] - 1]
-		feature_list.append("SUFFIXE_PRECEDENT_" + suffixe_du_mot_precedent)
-	except IndexError:
-		pass
-
-	try :
-		suffixe_du_mot_suivant  = tokens[lst[1] - 1]
-		feature_list.append("SUFFIXE_SUIVANT_" + suffixe_du_mot_suivant)
-	except IndexError :
-		pass
-	try :
-		prefixe_du_mot_precedent = tokens[lst2[1] + 1]
-		feature_list.append("PREFIXE_PRECEDENT_" + prefixe_du_mot_precedent)
-	except IndexError :
-		pass
+	# châine de caractères au niveau d'une phrase
+	feature_list.append(u'TOKEN_ACTUEL_' + ''.join(syllabes))
+	try    : feature_list.append(u'TOKEN_QUI_PRECEDE_' + ''.join(tokens[i - 1]))
+	except : pass
+	try    : feature_list.append(u'TOKEN_QUI_SUIT_' + ''.join(tokens[i + 1]))
+	except : pass
 
 	# Capitalization
-	if token[0].isupper():
-		feature_list.append('CAPITALIZATION')
+	if syllabe[0].isupper():
+		feature_list.append(u'CAPITALIZATION')
 
 	# Number
-	if re.search(r'\d', token) is not None:
-		feature_list.append('IL_Y_A_UN_CHIFFRE')
+	if re.search(r'\d', syllabe) is not None:
+		feature_list.append(u'IL_Y_A_UN_CHIFFRE')
 
 	# Punctuation
-	punc_cat = set(["Pc", "Pd", "Ps", "Pe", "Pi", "Pf", "Po"])
-	if all (unicodedata.category(x) in punc_cat for x in token):
-		feature_list.append('PONCTUATION_PURE')
+	punc_cat = set([u"Pc", u"Pd", u"Ps", u"Pe", u"Pi", u"Pf", u"Po"])
+	if all (unicodedata.category(x) in punc_cat for x in syllabe):
+		feature_list.append(u'PONCTUATION_PURE')
 
 	# Voyelles
-	voyelles = ""
-	for c in token :
+	voyelles = u""
+	for c in syllabe :
 		if c.lower() in vowels:
 			voyelles += c
-	feature_list.append('VOYELLES_'+ voyelles)
-
-	# Syllabes précédent et suivant
-	try :
-		feature_list.append('SYLLABE_PRECEDENT_' + token[idx - 1])
-	except IndexError :
-		pass
-
-	try :
-		feature_list.append('SYLLABE_SUIVANT_' + token[idx + 1])
-	except IndexError :
-		pass
-
-	feature_list.append('SYLLABE_ACTUEL_' + (token))
-
-	# Suffix & prefix up to length 3
-	if len(token) > 1:
-		feature_list.append('SUF_' + token[-1:])
-		feature_list.append('PRE_' + token[:1])
-	if len(token) > 2:
-		feature_list.append('SUF_' + token[-2:])
-		feature_list.append('PRE_' + token[:2])
-	if len(token) > 3:
-		feature_list.append('SUF_' + token[-3:])
-		feature_list.append('PRE_' + token[:3])
+	feature_list.append(u'VOYELLES_'+ voyelles)
 
 	return feature_list
 
@@ -297,7 +330,6 @@ def entropy (cnt, unit = 'shannon') :
 			ent -= p * math.log(p, base[unit])
 	return ent
 
-
 def sprint_cnt(cnt, prefix = "", num = -1, min = -1) :
 
 	lst = cnt.most_common()
@@ -392,24 +424,7 @@ class encoder_tones () :
 		self.stat.dst_insert[caracter_dst] += 1
 		self.stat.segment_code[repr(segment)] += 1
 
-	"""
-	def replace(self) :
-		mode_id = mode_names.index("replace")
-		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
-		segment = mp_code + code_seperator
-		caracter_src = self.src[self.p_src]
-		caracter_dst = self.dst[self.p_dst]
-		segment += caracter_dst + code_seperator
-		self.ret[chunk_id] += segment
-
-		self.stat.cnt_ops += 1
-		self.stat.mode["replace"] += 1
-		self.stat.src_replace[caracter_src] += 1
-		self.stat.dst_replace[caracter_dst] += 1
-		self.stat.segment_code[repr(segment)] += 1
-	"""
-
-	def differential_encode (self, form_non_tonal, form_tonal, seperator = True) :
+	def differential_encode (self, form_non_tonal, form_tonal) :
 
 		self.p_src = -1
 		self.p_dst = -1
@@ -417,10 +432,7 @@ class encoder_tones () :
 		self.src = reshaping(form_non_tonal, False)
 
 		if not self.src :
-			if seperator:
-				return [u"", [token_seperator]]
-			else :
-				return [u"", []]
+				return [[u""], [form_non_tonal]]
 
 		self.chunks = chunking(self.src)
 		self.ret = [u"" for i in range(len(self.chunks))]
@@ -446,14 +458,14 @@ class encoder_tones () :
 
 		# enlèvement du séparateur du code à la fin du chunk
 		tmp = []
-                for ret2 in self.ret :
+		for ret2 in self.ret :
 			try :
-                        	if ret2[-1] == code_seperator :
-                                	ret2 = ret2[:-1]
+				if ret2[-1] == code_seperator :
+					ret2 = ret2[:-1]
 			except IndexError:
 				pass
-                        tmp.append(ret2)
-                self.ret = tmp
+			tmp.append(ret2)
+		self.ret = tmp
 
 		self.stat.num += 1
 		repr_code = repr(u"".join(self.ret))
@@ -467,10 +479,6 @@ class encoder_tones () :
 			form2 = reshaping(repr(unicodedata.normalize('NFD', form_tonal)),False)
 			if form1 != form2 :
 				self.stat.err_cnt += 1
-
-		if seperator :
-			self.ret.append(u'')
-			self.chunks.append(token_seperator)
 
 		return [self.ret, self.chunks]
 
