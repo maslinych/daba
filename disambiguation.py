@@ -37,6 +37,28 @@ import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
+def marginal_tone(taggers, tnum, tokens, tag, token) :
+
+	enc = encoder_tones()
+	codes, syllabes = enc.differential_encode(token, tag.decode('utf-8'))
+
+	p = 0
+	snums = []
+	for i, token in enumerate(tokens) :
+		for j, syllabe in enumerate(token) :
+			if i == tnum :
+				snums.append(p)
+			p += 1
+
+	prob = 1
+	for phase, tagger in enumerate(taggers) :
+		for i in range(len(syllabes)) :
+			subcode = code_dispatcher(codes[i])[phase]
+			print subcode
+			prob *= tagger._tagger.marginal(subcode.encode('utf-8'), snums[i])
+
+	return prob
+
 def accuray2 (dataset1, dataset2, is_tone_mode = False) :
 	cnt_sucess = 0
 	cnt_fail = 0
@@ -263,7 +285,7 @@ def main():
 
 		# pour le débogage rapide
 		allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
-		R = 0.5
+		R = 0.1
 
 		print 'Making observation data from disambiggated corpus of which'
 		for infile in allfiles.split(','):
@@ -457,7 +479,7 @@ def main():
 					if token.value and len(token.value) > 2:
 						for nopt, option in enumerate(token.value[2]) :
 							try: tag = option.ps[0]
-							except IndexError : tag = ''
+							except : tag = '' ; print option
 							prob = tagger._tagger.marginal(tag, tnum)
 							options.append((prob, option))
 						reordered_probs, reordered_options = unzip(sorted(options, reverse = True))
@@ -467,7 +489,46 @@ def main():
 						html_parser.glosses[snum][1][tnum] = reordered_options
 
 		elif args.tone :
-			pass
+			try :
+				html_parser.read_file(args.infile)
+			except IOError:
+				print "Error : unable to open the input file {} !".format(args.infile)
+				exit(1)
+			try :
+				myzip = zipfile.ZipFile(args.disambiguate, 'r')
+			except IOError:
+				print "Error : unable to open the model file {} !".format((args.disambiguate + '.zip'))
+				exit(1)
+
+			num_phases = 2 * len(mode_indicators)
+			taggers = []
+			enc = encoder_tones()
+			for phase in range(num_phases) :
+				taggers.append(CRFTagger())
+				model_name = args.disambiguate[:-4] + '.' + str(phase)
+				myzip.extract(model_name)
+				taggers[phase].set_model_file(model_name)
+				os.remove(model_name)
+			myzip.close()
+
+			for snum, sentence in enumerate(html_parser.glosses) :
+				tokens = [enc.differential_encode(token.token, token.token)[1] for token in sentence[2]]
+				for phase in range(num_phases) :
+					features = make_features_from_tokens(tokens, phase, args.tone)
+					taggers[phase]._tagger.set(features)
+				for tnum, token in enumerate(sentence[2]) :
+					options = list()
+					if token.value and len(token.value) > 2:
+						for nopt, option in enumerate(token.value[2]) :
+							try: tag = option.form.encode('utf-8')
+							except : tag = ''
+							prob = marginal_tone(taggers, tnum, tokens, tag, token.token)
+							options.append((prob, option))
+						reordered_probs, reordered_options = unzip(sorted(options, reverse = True))
+						if args.select :
+							prob_max = reordered_probs[0]
+							reordered_options = tuple([reordered_options[i] for i, p in enumerate(reordered_probs) if p >= prob_max])
+						html_parser.glosses[snum][1][tnum] = reordered_options
 
 		try : html_parser.write(args.outfile)
 		except IOError: print "Error : unable to create the output file {} !".format(args.outfile)
