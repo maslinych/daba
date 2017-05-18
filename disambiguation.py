@@ -37,6 +37,47 @@ import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
+def reshape_tokens_as_sentnece(tokens, sentnece) :
+						
+	ret = list()
+	n = 0
+	for i, token in enumerate(sentnece) :
+		tmp = list()
+		for j, syllabe in enumerate(token) :
+			tmp.append(tokens[n])
+			n += 1
+		ret.append(tmp)
+		
+	return ret
+
+def make_tokens_from_sentence(sent, is_tone_mode = False) :
+	if is_tone_mode :
+		tokens = list()
+		labels = list()
+		for token in sent :
+			tokens.append(unzip(token)[0])
+			labels.append(unzip(token)[1])
+	else :
+		tokens = unzip(sent)[0]
+		labels = unzip(sent)[1]
+		
+	return [tokens, labels]
+
+def make_features_from_tokens(tokens, phase = 0, is_tone_mode = False) :
+	if is_tone_mode :
+		features_syllabe = list()
+		for i, token in enumerate(tokens) :
+			feature = list()
+			for j, syllabe_code in enumerate(token) :
+				feature.append(get_features_customised_tone(tokens, i, j, phase))
+			features_syllabe.append(feature)
+		features = list(itertools.chain(*features_syllabe))
+	else :
+		features = list()
+		for i in range(len(tokens)) :
+			features.append(get_features_customised(tokens, i))
+	return features
+
 def inspector_tokens(gold_tokens, predicted_tokens) :
 	for x,y in zip(gold_tokens, predicted_tokens) :
 		try :
@@ -166,66 +207,70 @@ def main():
 			allfiles += file1+','+file2+','
 		allsents = []
 
-		# pour le débogage
+		# pour le débogage rapide
 		allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
 		R = 0.1
 
-		if args.tone :
-			try    :
-				enc = encoder_tones()
-			except :
-				print ("Error : unable to initialize the tone encoder !")
-				exit()
-
 		print 'Making observation data from disambiggated corpus of which'
 		for infile in allfiles.split(','):
-			if(len(infile)) :
-				sys.stdout.write("\t{}\n".format(infile))
-				sent = []
-
+			if infile :	
+				print '\t', infile
+				
 				html_parser = FileParser()
 				html_parser.read_file(infile)
 
-				for snum, sentence in enumerate(html_parser.glosses) :
-					for tnum, token in enumerate(sentence[2]) :
-						if token.type == 'w' or token.type == 'c':
+				sent = []
+				for sentence in html_parser.glosses :
+					for token in sentence[2] :
+						if token.type == 'w' or \
+						   token.type == 'c':
 							if args.pos:
 								# sent : list(str,str)
 								tags = ''
 								for ps in token.gloss.ps :
-									tags += ps.encode('utf-8')
-								sent.append((token.token, tags))
+									tags += ps
+								sent.append((token.token, tags.encode('utf-8')))
 							elif args.tone:
-								# sent : list(list(str,str))
-								# token2 : list(str,str)
-								token2 = []
-								forms = token.gloss.form.split('|')
-								[codes, syllabes] = enc.differential_encode(token.token, forms[0])
-								for code, syllabe in zip(codes, syllabes) :
-									token2.append((syllabe, code.encode('utf-8')))
-								sent.append(token2)
+								# sent : list(str,str)
+								form = token.gloss.form.split('|')
+								tags = form[0]
+								sent.append((token.token, tags.encode('utf-8')))
+
 							elif args.gloss:
 								# sent : list(str,str)
-								tags = token.gloss.gloss.encode('utf-8')
-								sent.append((token.token, tags))
+								tags = token.gloss.gloss
+								sent.append((token.token, tags.encode('utf-8')))
 
 					if len(sent) > 1:
 						allsents.append(sent)
 						sent = []
+						
+		if args.tone :
+			print 'Token segmentation and Tonal informaiotn compression'
+			enc = encoder_tones()
+			allsents2 = allsents
+			allsents = []
+			for sent in allsents2 :
+				sent2 = []
+				for token_tags in sent :
+					token, tags = token_tags
+					[codes, syllabes] = enc.differential_encode(token, tags.decode('utf-8'))
+					token2 = [(syllabe, code.encode('utf-8')) for syllabe, code in zip(syllabes, codes)]
+					sent2.append(token2)
+				allsents.append(sent2)
+			
+			if args.verbose :
+				enc.report()
 
-		if args.verbose and args.tone :
-			enc.report()
-
-		print 'Split the data in '
 		p = (1 - args.evalsize / 100.0)
 		train_set, eval_set = sampling(allsents, p, R)
-		print '\t train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
+		print 'Split the data in \t train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
 
 		print 'Building classifier (pyCRFsuite)'
 		# Initialization
 		t1 = time.time()
 		if args.tone :
-			num_phases = len([False, True]) * len(mode_indicators)
+			num_phases = 2 * len(mode_indicators)
 			myzip = zipfile.ZipFile(args.learn + '.zip', 'w')
 		else :
 			num_phases = 1
@@ -236,48 +281,27 @@ def main():
 			tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
 			trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
 			trainer.set_params(tagger._training_options)
-			if args.tone :
-				model_name = args.learn + '.' + str(phase)
-			else:
-				model_name = args.learn
+			model_name = args.learn
+			if args.tone : 
+				model_name += '.' + str(phase)
 
 			# A.2. Mettre à plat les structures de données pour préparer l'entrâinement contextuel
 			for sent in train_set :
 				if args.tone :
-					# features_syllabe tokens, labels_syllabe : list(list(str))
-					# features, labels : list(str)
-					tokens = list()
-
-					# A.2.1 Fabrication des features à partr des données d'entrâinement
-					for token in sent :
-						tokens.append(unzip(token)[0])
+					[tokens, labels] = make_tokens_from_sentence(sent, args.tone)
+					features = make_features_from_tokens(tokens, phase, args.tone)
 					labels_syllabe = list()
-					features_syllabe = list()
-
-					# A.2.2 Préparer l'annotation à apprendre syllabe par syllabe
-					# phase par phase
 					for i, token in enumerate(sent) :
 						label = list()
-						feature = list()
 						for j, syllabe_code in enumerate(token) :
 							syllabe, code = syllabe_code
-							code2 = code_dispatcher(code.decode('utf-8'))[phase].encode('utf-8')
-							label.append(code2)
-							feature.append(get_features_customised_tone(tokens, i, j, phase))
+							subcode = code_dispatcher(code.decode('utf-8'))[phase].encode('utf-8')
+							label.append(subcode)
 						labels_syllabe.append(label)
-						features_syllabe.append(feature)
-
 					labels = list(itertools.chain(*labels_syllabe))
-					features = list(itertools.chain(*features_syllabe))
 				else :
-					# A.2.1 Fabrication des features à partr des données d'entrâinement
-					# A.2.2 Préparer l'annotation à apprendre token par token
-					# tokens, labels : list(str)
-					tokens = unzip(sent)[0]
-					labels = unzip(sent)[1]
-					features = list()
-					for i, token in enumerate(tokens) :
-						features.append(get_features_customised(tokens, i))
+					[tokens, labels] = make_tokens_from_sentence(sent, args.tone)
+					features = make_features_from_tokens(tokens, 0, args.tone)
 
 				trainer.append(features, labels)
 			trainer.train(model = model_name)
@@ -295,9 +319,6 @@ def main():
 		print 'Evaluating classifier'
 		gold_set = eval_set
 
-		# debug
-		# gold_set = train_set
-
 		if args.tone :
 			myzip = zipfile.ZipFile(args.learn + '.zip', 'r')
 			predicted_set_acc = list()
@@ -314,45 +335,31 @@ def main():
 				# B.2 Annotation automatique syllabe par syllabe pour une phrase
 				predicted_set = list()
 				for p, sent in enumerate(gold_set) :
-					tokens = list()
-					features = list()
-					for i, token in enumerate(sent) :
-						syllabes = list()
-						for j, syllabe_tag in enumerate(token) :
-							syllabe, tag = syllabe_tag
-							syllabes.append(syllabe)
-						tokens.append(syllabes)
+					
+					[tokens, gold_labels] = make_tokens_from_sentence(sent, args.tone)
+					features = make_features_from_tokens(tokens, phase, args.tone)
+					labels = tagger._tagger.tag(features)
+					labels = reshape_tokens_as_sentnece(labels, sent)
+
 					predicted_tokens = list()
 					for i, token in enumerate(sent) :
-						for j, syllabe in enumerate(token) :
-							features.append(get_features_customised_tone(tokens, i, j, phase))
-					labels = tagger._tagger.tag(features)
-					labels2 = list(); n = 0
-					for i, token in enumerate(sent) :
-						tmp = list()
-						for j, syllabe in enumerate(token) :
-							tmp.append(labels[n]); n+=1
-						labels2.append(tmp)
-
-						predicted_tokens.append(map(list, zip(tokens[i], labels2[i])))
+						predicted_tokens.append(map(list, zip(tokens[i], labels[i])))
 					predicted_set.append(predicted_tokens)
-
 
 				# B.3 Accumuler en ordonner l'annotation syllabique
 				if not predicted_set_acc :
-					predicted_set_acc = [[[['',''] for syllabe in token] for token in sent] for sent in predicted_set]
+					predicted_set_acc = \
+						[[[['',''] for syllabe in token] for token in sent] for sent in predicted_set]
 
 				for p, sent in enumerate(predicted_set_acc) :
 					for i, token in enumerate(sent) :
 						for j, syllabe_tag_acc in enumerate(token) :
 							syllabe_acc, tag_acc = syllabe_tag_acc
 							syllabe, tag = predicted_set[p][i][j]
-
-							if tag_acc and tag :
+							if tag_acc and tag : 
 								tag_acc += code_seperator.encode('utf-8') + tag
-							else :
+							else : 
 								tag_acc += tag
-
 							predicted_set_acc[p][i][j] = \
 								tuple([syllabe, code_resort(tag_acc.decode('utf-8')).encode('utf-8')])
 
@@ -362,10 +369,8 @@ def main():
 			gold_tokens = list(itertools.chain(*gold_tokens))
 			predicted_tokens = list(itertools.chain(*predicted_tokens))
 
-			inspector_tokens(gold_tokens,predicted_tokens )
-
 		else :
-			# B.1. Charger le modèle CRF pour l'annoation tonale
+			# B.1. Charger le modèle CRF pour l'annoation
 			tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
 			trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
 			trainer.set_params(tagger._training_options)
@@ -375,13 +380,8 @@ def main():
 			# B.2. Annotation automatique token par token
 			predicted_set = list()
 			for sent in gold_set :
-				tokens = list()
-				features = list()
-				for token_tag in sent :
-					token, tag = token_tag
-					tokens.append(token)
-				for j in range(len(sent)) :
-					features.append(get_features_customised(tokens, j))
+				[tokens, gold_labels] = make_tokens_from_sentence(sent, args.tone)
+				features = make_features_from_tokens(tokens, 0, args.tone)
 				labels = tagger._tagger.tag(features)
 				predicted_set.append(zip(tokens, labels))
 
