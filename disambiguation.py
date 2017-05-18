@@ -167,7 +167,7 @@ def main():
 		allsents = []
 
 		# pour le débogage
-		# allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
+		allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
 		R = 0.1
 
 		if args.tone :
@@ -326,9 +326,15 @@ def main():
 					for i, token in enumerate(sent) :
 						for j, syllabe in enumerate(token) :
 							features.append(get_features_customised_tone(tokens, i, j, phase))
-						labels = tagger._tagger.tag(features)
+					labels = tagger._tagger.tag(features)
+					labels2 = list(); n = 0
+					for i, token in enumerate(sent) :
+						tmp = list()
+						for j, syllabe in enumerate(token) :
+							tmp.append(labels[n]); n+=1
+						labels2.append(tmp)
 
-						predicted_tokens.append(map(list, zip(tokens[i], labels)))
+						predicted_tokens.append(map(list, zip(tokens[i], labels2[i])))
 					predicted_set.append(predicted_tokens)
 
 
