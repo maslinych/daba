@@ -143,62 +143,68 @@ def inspector_tokens(gold_tokens, predicted_tokens) :
 def unzip(input) :
 	return [list(li) for li in zip(*input)]
 
-def csv_export_tone(enc, filename, gold_tokens, test_tokens):
+def csv_export(filename, gold_set, test_set, is_tone_mode = False):
 
-	try :
+	if not is_tone_mode :
+		try :
+			csvfile = codecs.open(filename, 'wb')
+			writer = csv.writer(csvfile)
+			writer.writerow(["Token", "Golden", "Predicted", "Same"])
+			for gold_sent, test_sent in zip(gold_set, test_set) :
+				for gold_token, test_token in zip(gold_sent, test_sent) :
+					token = gold_token[0]
+					gold_code = gold_token[1]
+					test_code = test_token[-1]
+					# print token, gold_code, test_code
+					sameCodes = (gold_code == test_code)
+
+					if not repr(token.encode('utf-8')) :
+						sameCodes = u''
+					row = [\
+					(token.encode('utf-8')), \
+					gold_code, \
+					test_code, \
+					sameCodes]
+					writer.writerow(row)
+			csvfile.close()
+		except :
+			raise
+			print "unable to dump result in CSV file to create !"
+	else :
 		csvfile = codecs.open(filename, 'wb')
 		writer = csv.writer(csvfile)
-		writer.writerow(["Token", "Golden Form", "Predicted Form","Golden code", "Predicted code", "Same"])
-		for g, t in zip(gold_tokens, test_tokens) :
-			token          = g[0]
-			golden_code    = g[-1]
-			predicted_code = t[-1]
-			golden_form    = enc.differential_decode(token, golden_code.decode('utf-8'))
-			predicted_form = enc.differential_decode(token, predicted_code.decode('utf-8'))
-			sameCodes = (golden_code == predicted_code)
-			sameForms = (golden_form == predicted_form)
-
-			if not repr(token.encode('utf-8')) :
-				sameCodes = u''
-			row = [\
-				repr(token.encode('utf-8')), \
-				repr(golden_form.encode('utf-8')), \
-				repr(predicted_form.encode('utf-8')), \
-				repr(golden_code, spaces=True), \
-				repr(predicted_code, spaces=True), \
+		writer.writerow(["Token", \
+			"Golden Form","Predicted Form", \
+			"Golden code", "Predicted code", "Same"])
+		enc = encoder_tones()
+		for gold_sent, test_sent in zip(gold_set, test_set) :
+			for gold_token, test_token in zip(gold_sent, test_sent) :
+				gold_code = ''
+				test_code = ''
+				gold_form = ''
+				test_form = ''
+				token = ''
+				for gold_syllabe, test_syllabe in zip(gold_token, test_token) :
+					token += gold_syllabe[0]
+					gold_code += gold_syllabe[1]
+					test_code += test_syllabe[1]
+					gold_form += enc.differential_decode(gold_syllabe[0], gold_syllabe[1].decode('utf-8'))
+					test_form += enc.differential_decode(gold_syllabe[0], test_syllabe[1].decode('utf-8'))
+					sameCodes = (gold_code == test_code)
+					sameForms = (gold_form == test_form)
+				sameCodes = (gold_code == test_code)
+				sameForms = (gold_form == test_form)
+				if not repr(token.encode('utf-8')) :
+					sameCodes = u''
+				row = [\
+				(token.encode('utf-8')), \
+				repr(gold_form.encode('utf-8')), \
+				repr(test_form.encode('utf-8')), \
+				repr(gold_code, True), \
+				repr(test_code, True), \
 				sameCodes]
-
-			writer.writerow(row)
+				writer.writerow(row)
 		csvfile.close()
-	except :
-		raise
-		print "unable to dump result in CSV file to create !"
-
-def csv_export(filename, gold_tokens, test_tokens):
-
-	try :
-		csvfile = codecs.open(filename, 'wb')
-		writer = csv.writer(csvfile)
-		writer.writerow(["Token", "Golden", "Predicted", "Same"])
-		for g, t in zip(gold_tokens, test_tokens) :
-			token          = g[0]
-			golden_code    = g[-1]
-			predicted_code = t[-1]
-			sameCodes = (golden_code == predicted_code)
-
-			if not repr(token.encode('utf-8')) :
-				sameCodes = u''
-			row = [\
-				repr(token.encode('utf-8')), \
-				repr(golden_code, spaces=True), \
-				repr(predicted_code, spaces=True), \
-				sameCodes]
-
-			writer.writerow(row)
-		csvfile.close()
-	except :
-		raise
-		print "unable to dump result in CSV file to create !"
 
 def sampling(allsents, p, ratio = 1) :
 	train_set, eval_set = [], []
@@ -276,22 +282,25 @@ def main():
 					for token in sentence[2] :
 						if token.type == 'w' or \
 						   token.type == 'c':
-							if args.pos:
+							if args.pos and not args.tone and not args.gloss :
 								# sent : list(str,str)
 								tags = ''
 								for ps in token.gloss.ps :
 									tags += ps
 								sent.append((token.token, tags.encode('utf-8')))
-							elif args.tone:
+							elif args.tone and not args.pos and not args.gloss :
 								# sent : list(str,str)
 								form = token.gloss.form.split('|')
 								tags = form[0]
 								sent.append((token.token, tags.encode('utf-8')))
 
-							elif args.gloss:
+							elif args.gloss and not args.tone and not args.pos :
 								# sent : list(str,str)
 								tags = token.gloss.gloss
 								sent.append((token.token, tags.encode('utf-8')))
+							else :
+								print ('Error : multi-modal learning is not yet be supported !')
+								exit()
 
 					if len(sent) > 1:
 						allsents.append(sent)
@@ -417,11 +426,11 @@ def main():
 				labels = tagger._tagger.tag(features)
 				predicted_set.append(zip(tokens, labels))
 
+		print "Accuracy : {:>5.3f}".format(accuray2(gold_set, predicted_set, args.tone))
+
 		if args.store :
 			stored_filename = args.store
-			csv_export(stored_filename, gold_tokens, predicted_tokens)
-
-		print "Accuracy : {:>5.3f}".format(accuray2(gold_set, predicted_set, args.tone))
+			csv_export(stored_filename, gold_set, predicted_set, args.tone)
 
 		if args.verbose and args.store :
 			print ("Tagged result is exported in {}".format(args.store))
