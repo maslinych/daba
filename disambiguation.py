@@ -146,30 +146,26 @@ def unzip(input) :
 def csv_export(filename, gold_set, test_set, is_tone_mode = False):
 
 	if not is_tone_mode :
-		try :
-			csvfile = codecs.open(filename, 'wb')
-			writer = csv.writer(csvfile)
-			writer.writerow(["Token", "Golden", "Predicted", "Same"])
-			for gold_sent, test_sent in zip(gold_set, test_set) :
-				for gold_token, test_token in zip(gold_sent, test_sent) :
-					token = gold_token[0]
-					gold_code = gold_token[1]
-					test_code = test_token[-1]
-					# print token, gold_code, test_code
-					sameCodes = (gold_code == test_code)
+		csvfile = codecs.open(filename, 'wb')
+		writer = csv.writer(csvfile)
+		writer.writerow(["Token", "Golden", "Predicted", "Same"])
+		for gold_sent, test_sent in zip(gold_set, test_set) :
+			for gold_token, test_token in zip(gold_sent, test_sent) :
+				token = gold_token[0]
+				gold_code = gold_token[1]
+				test_code = test_token[-1]
+				# print token, gold_code, test_code
+				sameCodes = (gold_code == test_code)
 
-					if not repr(token.encode('utf-8')) :
-						sameCodes = u''
-					row = [\
-					(token.encode('utf-8')), \
-					gold_code, \
-					test_code, \
-					sameCodes]
-					writer.writerow(row)
-			csvfile.close()
-		except :
-			raise
-			print "unable to dump result in CSV file to create !"
+				if not repr(token.encode('utf-8')) :
+					sameCodes = u''
+				row = [\
+				(token.encode('utf-8')), \
+				gold_code, \
+				test_code, \
+				sameCodes]
+				writer.writerow(row)
+		csvfile.close()
 	else :
 		csvfile = codecs.open(filename, 'wb')
 		writer = csv.writer(csvfile)
@@ -267,7 +263,7 @@ def main():
 
 		# pour le débogage rapide
 		allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
-		R = 0.1
+		R = 0.5
 
 		print 'Making observation data from disambiggated corpus of which'
 		for infile in allfiles.split(','):
@@ -307,7 +303,7 @@ def main():
 						sent = []
 
 		if args.tone :
-			print 'Token segmentation and Tonal informaiotn compression'
+			print 'Token segmentation and tonal informaiotn compression'
 			enc = encoder_tones()
 			allsents2 = allsents
 			allsents = []
@@ -454,7 +450,7 @@ def main():
 
 			for snum, sentence in enumerate(html_parser.glosses) :
 				tokens = [token.token for token in sentence[2]]
-				features = [_get_features_customised_tone(tokens, i) for i in range(len(tokens))]
+				features = [get_features_customised(tokens, i) for i in range(len(tokens))]
 				tagger._tagger.set(features)
 				for tnum, token in enumerate(sentence[2]) :
 					options = list()
