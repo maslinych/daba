@@ -37,6 +37,32 @@ import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
+def get_sub_tone_code_of_sentence (sentence, phase) :
+	labels = list()
+	for i, token in enumerate(sentence) :
+		label = list()
+		for j, syllabe_code in enumerate(token) :
+			syllabe, code = syllabe_code
+			subcode = code_dispatcher(code.decode('utf-8'))[phase].encode('utf-8')
+			label.append(subcode)
+		labels.append(label)
+	return labels
+
+def accumulate_tone_code_of_dataset (dataset_acc, dataset) :
+	for p, sent in enumerate(dataset_acc) :
+		for i, token in enumerate(sent) :
+			for j, syllabe_tag_acc in enumerate(token) :
+				syllabe_acc, tag_acc = syllabe_tag_acc
+				syllabe, tag = dataset[p][i][j]
+				if tag_acc and tag : 
+					tag_acc += code_seperator.encode('utf-8') + tag
+				else : 
+					tag_acc += tag
+				dataset_acc[p][i][j] = \
+					tuple([syllabe, code_resort(tag_acc.decode('utf-8')).encode('utf-8')])
+					
+	return dataset_acc
+
 def reshape_tokens_as_sentnece(tokens, sentnece) :
 						
 	ret = list()
@@ -290,15 +316,8 @@ def main():
 				if args.tone :
 					[tokens, labels] = make_tokens_from_sentence(sent, args.tone)
 					features = make_features_from_tokens(tokens, phase, args.tone)
-					labels_syllabe = list()
-					for i, token in enumerate(sent) :
-						label = list()
-						for j, syllabe_code in enumerate(token) :
-							syllabe, code = syllabe_code
-							subcode = code_dispatcher(code.decode('utf-8'))[phase].encode('utf-8')
-							label.append(subcode)
-						labels_syllabe.append(label)
-					labels = list(itertools.chain(*labels_syllabe))
+					labels = get_sub_tone_code_of_sentence(sent, phase)
+					labels = list(itertools.chain(*labels))
 				else :
 					[tokens, labels] = make_tokens_from_sentence(sent, args.tone)
 					features = make_features_from_tokens(tokens, 0, args.tone)
@@ -351,17 +370,7 @@ def main():
 					predicted_set_acc = \
 						[[[['',''] for syllabe in token] for token in sent] for sent in predicted_set]
 
-				for p, sent in enumerate(predicted_set_acc) :
-					for i, token in enumerate(sent) :
-						for j, syllabe_tag_acc in enumerate(token) :
-							syllabe_acc, tag_acc = syllabe_tag_acc
-							syllabe, tag = predicted_set[p][i][j]
-							if tag_acc and tag : 
-								tag_acc += code_seperator.encode('utf-8') + tag
-							else : 
-								tag_acc += tag
-							predicted_set_acc[p][i][j] = \
-								tuple([syllabe, code_resort(tag_acc.decode('utf-8')).encode('utf-8')])
+				predicted_set_acc = accumulate_tone_code_of_dataset (predicted_set_acc, predicted_set)
 
 			# B.4 Mettre à plat les structures complexes pour préparer l'évaluation
 			gold_tokens = list(itertools.chain(*gold_set))
