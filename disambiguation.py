@@ -37,6 +37,32 @@ import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
+def accuray2 (dataset1, dataset2, is_tone_mode = False) :
+	cnt_sucess = 0
+	cnt_fail = 0
+	if not is_tone_mode :
+		for sent1, sent2 in zip(dataset1, dataset2) :
+			for token1, token2 in zip(sent1, sent2) :
+				if token1 == token2 :
+					cnt_sucess += 1
+				else :
+					cnt_fail += 1
+
+	else :
+		for sent1, sent2 in zip(dataset1, dataset2) :
+			for token1, token2 in zip(sent1, sent2) :
+				is_identical = True
+				for syllabe1, syllabe2 in zip(token1, token2) :
+					if syllabe1 != syllabe2 : is_identical = False ; break;
+				if is_identical :
+					cnt_sucess += 1
+				else :
+					cnt_fail += 1
+
+	cnt_tot = cnt_sucess + cnt_fail
+	if not cnt_tot : return 0.0
+	else : return cnt_sucess / float(cnt_tot)
+
 def get_sub_tone_code_of_sentence (sentence, phase) :
 	labels = list()
 	for i, token in enumerate(sentence) :
@@ -54,17 +80,17 @@ def accumulate_tone_code_of_dataset (dataset_acc, dataset) :
 			for j, syllabe_tag_acc in enumerate(token) :
 				syllabe_acc, tag_acc = syllabe_tag_acc
 				syllabe, tag = dataset[p][i][j]
-				if tag_acc and tag : 
+				if tag_acc and tag :
 					tag_acc += code_seperator.encode('utf-8') + tag
-				else : 
+				else :
 					tag_acc += tag
 				dataset_acc[p][i][j] = \
 					tuple([syllabe, code_resort(tag_acc.decode('utf-8')).encode('utf-8')])
-					
+
 	return dataset_acc
 
 def reshape_tokens_as_sentnece(tokens, sentnece) :
-						
+
 	ret = list()
 	n = 0
 	for i, token in enumerate(sentnece) :
@@ -73,7 +99,7 @@ def reshape_tokens_as_sentnece(tokens, sentnece) :
 			tmp.append(tokens[n])
 			n += 1
 		ret.append(tmp)
-		
+
 	return ret
 
 def make_tokens_from_sentence(sent, is_tone_mode = False) :
@@ -86,7 +112,7 @@ def make_tokens_from_sentence(sent, is_tone_mode = False) :
 	else :
 		tokens = unzip(sent)[0]
 		labels = unzip(sent)[1]
-		
+
 	return [tokens, labels]
 
 def make_features_from_tokens(tokens, phase = 0, is_tone_mode = False) :
@@ -239,9 +265,9 @@ def main():
 
 		print 'Making observation data from disambiggated corpus of which'
 		for infile in allfiles.split(','):
-			if infile :	
+			if infile :
 				print '\t', infile
-				
+
 				html_parser = FileParser()
 				html_parser.read_file(infile)
 
@@ -270,7 +296,7 @@ def main():
 					if len(sent) > 1:
 						allsents.append(sent)
 						sent = []
-						
+
 		if args.tone :
 			print 'Token segmentation and Tonal informaiotn compression'
 			enc = encoder_tones()
@@ -284,7 +310,7 @@ def main():
 					token2 = [(syllabe, code.encode('utf-8')) for syllabe, code in zip(syllabes, codes)]
 					sent2.append(token2)
 				allsents.append(sent2)
-			
+
 			if args.verbose :
 				enc.report()
 
@@ -308,7 +334,7 @@ def main():
 			trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
 			trainer.set_params(tagger._training_options)
 			model_name = args.learn
-			if args.tone : 
+			if args.tone :
 				model_name += '.' + str(phase)
 
 			# A.2. Mettre à plat les structures de données pour préparer l'entrâinement contextuel
@@ -354,7 +380,7 @@ def main():
 				# B.2 Annotation automatique syllabe par syllabe pour une phrase
 				predicted_set = list()
 				for p, sent in enumerate(gold_set) :
-					
+
 					[tokens, gold_labels] = make_tokens_from_sentence(sent, args.tone)
 					features = make_features_from_tokens(tokens, phase, args.tone)
 					labels = tagger._tagger.tag(features)
@@ -372,11 +398,8 @@ def main():
 
 				predicted_set_acc = accumulate_tone_code_of_dataset (predicted_set_acc, predicted_set)
 
-			# B.4 Mettre à plat les structures complexes pour préparer l'évaluation
-			gold_tokens = list(itertools.chain(*gold_set))
-			predicted_tokens = list(itertools.chain(*predicted_set_acc))
-			gold_tokens = list(itertools.chain(*gold_tokens))
-			predicted_tokens = list(itertools.chain(*predicted_tokens))
+			predicted_set = predicted_set_acc
+
 
 		else :
 			# B.1. Charger le modèle CRF pour l'annoation
@@ -394,15 +417,11 @@ def main():
 				labels = tagger._tagger.tag(features)
 				predicted_set.append(zip(tokens, labels))
 
-			# B.4 Mettre à plat les structures complexes pour préparer l'évaluation
-			gold_tokens  = list(itertools.chain(*gold_set))
-			predicted_tokens = list(itertools.chain(*predicted_set))
-
 		if args.store :
 			stored_filename = args.store
 			csv_export(stored_filename, gold_tokens, predicted_tokens)
 
-		print "Exactitude : {:>5.3f}".format(accuracy(gold_tokens, predicted_tokens))
+		print "Accuracy : {:>5.3f}".format(accuray2(gold_set, predicted_set, args.tone))
 
 		if args.verbose and args.store :
 			print ("Tagged result is exported in {}".format(args.store))
