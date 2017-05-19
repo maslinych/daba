@@ -6,6 +6,8 @@ from collections import Counter, defaultdict
 import Levenshtein
 from syllables import syllabify, vowels
 import re
+import itertools
+import csv
 
 # Installation of prerequisites
 # sudo pip install python-Levenshtein
@@ -15,8 +17,220 @@ markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
 code_seperator = u'_'
 mode_indicators = u'+-'
 mode_names   = [u"insert",u"delete"]
-markers_to_be_ignored = u"[].-" + code_seperator
-markers_to_be_replaced = {u"’":u"'"}
+markers_to_be_ignored = "" ; # u"[].-" + code_seperator
+markers_to_be_replaced = dict() ; # {u"’":u"'"}
+
+def marginal_tone(taggers, tnum, tokens, tag, token) :
+
+	enc = encoder_tones()
+	codes, syllabes = enc.differential_encode(token, tag.decode('utf-8'))
+
+	k = 0
+	snums = []
+	for i, t in enumerate(tokens) :
+		for j, syllabe in enumerate(t) :
+			if i == tnum :
+				snums.append(k)
+			k += 1
+
+	if len(syllabes) != len(snums) :
+		print "Bug !"
+		exit()
+
+	prob_tot = 1
+	for p, tagger in enumerate(taggers) :
+		for i in range(len(syllabes)) :
+			subcode = code_dispatcher(codes[i])[p]
+			try :
+				prob = taggers[p]._tagger.marginal(subcode.encode('utf-8'), snums[i])
+			except :
+				prob = 0.0
+			prob_tot *= prob
+
+	return prob_tot
+
+def accuray2 (dataset1, dataset2, is_tone_mode = False) :
+	cnt_sucess = 0
+	cnt_fail = 0
+	if not is_tone_mode :
+		for sent1, sent2 in zip(dataset1, dataset2) :
+			for token1, token2 in zip(sent1, sent2) :
+				if token1 == token2 :
+					cnt_sucess += 1
+				else :
+					cnt_fail += 1
+
+	else :
+		for sent1, sent2 in zip(dataset1, dataset2) :
+			for token1, token2 in zip(sent1, sent2) :
+				is_identical = True
+				for syllabe1, syllabe2 in zip(token1, token2) :
+					if syllabe1 != syllabe2 : is_identical = False ; break;
+				if is_identical :
+					cnt_sucess += 1
+				else :
+					cnt_fail += 1
+
+	cnt_tot = cnt_sucess + cnt_fail
+	if not cnt_tot : return 0.0
+	else : return cnt_sucess / float(cnt_tot)
+
+def get_sub_tone_code_of_sentence (sentence, phase) :
+	labels = list()
+	for i, token in enumerate(sentence) :
+		label = list()
+		for j, syllabe_code in enumerate(token) :
+			syllabe, code = syllabe_code
+			subcode = code_dispatcher(code.decode('utf-8'))[phase].encode('utf-8')
+			label.append(subcode)
+		labels.append(label)
+	return labels
+
+def accumulate_tone_code_of_dataset (dataset_acc, dataset) :
+	for p, sent in enumerate(dataset_acc) :
+		for i, token in enumerate(sent) :
+			for j, syllabe_tag_acc in enumerate(token) :
+				syllabe_acc, tag_acc = syllabe_tag_acc
+				syllabe, tag = dataset[p][i][j]
+				if tag_acc and tag :
+					tag_acc += code_seperator.encode('utf-8') + tag
+				else :
+					tag_acc += tag
+				dataset_acc[p][i][j] = \
+					tuple([syllabe, code_resort(tag_acc.decode('utf-8')).encode('utf-8')])
+
+	return dataset_acc
+
+def reshape_tokens_as_sentnece(tokens, sentnece) :
+
+	ret = list()
+	n = 0
+	for i, token in enumerate(sentnece) :
+		tmp = list()
+		for j, syllabe in enumerate(token) :
+			tmp.append(tokens[n])
+			n += 1
+		ret.append(tmp)
+
+	return ret
+
+def make_tokens_from_sentence(sent, is_tone_mode = False) :
+	if is_tone_mode :
+		tokens = list()
+		labels = list()
+		for token in sent :
+			tokens.append(unzip(token)[0])
+			labels.append(unzip(token)[1])
+	else :
+		tokens = unzip(sent)[0]
+		labels = unzip(sent)[1]
+
+	return [tokens, labels]
+
+def make_features_from_tokens(tokens, phase = 0, is_tone_mode = False) :
+	if is_tone_mode :
+		features_syllabe = list()
+		for i, token in enumerate(tokens) :
+			feature = list()
+			for j, syllabe_code in enumerate(token) :
+				feature.append(get_features_customised_tone(tokens, i, j, phase))
+			features_syllabe.append(feature)
+		features = list(itertools.chain(*features_syllabe))
+	else :
+		features = list()
+		for i in range(len(tokens)) :
+			features.append(get_features_customised(tokens, i))
+	return features
+
+def inspector_tokens(gold_tokens, predicted_tokens) :
+	for x,y in zip(gold_tokens, predicted_tokens) :
+		try :
+			if x[1] != y[1] :
+				print x[0],":",x[1].decode('utf-8'),"->",y[1].decode('utf-8') # ,"(",len(x[1]), len(y[1]),")"
+			else :
+				print "*",x[0],":",x[1].decode('utf-8'),"->",y[1].decode('utf-8') # ,"(",len(x[1]), len(y[1]),")"
+		except :
+			print type(x[0]),":",type(x[1]),"->",type(y[1])
+
+def unzip(input) :
+	return [list(li) for li in zip(*input)]
+
+def csv_export(filename, gold_set, test_set, is_tone_mode = False):
+
+	if not is_tone_mode :
+		csvfile = codecs.open(filename, 'wb')
+		writer = csv.writer(csvfile)
+		writer.writerow(["Token", "Golden", "Predicted", "Same"])
+		for gold_sent, test_sent in zip(gold_set, test_set) :
+			for gold_token, test_token in zip(gold_sent, test_sent) :
+				token = gold_token[0]
+				gold_code = gold_token[1]
+				test_code = test_token[-1]
+				# print token, gold_code, test_code
+				sameCodes = (gold_code == test_code)
+
+				if not repr(token.encode('utf-8')) :
+					sameCodes = u''
+				row = [\
+				(token.encode('utf-8')), \
+				gold_code, \
+				test_code, \
+				sameCodes]
+				writer.writerow(row)
+		csvfile.close()
+	else :
+		csvfile = codecs.open(filename, 'wb')
+		writer = csv.writer(csvfile)
+		writer.writerow(["Token", \
+			"Golden Form","Predicted Form", \
+			"Golden code", "Predicted code", "Same"])
+		enc = encoder_tones()
+		for gold_sent, test_sent in zip(gold_set, test_set) :
+			for gold_token, test_token in zip(gold_sent, test_sent) :
+				gold_code = ''
+				test_code = ''
+				gold_form = ''
+				test_form = ''
+				token = ''
+				for gold_syllabe, test_syllabe in zip(gold_token, test_token) :
+					token += gold_syllabe[0]
+					gold_code += gold_syllabe[1]
+					test_code += test_syllabe[1]
+					gold_form += enc.differential_decode(gold_syllabe[0], gold_syllabe[1].decode('utf-8'))
+					test_form += enc.differential_decode(gold_syllabe[0], test_syllabe[1].decode('utf-8'))
+					sameCodes = (gold_code == test_code)
+					sameForms = (gold_form == test_form)
+				sameCodes = (gold_code == test_code)
+				sameForms = (gold_form == test_form)
+				if not repr(token.encode('utf-8')) :
+					sameCodes = u''
+				row = [\
+				(token.encode('utf-8')), \
+				repr(gold_form.encode('utf-8')), \
+				repr(test_form.encode('utf-8')), \
+				repr(gold_code, True), \
+				repr(test_code, True), \
+				sameCodes]
+				writer.writerow(row)
+		csvfile.close()
+
+def sampling(allsents, p, ratio = 1) :
+	train_set, eval_set = [], []
+	for i, sent in enumerate(allsents[0 : : int(1/float(ratio))]) :
+		p_approx = float(len(train_set) + 1) / float(len(eval_set) + len(train_set) + 1)
+		if p_approx <= p :
+			train_set.append(sent)
+		else:
+			eval_set.append(sent)
+	return [train_set, eval_set]
+
+def get_duration(t1_secs, t2_secs) :
+	secs = abs(t1_secs - t2_secs)
+	days = secs // 86400
+	hours = secs // 3600 - days * 24
+	minutes = secs // 60 - hours * 60 - days * 60 * 24
+	secondes = int(secs) % 60
+	return '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(days, hours, minutes, secondes)
 
 def is_a_good_code(code) :
 
