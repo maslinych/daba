@@ -24,7 +24,7 @@ from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 import nltk.tag.util
 import pycrfsuite
-from differential_tone_coding import get_duration, sampling, csv_export, unzip, encoder_tones, mode_indicators, marginal_tone, accuray2, get_sub_tone_code_of_sentence, accumulate_tone_code_of_dataset, reshape_tokens_as_sentnece, make_tokens_from_sentence, make_features_from_tokens
+from differential_tone_coding import get_features_customised, get_duration, sampling, csv_export, unzip, encoder_tones, mode_indicators, marginal_tone, accuray2, get_sub_tone_code_of_sentence, accumulate_tone_code_of_dataset, reshape_tokens_as_sentnece, make_tokens_from_sentence, make_features_from_tokens
 import unicodedata
 import zipfile
 
@@ -45,7 +45,7 @@ def main():
 	aparser.add_argument('--select', help = 'Option that will be taken into account only with the use of -d, which specifies the disambiguation modality is to select only the most likely gloss in each list.', action='store_true')
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
-	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for further research purpose', default=None)
+	aparser.add_argument('-s', '--store', help='Store evaluation resault in file (.csv) for further research purpose', default=None)
 
 	args = aparser.parse_args()
 	if args.verbose :
@@ -74,8 +74,7 @@ def main():
 		allsents = []
 
 		# pour le débogage rapide
-		allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
-		R = 0.1
+		# allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
 
 		print 'Making observation data from disambiggated corpus of which'
 		for infile in allfiles.split(','):
@@ -131,6 +130,7 @@ def main():
 			if args.verbose :
 				enc.report()
 
+		R = 1 # la totalité des corpus
 		p = (1 - args.evalsize / 100.0)
 		train_set, eval_set = sampling(allsents, p, R)
 		print 'Split the data in \t train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
@@ -269,8 +269,11 @@ def main():
 					if token.value and len(token.value) > 2:
 						for nopt, option in enumerate(token.value[2]) :
 							try: tag = option.ps[0]
-							except : tag = '' ; print option
-							prob = tagger._tagger.marginal(tag, tnum)
+							except : tag = ''
+							try:
+								prob = tagger._tagger.marginal(tag, tnum)
+							except :
+								prob = 0.0
 							options.append((prob, option))
 						reordered_probs, reordered_options = unzip(sorted(options, key = lambda x : x[0], reverse = True))
 						if args.select :

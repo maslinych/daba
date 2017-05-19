@@ -8,6 +8,7 @@ from syllables import syllabify, vowels
 import re
 import itertools
 import csv
+import codecs
 
 # Installation of prerequisites
 # sudo pip install python-Levenshtein
@@ -208,8 +209,8 @@ def csv_export(filename, gold_set, test_set, is_tone_mode = False):
 				(token.encode('utf-8')), \
 				repr(gold_form.encode('utf-8')), \
 				repr(test_form.encode('utf-8')), \
-				repr(gold_code, True), \
-				repr(test_code, True), \
+				repr(gold_code, spaces=True), \
+				repr(test_code, spaces=True), \
 				sameCodes]
 				writer.writerow(row)
 		csvfile.close()
