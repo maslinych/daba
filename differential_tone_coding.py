@@ -18,8 +18,26 @@ markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
 code_seperator = u'_'
 mode_indicators = u'+-'
 mode_names   = [u"insert",u"delete"]
-markers_to_be_ignored = code_seperator ; # u"[].-" + code_seperator
-markers_to_be_replaced = dict() ; # {u"’":u"'"}
+markers_to_be_ignored = u"." # u"[].-" + code_seperator
+markers_to_be_replaced = dict() # {u"’":u"'"}
+
+def split2 (str_in, seperator) :
+
+        buf = ''
+        ret = []
+        for c in str_in :
+                if c != seperator :
+                        buf += c
+                else :
+                        if buf :
+                                ret.append(buf)
+                                buf = ''
+                        else :
+
+                                buf += c
+        if buf :
+                ret.append(buf)
+        return ret
 
 def marginal_tone(taggers, tnum, tokens, tag, token) :
 
@@ -35,7 +53,7 @@ def marginal_tone(taggers, tnum, tokens, tag, token) :
 			k += 1
 
 	if len(syllabes) != len(snums) :
-		print "Bug !"
+		print "Bug 3 !"
 		exit()
 
 	prob_tot = 1
@@ -239,17 +257,21 @@ def is_a_good_code(code) :
 
 	code2 = code
 
-	if code2[-1] == code_seperator.decode('utf-8') or code2[-1] == code_seperator:
-		return False
+	# +_2__ is good, because -> + 2 _
+	if code2[-1] == code_seperator.decode('utf-8') or code2[-1] == code_seperator :
+		try :
+			if code2[-1] != code2[-2] :
+				return False
+		except IndexError:
+			return False
 
-
-	code3 = code2.split(code_seperator.decode('utf-8'))
+	# code3 = code2.split(code_seperator.decode('utf-8'))
+	code3 = split2(code2,code_seperator.decode('utf-8'))
 	if len(code3) % 3 != 0 :
 		return False
 	else :
 		return True
 
-# todo : decomposition en opérations - opérands
 def code_dispatcher(code) :
 
 	lst = []
@@ -258,8 +280,10 @@ def code_dispatcher(code) :
 		lst.append("")
 
 	if not code : return lst
-	if code[-1] == code_seperator : code = code[: -1]
-	code_segments = code.split(code_seperator)
+	if not is_a_good_code(code) : print "(dispatcher) input code incorrect !" ; print code ; exit()
+	#if code[-1] == code_seperator : code = code[: -1]
+	# code_segments = code.split(code_seperator)
+	code_segments = split2(code,code_seperator)
 	for i in range(0, len(code_segments), 3) :
 		m, p, c = code_segments[i : i + 3]
 		phase = mode_indicators.index(m) + len(mode_indicators) * int(c in markers_tone)
@@ -269,34 +293,45 @@ def code_dispatcher(code) :
 	lst2 = list()
 	for element in lst :
 		try :
-			if element[-1] == code_seperator :
+			if element[-1] == code_seperator or element[-1] == code_seperator.decode('utf-8') :
 				lst2.append(element[:-1])
 			else :
 				lst2.append(element)
 		except :
 			lst2.append(element)
 
+	for code in lst2 : 
+		if not is_a_good_code(code):
+			print "(dispatcher) output code incorrect !"
+			print code
+
 	return lst2
 
 def code_resort(code) :
 
+
 	ret = []
 	if not code : return code
-	if code[-1] == code_seperator : code = code[: -1]
-	code_segments = code.split(code_seperator)
+	if not is_a_good_code(code) : print "(resort) input code incorrect !" ; exit()
+	#if code[-1] == code_seperator : code = code[: -1]
+	#code_segments = code.split(code_seperator)
+	code_segments = split2(code,code_seperator)
 	for i in range(0, len(code_segments), 3) :
 		try :
 			m, p, c = code_segments[i : i + 3]
 		except :
+			print code
 			print code_segments;
-			print "Bug !"
+			print "Bug 1 !"
 			exit()
 
 		ret.append(u"{}{}{}{}{}{}".format(m, code_seperator, p, code_seperator, c, code_seperator))
 
-	ret = sorted(ret, key=lambda x : int(mode_indicators.index(m))+2*int(x.split(code_seperator)[1]))
+	ret = sorted(ret, key=lambda x : int(mode_indicators.index(m))+2*int(split2(x,code_seperator)[1]))
 	ret = ''.join(ret)
 	if ret : ret = ret[:-1]
+
+	if not is_a_good_code(ret) : print ("(resort) ouptut code incorrect !") ; exit()
 
 	return ret
 
@@ -695,6 +730,12 @@ class encoder_tones () :
 			if form1 != form2 :
 				self.stat.err_cnt += 1
 
+		for code in self.ret : 
+			if not is_a_good_code : 
+				print "(encode) ouput code incorrect !"; 
+				print code ; 
+				exit ()
+
 		return [self.ret, self.chunks]
 
 	def report (self) :
@@ -705,9 +746,11 @@ class encoder_tones () :
 		chunk = reshaping(chunk, False)
 
 		if len(code.strip()) == 0 : return chunk
+		if not is_a_good_code(code) : print "(decode) input code incorrect !" ; print chunk ; print code ; exit()
 
-		if code[-1] == code_seperator : code = code[: -1]
-		code_segments = code.split(code_seperator)
+		# if code[-1] == code_seperator : code = code[: -1]
+		# code_segments = code.split(code_seperator)
+		code_segments = split2(code,code_seperator)
 		if len(code_segments) % 3 != 0 : print code ; print (code_segments) ; print ("input code incorrect !"); exit(1)
 
 		p_offset = 0
@@ -715,7 +758,7 @@ class encoder_tones () :
 			try :
 				m, p, c = code_segments[i:i+3]
 			except :
-				print (u"Bug in differential_decode : {}".format(code))
+				print (u"Bug 2 : {}".format(code))
 				exit(1)
 
 			p_eff = int(p) + p_offset
@@ -738,6 +781,7 @@ class encoder_tones () :
 
 def main () :
 
+	"""
 	forms_non_tonal = [u'tò',u'yerehré',u'ò',u'e', u'òhehòhe', u'òhòh',u'ohoh',u'ehe', u'tò',u'hééh',u'heeh',u'hèé', u'narè']
 	forms_tonal     = [u'tɔ',u'yɛrɛ̂hre',u'o',u'é', u'ohéhohé', u'ohoh',u'òhòh',u'ebe',u'tɔ',u'heeh',u'hééh',u'héè', u'nàrɛ']
 
@@ -750,7 +794,9 @@ def main () :
 		i = 0
 		for chunk, code in zip(chunks, codes) :
 			sys.stdout.write(u"Syllabe_{} '{}' - '{}' -> '{}'\n".format(i, enc.differential_decode(chunk, code), chunk, repr(code)));
-			sys.stdout.write(u"Syllabe_{} '{}' - '{}' -> '{}'\n".format(i, enc.differential_decode(chunk, code_resort(''.join(code_dispatcher(code)))), chunk, repr(code_resort(''.join(code_dispatcher(code))))));
+			sys.stdout.write(u"Syllabe_{} '{}' - '{}' -> '{}'\n".\
+				format(i, enc.differential_decode(\
+				chunk, code_resort(''.join(code_dispatcher(code)))), chunk, repr(code_resort(''.join(code_dispatcher(code))))));
 			pass
 		print ""
 
@@ -760,5 +806,6 @@ def main () :
 			print form1, form2
 
 	enc.report()
+	"""
 
 if __name__ == "__main__" : main()
