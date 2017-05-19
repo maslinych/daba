@@ -18,7 +18,7 @@ markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
 code_seperator = u'_'
 mode_indicators = u'+-'
 mode_names   = [u"insert",u"delete"]
-markers_to_be_ignored = "" ; # u"[].-" + code_seperator
+markers_to_be_ignored = code_seperator ; # u"[].-" + code_seperator
 markers_to_be_replaced = dict() ; # {u"’":u"'"}
 
 def marginal_tone(taggers, tnum, tokens, tag, token) :
