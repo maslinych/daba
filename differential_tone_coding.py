@@ -6,20 +6,272 @@ from collections import Counter, defaultdict
 import Levenshtein
 from syllables import syllabify, vowels
 import re
+import itertools
+import csv
+import codecs
 
 # Installation of prerequisites
 # sudo pip install python-Levenshtein
 
 # Constant lists
 markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
-token_seperator = u'_'
 code_seperator = u'_'
 mode_indicators = u'+-'
 mode_names   = [u"insert",u"delete"]
-markers_to_be_ignored = u"[].-" + code_seperator
-markers_to_be_replaced = {u"’":u"'"}
+markers_to_be_ignored = u"." # u"[].-" + code_seperator
+markers_to_be_replaced = dict() # {u"’":u"'"}
 
-# todo : decomposition en opérations - opérands
+def split2 (str_in, seperator) :
+
+        buf = ''
+        ret = []
+        for c in str_in :
+                if c != seperator :
+                        buf += c
+                else :
+                        if buf :
+                                ret.append(buf)
+                                buf = ''
+                        else :
+
+                                buf += c
+        if buf :
+                ret.append(buf)
+        return ret
+
+def marginal_tone(taggers, tnum, tokens, tag, token) :
+
+	enc = encoder_tones()
+	codes, syllabes = enc.differential_encode(token, tag.decode('utf-8'))
+
+	k = 0
+	snums = []
+	for i, t in enumerate(tokens) :
+		for j, syllabe in enumerate(t) :
+			if i == tnum :
+				snums.append(k)
+			k += 1
+
+	if len(syllabes) != len(snums) :
+		print "Bug 3 !"
+		exit()
+
+	prob_tot = 1
+	for p, tagger in enumerate(taggers) :
+		for i in range(len(syllabes)) :
+			subcode = code_dispatcher(codes[i])[p]
+			try :
+				prob = taggers[p]._tagger.marginal(subcode.encode('utf-8'), snums[i])
+			except :
+				prob = 0.0
+			prob_tot *= prob
+
+	return prob_tot
+
+def accuray2 (dataset1, dataset2, is_tone_mode = False) :
+	cnt_sucess = 0
+	cnt_fail = 0
+	if not is_tone_mode :
+		for sent1, sent2 in zip(dataset1, dataset2) :
+			for token1, token2 in zip(sent1, sent2) :
+				if token1 == token2 :
+					cnt_sucess += 1
+				else :
+					cnt_fail += 1
+
+	else :
+		for sent1, sent2 in zip(dataset1, dataset2) :
+			for token1, token2 in zip(sent1, sent2) :
+				is_identical = True
+				for syllabe1, syllabe2 in zip(token1, token2) :
+					if syllabe1 != syllabe2 : is_identical = False ; break;
+				if is_identical :
+					cnt_sucess += 1
+				else :
+					cnt_fail += 1
+
+	cnt_tot = cnt_sucess + cnt_fail
+	if not cnt_tot : return 0.0
+	else : return cnt_sucess / float(cnt_tot)
+
+def get_sub_tone_code_of_sentence (sentence, phase) :
+	labels = list()
+	for i, token in enumerate(sentence) :
+		label = list()
+		for j, syllabe_code in enumerate(token) :
+			syllabe, code = syllabe_code
+			subcode = code_dispatcher(code.decode('utf-8'))[phase].encode('utf-8')
+			label.append(subcode)
+		labels.append(label)
+	return labels
+
+def accumulate_tone_code_of_dataset (dataset_acc, dataset) :
+	for p, sent in enumerate(dataset_acc) :
+		for i, token in enumerate(sent) :
+			for j, syllabe_tag_acc in enumerate(token) :
+				syllabe_acc, tag_acc = syllabe_tag_acc
+				syllabe, tag = dataset[p][i][j]
+				if tag_acc and tag :
+					tag_acc += code_seperator.encode('utf-8') + tag
+				else :
+					tag_acc += tag
+				dataset_acc[p][i][j] = \
+					tuple([syllabe, code_resort(tag_acc.decode('utf-8')).encode('utf-8')])
+
+	return dataset_acc
+
+def reshape_tokens_as_sentnece(tokens, sentnece) :
+
+	ret = list()
+	n = 0
+	for i, token in enumerate(sentnece) :
+		tmp = list()
+		for j, syllabe in enumerate(token) :
+			tmp.append(tokens[n])
+			n += 1
+		ret.append(tmp)
+
+	return ret
+
+def make_tokens_from_sentence(sent, is_tone_mode = False) :
+	if is_tone_mode :
+		tokens = list()
+		labels = list()
+		for token in sent :
+			tokens.append(unzip(token)[0])
+			labels.append(unzip(token)[1])
+	else :
+		tokens = unzip(sent)[0]
+		labels = unzip(sent)[1]
+
+	return [tokens, labels]
+
+def make_features_from_tokens(tokens, phase = 0, is_tone_mode = False) :
+	if is_tone_mode :
+		features_syllabe = list()
+		for i, token in enumerate(tokens) :
+			feature = list()
+			for j, syllabe_code in enumerate(token) :
+				feature.append(get_features_customised_tone(tokens, i, j, phase))
+			features_syllabe.append(feature)
+		features = list(itertools.chain(*features_syllabe))
+	else :
+		features = list()
+		for i in range(len(tokens)) :
+			features.append(get_features_customised(tokens, i))
+	return features
+
+def inspector_tokens(gold_tokens, predicted_tokens) :
+	for x,y in zip(gold_tokens, predicted_tokens) :
+		try :
+			if x[1] != y[1] :
+				print x[0],":",x[1].decode('utf-8'),"->",y[1].decode('utf-8') # ,"(",len(x[1]), len(y[1]),")"
+			else :
+				print "*",x[0],":",x[1].decode('utf-8'),"->",y[1].decode('utf-8') # ,"(",len(x[1]), len(y[1]),")"
+		except :
+			print type(x[0]),":",type(x[1]),"->",type(y[1])
+
+def unzip(input) :
+	return [list(li) for li in zip(*input)]
+
+def csv_export(filename, gold_set, test_set, is_tone_mode = False):
+
+	if not is_tone_mode :
+		csvfile = codecs.open(filename, 'wb')
+		writer = csv.writer(csvfile)
+		writer.writerow(["Token", "Golden", "Predicted", "Same"])
+		for gold_sent, test_sent in zip(gold_set, test_set) :
+			for gold_token, test_token in zip(gold_sent, test_sent) :
+				token = gold_token[0]
+				gold_code = gold_token[1]
+				test_code = test_token[-1]
+				# print token, gold_code, test_code
+				sameCodes = (gold_code == test_code)
+
+				if not repr(token.encode('utf-8')) :
+					sameCodes = u''
+				row = [\
+				(token.encode('utf-8')), \
+				gold_code, \
+				test_code, \
+				sameCodes]
+				writer.writerow(row)
+		csvfile.close()
+	else :
+		csvfile = codecs.open(filename, 'wb')
+		writer = csv.writer(csvfile)
+		writer.writerow(["Token", \
+			"Golden Form","Predicted Form", \
+			"Golden code", "Predicted code", "Same"])
+		enc = encoder_tones()
+		for gold_sent, test_sent in zip(gold_set, test_set) :
+			for gold_token, test_token in zip(gold_sent, test_sent) :
+				gold_code = ''
+				test_code = ''
+				gold_form = ''
+				test_form = ''
+				token = ''
+				for gold_syllabe, test_syllabe in zip(gold_token, test_token) :
+					token += gold_syllabe[0]
+					gold_code += gold_syllabe[1]
+					test_code += test_syllabe[1]
+					gold_form += enc.differential_decode(gold_syllabe[0], gold_syllabe[1].decode('utf-8'))
+					test_form += enc.differential_decode(gold_syllabe[0], test_syllabe[1].decode('utf-8'))
+					sameCodes = (gold_code == test_code)
+					sameForms = (gold_form == test_form)
+				sameCodes = (gold_code == test_code)
+				sameForms = (gold_form == test_form)
+				if not repr(token.encode('utf-8')) :
+					sameCodes = u''
+				row = [\
+				(token.encode('utf-8')), \
+				repr(gold_form.encode('utf-8')), \
+				repr(test_form.encode('utf-8')), \
+				repr(gold_code, spaces=True), \
+				repr(test_code, spaces=True), \
+				sameCodes]
+				writer.writerow(row)
+		csvfile.close()
+
+def sampling(allsents, p, ratio = 1) :
+	train_set, eval_set = [], []
+	for i, sent in enumerate(allsents[0 : : int(1/float(ratio))]) :
+		p_approx = float(len(train_set) + 1) / float(len(eval_set) + len(train_set) + 1)
+		if p_approx <= p :
+			train_set.append(sent)
+		else:
+			eval_set.append(sent)
+	return [train_set, eval_set]
+
+def get_duration(t1_secs, t2_secs) :
+	secs = abs(t1_secs - t2_secs)
+	days = secs // 86400
+	hours = secs // 3600 - days * 24
+	minutes = secs // 60 - hours * 60 - days * 60 * 24
+	secondes = int(secs) % 60
+	return '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(days, hours, minutes, secondes)
+
+def is_a_good_code(code) :
+
+	if not code : return True
+
+	code2 = code
+
+	# +_2__ is good, because -> + 2 _
+	if code2[-1] == code_seperator.decode('utf-8') or code2[-1] == code_seperator :
+		try :
+			if code2[-1] != code2[-2] :
+				return False
+		except IndexError:
+			return False
+
+	# code3 = code2.split(code_seperator.decode('utf-8'))
+	code3 = split2(code2,code_seperator.decode('utf-8'))
+	if len(code3) % 3 != 0 :
+		return False
+	else :
+		return True
+
 def code_dispatcher(code) :
 
 	lst = []
@@ -28,32 +280,117 @@ def code_dispatcher(code) :
 		lst.append("")
 
 	if not code : return lst
-	if code[-1] == code_seperator : code = code[: -1]
-	code_segments = code.split(code_seperator)
+	if not is_a_good_code(code) : print "(dispatcher) input code incorrect !" ; print code ; exit()
+	#if code[-1] == code_seperator : code = code[: -1]
+	# code_segments = code.split(code_seperator)
+	code_segments = split2(code,code_seperator)
 	for i in range(0, len(code_segments), 3) :
 		m, p, c = code_segments[i : i + 3]
-		lst[mode_indicators.index(m) + len(mode_indicators) * int(c in markers_tone)] += \
+		phase = mode_indicators.index(m) + len(mode_indicators) * int(c in markers_tone)
+		lst[phase] += \
 			u"{}{}{}{}{}{}".format(m, code_seperator, p, code_seperator, c, code_seperator)
 
-	return lst
+	lst2 = list()
+	for element in lst :
+		try :
+			if element[-1] == code_seperator or element[-1] == code_seperator.decode('utf-8') :
+				lst2.append(element[:-1])
+			else :
+				lst2.append(element)
+		except :
+			lst2.append(element)
+
+	for code in lst2 : 
+		if not is_a_good_code(code):
+			print "(dispatcher) output code incorrect !"
+			print code
+
+	return lst2
 
 def code_resort(code) :
 
+
 	ret = []
 	if not code : return code
-	if code[-1] == code_seperator : code = code[: -1]
-	code_segments = code.split(code_seperator)
+	if not is_a_good_code(code) : print "(resort) input code incorrect !" ; exit()
+	#if code[-1] == code_seperator : code = code[: -1]
+	#code_segments = code.split(code_seperator)
+	code_segments = split2(code,code_seperator)
 	for i in range(0, len(code_segments), 3) :
-		m, p, c = code_segments[i : i + 3]
+		try :
+			m, p, c = code_segments[i : i + 3]
+		except :
+			print code
+			print code_segments;
+			print "Bug 1 !"
+			exit()
+
 		ret.append(u"{}{}{}{}{}{}".format(m, code_seperator, p, code_seperator, c, code_seperator))
 
-	ret = sorted(ret, key=lambda x : int(mode_indicators.index(m))+2*int(x.split(code_seperator)[1]))
+	ret = sorted(ret, key=lambda x : int(mode_indicators.index(m))+2*int(split2(x,code_seperator)[1]))
 	ret = ''.join(ret)
 	if ret : ret = ret[:-1]
 
+	if not is_a_good_code(ret) : print ("(resort) ouptut code incorrect !") ; exit()
+
 	return ret
 
-def _get_features_customised_for_tones(tokens, idx):
+def get_features_customised(tokens, idx):
+
+	feature_list = []
+
+	if not tokens:
+		return feature_list
+
+	token = tokens[idx]
+
+	# Capitalization
+	if token[0].isupper():
+		feature_list.append(u'CAPITALIZATION')
+
+	# Number
+	if re.search(r'\d', token) is not None:
+		feature_list.append(u'IL_Y_A_UN_CHIFFRE')
+
+	# Punctuation
+	punc_cat = set([u"Pc", u"Pd", u"Ps", u"Pe", u"Pi", u"Pf", u"Po"])
+	if all (unicodedata.category(x) in punc_cat for x in token):
+		feature_list.append(u'PONCTUATION_PURE')
+
+	# Voyelles
+	voyelles = u""
+	for c in token :
+		if c.lower() in vowels:
+			voyelles += c
+	feature_list.append(u'VOYELLES_'+ voyelles)
+
+	# Syllabes précédent et suivant
+	try :
+		feature_list.append(u'TOKEN_PRECEDENT_' + token[idx - 1])
+	except IndexError :
+		pass
+
+	try :
+		feature_list.append(u'TOKEN_SUIVANT_' + token[idx + 1])
+	except IndexError :
+		pass
+
+	feature_list.append(u'TOKEN_ACTUEL_' + (token))
+
+	# Suffix & prefix up to length 3
+	if len(token) > 1:
+		feature_list.append(u'SUF_' + token[-1:])
+		feature_list.append(u'PRE_' + token[:1])
+	if len(token) > 2:
+		feature_list.append(u'SUF_' + token[-2:])
+		feature_list.append(u'PRE_' + token[:2])
+	if len(token) > 3:
+		feature_list.append(u'SUF_' + token[-3:])
+		feature_list.append(u'PRE_' + token[:3])
+
+	return feature_list
+
+def get_features_customised_tone(tokens, i, j, phase) :
 
 	feature_list = []
 
@@ -61,119 +398,65 @@ def _get_features_customised_for_tones(tokens, idx):
 		return feature_list
 
 	try :
-		token = tokens[idx]
+	 	syllabes = tokens[i]
+		syllabe = syllabes[j]
 	except IndexError :
 		raise
 
-	# positon du syllabe actuel et préfixe et suffixe du même mot
-	lst = []
-	for i in range(idx, len(tokens) + 1, 1) :
-		try :
-			if tokens[i] == token_seperator :
-				lst.append(i)
-				if len(lst) >= 2 :
-					break
-		except IndexError :
-			lst.append(i)
-			break
+	# phases
+	feature_list.append(u'PHASE_ID_' + str(phase))
 
-	try :
-		feature_list.append("SYLLABE_ID1_" + str(lst[0] - idx))
-	except :
-		pass
+	# Positions
+	feature_list.append(u'SYLLABE_ID_POSITIF_' + str(j))
+	feature_list.append(u'SYLLABE_ID_NEGATIF_' + str(len(syllabes) - j - 1))
+	feature_list.append(u'TOKEN_ID_POSITIF_' + str(i))
+	feature_list.append(u'TOKEN_ID_NEGATIF_' + str(len(tokens) - i - 1))
 
-	try :
-		feature_list.append("SUFFIXE_ACTUEL_" + tokens(lst[0] - 1))
-	except :
-		pass
+	# Châine de caractères au niveau du vocable actuel
+	feature_list.append(u'SYLLABE_ACTUELLE_' + syllabe)
+	feature_list.append(u'PREFIXE_ACTUEL_' + syllabes[0])
+	feature_list.append(u'SUFFIXE_ACTUEL_' + syllabes[-1])
+	try    : feature_list.append(u'SYLLABE_QUI_PRECEDE_' + syllabes[j - 1])
+	except : pass
+	try    : feature_list.append(u'SYLLABE_QUI_SUIT_' + syllabes[j + 1])
+	except : pass
 
-	lst2 = []
-	for i in range(idx, -2, -1) :
-		try :
-			if tokens[i] == token_seperator :
-				lst2.append(i)
-				if len(lst2) >= 2 :
-					break
-		except IndexError :
-			lst2.append(i)
-			break
+	# châine de caractères au niveau du vocable qui précède et celui qui suit
+	try : feature_list.append(u'PREFIXE_DU_TOKEN_QUI_PRECEDE_' + tokens[i-1][0])
+	except : pass
+	try : feature_list.append(u'SUFFIXE_DU_TOKEN_QUI_PRECEDE_' + tokens[i-1][-1])
+	except : pass
+	try : ffeature_list.append(u'PREFIXE_DU_TOKEN_QUI_SUIT_' + tokens[i+1][0])
+	except : pass
+	try : ffeature_list.append(u'SUFFIXE_DU_TOKEN_QUI_SUIT_' + tokens[i+1][-1])
+	except : pass
 
-	try :
-		feature_list.append("SYLLABE_ID2_" + str(idx - lst2[0]))
-	except :
-		pass
-
-	try :
-		feature_list.append("PREFIXE_ACTUEL_" + tokens(lst2[0] + 1))
-	except :
-		pass
-
-	# préfixe et suffixe du mots précédent et suivant dans la même phrase
-	try :
-		prefixe_du_mot_suivant = tokens[lst[0] + 1]
-		feature_list.append("PREFIXE_SUIVANT_" + prefixe_du_mot_suivant)
-	except IndexError :
-		pass
-	try :
-		suffixe_du_mot_precedent = tokens[lst2[0] - 1]
-		feature_list.append("SUFFIXE_PRECEDENT_" + suffixe_du_mot_precedent)
-	except IndexError:
-		pass
-
-	try :
-		suffixe_du_mot_suivant  = tokens[lst[1] - 1]
-		feature_list.append("SUFFIXE_SUIVANT_" + suffixe_du_mot_suivant)
-	except IndexError :
-		pass
-	try :
-		prefixe_du_mot_precedent = tokens[lst2[1] + 1]
-		feature_list.append("PREFIXE_PRECEDENT_" + prefixe_du_mot_precedent)
-	except IndexError :
-		pass
+	# châine de caractères au niveau d'une phrase
+	feature_list.append(u'TOKEN_ACTUEL_' + ''.join(syllabes))
+	try    : feature_list.append(u'TOKEN_QUI_PRECEDE_' + ''.join(tokens[i - 1]))
+	except : pass
+	try    : feature_list.append(u'TOKEN_QUI_SUIT_' + ''.join(tokens[i + 1]))
+	except : pass
 
 	# Capitalization
-	if token[0].isupper():
-		feature_list.append('CAPITALIZATION')
+	if syllabe[0].isupper():
+		feature_list.append(u'CAPITALIZATION')
 
 	# Number
-	if re.search(r'\d', token) is not None:
-		feature_list.append('IL_Y_A_UN_CHIFFRE')
+	if re.search(r'\d', syllabe) is not None:
+		feature_list.append(u'IL_Y_A_UN_CHIFFRE')
 
 	# Punctuation
-	punc_cat = set(["Pc", "Pd", "Ps", "Pe", "Pi", "Pf", "Po"])
-	if all (unicodedata.category(x) in punc_cat for x in token):
-		feature_list.append('PONCTUATION_PURE')
+	punc_cat = set([u"Pc", u"Pd", u"Ps", u"Pe", u"Pi", u"Pf", u"Po"])
+	if all (unicodedata.category(x) in punc_cat for x in syllabe):
+		feature_list.append(u'PONCTUATION_PURE')
 
 	# Voyelles
-	voyelles = ""
-	for c in token :
+	voyelles = u""
+	for c in syllabe :
 		if c.lower() in vowels:
 			voyelles += c
-	feature_list.append('VOYELLES_'+ voyelles)
-
-	# Syllabes précédent et suivant
-	try :
-		feature_list.append('SYLLABE_PRECEDENT_' + token[idx - 1])
-	except IndexError :
-		pass
-
-	try :
-		feature_list.append('SYLLABE_SUIVANT_' + token[idx + 1])
-	except IndexError :
-		pass
-
-	feature_list.append('SYLLABE_ACTUEL_' + (token))
-
-	# Suffix & prefix up to length 3
-	if len(token) > 1:
-		feature_list.append('SUF_' + token[-1:])
-		feature_list.append('PRE_' + token[:1])
-	if len(token) > 2:
-		feature_list.append('SUF_' + token[-2:])
-		feature_list.append('PRE_' + token[:2])
-	if len(token) > 3:
-		feature_list.append('SUF_' + token[-3:])
-		feature_list.append('PRE_' + token[:3])
+	feature_list.append(u'VOYELLES_'+ voyelles)
 
 	return feature_list
 
@@ -297,7 +580,6 @@ def entropy (cnt, unit = 'shannon') :
 			ent -= p * math.log(p, base[unit])
 	return ent
 
-
 def sprint_cnt(cnt, prefix = "", num = -1, min = -1) :
 
 	lst = cnt.most_common()
@@ -392,24 +674,7 @@ class encoder_tones () :
 		self.stat.dst_insert[caracter_dst] += 1
 		self.stat.segment_code[repr(segment)] += 1
 
-	"""
-	def replace(self) :
-		mode_id = mode_names.index("replace")
-		[mp_code, chunk_id] = mode_position_encoder(self.src,self.p_src, mode_id, self.chunks)
-		segment = mp_code + code_seperator
-		caracter_src = self.src[self.p_src]
-		caracter_dst = self.dst[self.p_dst]
-		segment += caracter_dst + code_seperator
-		self.ret[chunk_id] += segment
-
-		self.stat.cnt_ops += 1
-		self.stat.mode["replace"] += 1
-		self.stat.src_replace[caracter_src] += 1
-		self.stat.dst_replace[caracter_dst] += 1
-		self.stat.segment_code[repr(segment)] += 1
-	"""
-
-	def differential_encode (self, form_non_tonal, form_tonal, seperator = True) :
+	def differential_encode (self, form_non_tonal, form_tonal) :
 
 		self.p_src = -1
 		self.p_dst = -1
@@ -417,10 +682,7 @@ class encoder_tones () :
 		self.src = reshaping(form_non_tonal, False)
 
 		if not self.src :
-			if seperator:
-				return [u"", [token_seperator]]
-			else :
-				return [u"", []]
+				return [[u""], [form_non_tonal]]
 
 		self.chunks = chunking(self.src)
 		self.ret = [u"" for i in range(len(self.chunks))]
@@ -446,14 +708,14 @@ class encoder_tones () :
 
 		# enlèvement du séparateur du code à la fin du chunk
 		tmp = []
-                for ret2 in self.ret :
+		for ret2 in self.ret :
 			try :
-                        	if ret2[-1] == code_seperator :
-                                	ret2 = ret2[:-1]
+				if ret2[-1] == code_seperator :
+					ret2 = ret2[:-1]
 			except IndexError:
 				pass
-                        tmp.append(ret2)
-                self.ret = tmp
+			tmp.append(ret2)
+		self.ret = tmp
 
 		self.stat.num += 1
 		repr_code = repr(u"".join(self.ret))
@@ -468,9 +730,11 @@ class encoder_tones () :
 			if form1 != form2 :
 				self.stat.err_cnt += 1
 
-		if seperator :
-			self.ret.append(u'')
-			self.chunks.append(token_seperator)
+		for code in self.ret : 
+			if not is_a_good_code : 
+				print "(encode) ouput code incorrect !"; 
+				print code ; 
+				exit ()
 
 		return [self.ret, self.chunks]
 
@@ -482,9 +746,11 @@ class encoder_tones () :
 		chunk = reshaping(chunk, False)
 
 		if len(code.strip()) == 0 : return chunk
+		if not is_a_good_code(code) : print "(decode) input code incorrect !" ; print chunk ; print code ; exit()
 
-		if code[-1] == code_seperator : code = code[: -1]
-		code_segments = code.split(code_seperator)
+		# if code[-1] == code_seperator : code = code[: -1]
+		# code_segments = code.split(code_seperator)
+		code_segments = split2(code,code_seperator)
 		if len(code_segments) % 3 != 0 : print code ; print (code_segments) ; print ("input code incorrect !"); exit(1)
 
 		p_offset = 0
@@ -492,7 +758,7 @@ class encoder_tones () :
 			try :
 				m, p, c = code_segments[i:i+3]
 			except :
-				print (u"Bug in differential_decode : {}".format(code))
+				print (u"Bug 2 : {}".format(code))
 				exit(1)
 
 			p_eff = int(p) + p_offset
@@ -515,6 +781,7 @@ class encoder_tones () :
 
 def main () :
 
+	"""
 	forms_non_tonal = [u'tò',u'yerehré',u'ò',u'e', u'òhehòhe', u'òhòh',u'ohoh',u'ehe', u'tò',u'hééh',u'heeh',u'hèé', u'narè']
 	forms_tonal     = [u'tɔ',u'yɛrɛ̂hre',u'o',u'é', u'ohéhohé', u'ohoh',u'òhòh',u'ebe',u'tɔ',u'heeh',u'hééh',u'héè', u'nàrɛ']
 
@@ -527,7 +794,9 @@ def main () :
 		i = 0
 		for chunk, code in zip(chunks, codes) :
 			sys.stdout.write(u"Syllabe_{} '{}' - '{}' -> '{}'\n".format(i, enc.differential_decode(chunk, code), chunk, repr(code)));
-			sys.stdout.write(u"Syllabe_{} '{}' - '{}' -> '{}'\n".format(i, enc.differential_decode(chunk, code_resort(''.join(code_dispatcher(code)))), chunk, repr(code_resort(''.join(code_dispatcher(code))))));
+			sys.stdout.write(u"Syllabe_{} '{}' - '{}' -> '{}'\n".\
+				format(i, enc.differential_decode(\
+				chunk, code_resort(''.join(code_dispatcher(code)))), chunk, repr(code_resort(''.join(code_dispatcher(code))))));
 			pass
 		print ""
 
@@ -537,5 +806,6 @@ def main () :
 			print form1, form2
 
 	enc.report()
+	"""
 
 if __name__ == "__main__" : main()
