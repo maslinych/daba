@@ -26,7 +26,7 @@ import nltk.tag.util
 import pycrfsuite
 from differential_tone_coding import get_features_customised, get_duration, sampling, csv_export, unzip, encoder_tones, mode_indicators, marginal_tone, accuray2, get_sub_tone_code_of_sentence, accumulate_tone_code_of_dataset, reshape_tokens_as_sentnece, make_tokens_from_sentence, make_features_from_tokens
 import unicodedata
-import zipfile
+import zipfile, ntpath
 
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
@@ -190,9 +190,10 @@ def main():
 				tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
 				trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
 				trainer.set_params(tagger._training_options)
-				model_name = args.learn + '.' + str(phase)
-				myzip.extract(model_name)
-				tagger.set_model_file(model_name)
+				model_basename = myzip.namelist()[phase]
+				myzip.extract(model_basename)
+				tagger.set_model_file(model_basename)
+				os.remove(model_basename)
 
 				# B.2 Annotation automatique syllabe par syllabe pour une phrase
 				predicted_set = list()
@@ -298,10 +299,10 @@ def main():
 			enc = encoder_tones()
 			for phase in range(num_phases) :
 				taggers.append(CRFTagger())
-				model_name = args.disambiguate[:-4] + '.' + str(phase)
-				myzip.extract(model_name)
-				taggers[phase].set_model_file(model_name)
-				os.remove(model_name)
+				model_basename = myzip.namelist()[phase]
+				myzip.extract(model_basename)
+				taggers[phase].set_model_file(model_basename)
+				os.remove(model_basename)
 			myzip.close()
 
 			for snum, sentence in enumerate(html_parser.glosses) :
