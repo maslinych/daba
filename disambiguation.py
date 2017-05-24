@@ -125,7 +125,7 @@ def main():
 			if args.verbose :
 				enc.report()
 
-		R = 1 # 1 pour la totalité des corpus
+		R = 0.01 # 1 pour la totalité des corpus
 		p = (1 - args.evalsize / 100.0)
 		train_set, eval_set = sampling(allsents, p, R)
 		print 'Split the data in \t train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
@@ -147,6 +147,10 @@ def main():
 			trainer.set_params(tagger._training_options)
 			model_name = args.learn
 			if args.tone :
+				if args.diacritic_only and (phase == 0 or phase == 1) :
+					continue
+				if args.non_diacritic_only and (phase == 2 or phase == 3) :
+					continue
 				model_name += '.' + str(phase)
 
 			# A.2. Mettre à plat les structures de données pour préparer l'entrâinement contextuel
