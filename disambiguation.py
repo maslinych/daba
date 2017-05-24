@@ -3,18 +3,11 @@
 
 # Auteur : Elvis Mboning, Stagiaire 2016, INALCO
 # Auteur : Damien Nouvel, MCF, INALCO
+# Auteur : Luigi (Yu-Cheng) Liu, Stagiaire 2017, INALCO
 
 # Le principale rôle de ce script est de créer des modèles de données pour l'apprentissage automatique avec CRFTagger.
 # Le CRF implémenté provient du module tag de NLTK inspiré de CRFSuite (http://www.nltk.org/api/nltk.tag.html#module-nltk.tag.crf).
 # Trois modèles sont possibles : les POS, les tons, les gloses
-
-# todo:
-# * petit rapport sur les distributions de caractères et leurs natures dans le corpus
-## * enregistrement et téléverser
-# * models produits /models/pos_exactitude_0p92.mod
-# * models produits /models/tone_exactitude_0p91.mod
-# * avec un fihier in et un fichier out
-#
 
 
 import sys, re, codecs, glob, time, os, collections, argparse, itertools
@@ -43,6 +36,8 @@ def main():
 	aparser.add_argument('-e', '--evalsize', help='Percent of training data with respect to training and test one (default 10)', default=10, type=float)
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data, the gloss list will be ordered by the probability growth order', default=None)
 	aparser.add_argument('--select', help = 'Option that will be taken into account only with the use of -d, which specifies the disambiguation modality is to select only the most likely gloss in each list.', action='store_true')
+	aparser.add_argument('--diacritic_only', help = '', action='store_true')
+	aparser.add_argument('--non_diacritic_only', help = '', action='store_true')
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
 	aparser.add_argument('-s', '--store', help='Store evaluation resault in file (.csv) for further research purpose', default=None)
@@ -130,7 +125,7 @@ def main():
 			if args.verbose :
 				enc.report()
 
-		R = 1 # la totalité des corpus
+		R = 1 # 1 pour la totalité des corpus
 		p = (1 - args.evalsize / 100.0)
 		train_set, eval_set = sampling(allsents, p, R)
 		print 'Split the data in \t train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
@@ -190,7 +185,18 @@ def main():
 				tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
 				trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
 				trainer.set_params(tagger._training_options)
-				model_basename = myzip.namelist()[phase]
+				model_basename = ''
+				for m in myzip.namelist() :
+					if m.endswith(str(phase)):
+						model_basename = m
+						break
+				if not model_basename :
+					continue
+				if args.diacritic_only and (phase == 0 or phase == 1) :
+					continue
+				if args.non_diacritic_only and (phase == 2 or phase == 3):
+					continue
+
 				myzip.extract(model_basename)
 				tagger.set_model_file(model_basename)
 				os.remove(model_basename)
@@ -299,7 +305,17 @@ def main():
 			enc = encoder_tones()
 			for phase in range(num_phases) :
 				taggers.append(CRFTagger())
-				model_basename = myzip.namelist()[phase]
+				model_basename = ''
+                                for m in myzip.namelist() :
+                                        if m.endswith(str(phase)):
+                                                model_basename = m
+                                                break
+                                if not model_basename :
+                                        continue
+                                if args.diacritic_only and (phase == 0 or phase == 1) :
+                                        continue
+                                if args.non_diacritic_only and (phase == 2 or phase == 3):
+                                        continue
 				myzip.extract(model_basename)
 				taggers[phase].set_model_file(model_basename)
 				os.remove(model_basename)
@@ -309,7 +325,8 @@ def main():
 				tokens = [enc.differential_encode(token.token, token.token)[1] for token in sentence[2]]
 				for phase in range(num_phases) :
 					features = make_features_from_tokens(tokens, phase, args.tone)
-					taggers[phase]._tagger.set(features)
+					if taggers[phase]._model_file :
+						taggers[phase]._tagger.set(features)
 				for tnum, token in enumerate(sentence[2]) :
 					options = list()
 					if token.value and len(token.value) > 2:

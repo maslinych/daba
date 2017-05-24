@@ -58,6 +58,8 @@ def marginal_tone(taggers, tnum, tokens, tag, token) :
 
 	prob_tot = 1
 	for p, tagger in enumerate(taggers) :
+		if not taggers[p]._model_file :
+			continue
 		for i in range(len(syllabes)) :
 			subcode = code_dispatcher(codes[i])[p]
 			try :
