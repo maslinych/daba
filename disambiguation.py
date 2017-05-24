@@ -125,7 +125,7 @@ def main():
 			if args.verbose :
 				enc.report()
 
-		R = 0.01 # 1 pour la totalité des corpus
+		R = 1 # 1 pour la totalité des corpus
 		p = (1 - args.evalsize / 100.0)
 		train_set, eval_set = sampling(allsents, p, R)
 		print 'Split the data in \t train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
