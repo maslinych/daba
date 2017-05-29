@@ -17,13 +17,14 @@ from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 import nltk.tag.util
 import pycrfsuite
-from differential_tone_coding import get_features_customised, get_duration, sampling, csv_export, unzip, encoder_tones, mode_indicators, marginal_tone, accuray2, get_sub_tone_code_of_sentence, accumulate_tone_code_of_dataset, reshape_tokens_as_sentnece, make_tokens_from_sentence, make_features_from_tokens
+from differential_tone_coding import apply_filter_to_base_element, get_features_customised, get_duration, sampling, csv_export, unzip, encoder_tones, mode_indicators, marginal_tone, accuray2, get_sub_tone_code_of_sentence, accumulate_tone_code_of_dataset, reshape_tokens_as_sentnece, make_tokens_from_sentence, make_features_from_tokens
 import unicodedata
 import zipfile, ntpath
 
 import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
+
 
 def main():
 
@@ -244,6 +245,21 @@ def main():
 				features = make_features_from_tokens(tokens, 0, args.tone)
 				labels = tagger._tagger.tag(features)
 				predicted_set.append(zip(tokens, labels))
+
+
+		if args.tone :
+			# on ajuste l'évaluation dans les cas d'apprentissage partiel
+			# en nous proposant de filtrer les caractères ignorés par l'apprentissage
+			# sinon, nous obtiendrons un résultat pénalisé
+			# en voulant comparer une forme prédite partiellement à la forme tonale intégrale d'un même token
+			if args.diacritic_only :
+				gold_set = apply_filter_to_base_element(gold_set, [2,3])
+			elif args.non_diacritic_only :
+				gold_set = apply_filter_to_base_element(gold_set, [0,1])
+			"""
+			if args.verbose :
+				verify(gold_set)
+			"""
 
 		print "Accuracy : {:>5.3f}".format(accuray2(gold_set, predicted_set, args.tone))
 

@@ -21,6 +21,41 @@ mode_names   = [u"insert",u"delete"]
 markers_to_be_ignored = u"." # u"[].-" + code_seperator
 markers_to_be_replaced = dict() # {u"’":u"'"}
 
+def apply_filter_to_base_element(x, sets, show_approx_err = False) :
+
+	if isinstance(x, tuple) :
+		return (x[0], filter(x[0], x[1].decode("utf-8"), sets, show_approx_err).encode("utf-8"))
+	else :
+		return [apply_filter_to_base_element(element, sets, show_approx_err) for element in x]
+
+
+def filter(token, tag, sets, show_approx_err = False) :
+
+	subcodes = code_dispatcher(tag)
+	code2 = code_seperator.encode("utf-8").join([subcode for p, subcode in enumerate(subcodes) if (p in sets and subcode)])
+	ret = code_resort(code2)
+
+	if ret != tag and set(sets) == {0,1,2,3}and show_approx_err  :
+	# un coût d'approximation à payer :
+	# notre décomposition de la CRF paye bien un prix : la perte de l'ordre des caractères (de types différents) à insérer sur
+	# la même position par rapport qu token original, bien que ce soit rarissime d'insérer successivement un caractère non diacritique
+	# et un diacritique à la même position sur un token, ça peut arriver, donc générer une erreur observable si nous dés-commentons
+	# les lignes de code ci-dessous
+	# par exemple,
+	# tag_gold =         +_0_ɔ_+_0_̀_+_0_n_-_0_a
+	# tag_reconstitued = +_0_ɔ_+_0_n_+_0_̀_-_0_a
+	# pour rappel, cette erreur est comptée dans l'évaluation, et curieusement on n'a pas constaté de dégradation considérable
+	# dans l'exactitude du résultat, ça peut s'expliquer par ce qu'une insertion successive est souvent dfficile à apprendre
+	# en soi, (hypothèse à vérifier, donc), donc une perte d'ordre ne rend pas ce cas de figure plus catastrohpique quantitativement
+		print "Case of modeling error inherent to decomposition hypothesis : \n", ret, tag
+
+	return ret
+
+
+def verify(x) :
+	apply_filter_to_base_element(x, [0,1,2,3], show_approx_err=True)
+
+
 def split2 (str_in, seperator) :
 
         buf = ''
