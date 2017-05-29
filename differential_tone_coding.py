@@ -329,7 +329,7 @@ def code_resort(code) :
 
 		ret.append(u"{}{}{}{}{}{}".format(m, code_seperator, p, code_seperator, c, code_seperator))
 
-	ret = sorted(ret, key=lambda x : int(mode_indicators.index(m))+2*int(split2(x,code_seperator)[1]))
+	ret = sorted(ret, key=lambda x : int(mode_indicators.index(split2(x, code_seperator)[0])) + 2 * int(split2(x, code_seperator)[1]))
 	ret = ''.join(ret)
 	if ret : ret = ret[:-1]
 
