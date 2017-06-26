@@ -531,7 +531,14 @@ def chunking (token, mode) :
 	# segmentation à intervalle régulier
 	else :
 		token2 = unicodedata.normalize('NFD', token)
-		chunks = token2[::mode]
+		seg = ""
+		for c in token2 :
+			seg += c
+			if len(seg) == mode :
+				chunks.append(seg)
+				seg = ""
+		if seg :
+			chunks.append(seg)
 
 	return chunks
 
@@ -667,6 +674,8 @@ class statistique () :
 		ret += u"\tE(Token)        = {:<6.2f} \n".format(entropy(self.form_non_tonal))
 		ret += u"\tE(Forme tonale) = {:<6.2f} \n".format(entropy(self.form_tonal))
 		ret += u"\tE(Code produit) = {:<6.2f} \n".format(entropy(self.code2))
+		ret += u"\tr_E(Code produit) = {:<6.2f} \n".format(entropy(self.form_tonal)/entropy(self.code2))
+
 		ret += u"Entropies par token (en moyenne)\n"
                 ret += u"\tE(Forme tonale) = {:<6.2f} \n".\
 			format(entropy2(self.dict_form_tonal, cnty = self.form_tonal, cntx = self.form_non_tonal))
