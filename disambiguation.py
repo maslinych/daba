@@ -35,6 +35,7 @@ def main():
 	aparser.add_argument('-t', '--tone', help='Prediction for tones', default=False, action='store_true')
 	aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
 	aparser.add_argument('-e', '--evalsize', help='Percent of training data with respect to training and test one (default 10)', default=10, type=float)
+	aparser.add_argument('-c', '--chunkmode', help='Chunking mode specification which is effective only for tone (default -1)', default=-1, type=int)
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data, the gloss list will be ordered by the probability growth order', default=None)
 	aparser.add_argument('--select', help = 'Option that will be taken into account only with the use of -d, which specifies the disambiguation modality is to select only the most likely gloss in each list.', action='store_true')
 	aparser.add_argument('--diacritic_only', help = '', action='store_true')
@@ -118,7 +119,7 @@ def main():
 				sent2 = []
 				for token_tags in sent :
 					token, tags = token_tags
-					[codes, syllabes] = enc.differential_encode(token, tags.decode('utf-8'))
+					[codes, syllabes] = enc.differential_encode(token, tags.decode('utf-8'), args.chunkmode)
 					token2 = [(syllabe, code.encode('utf-8')) for syllabe, code in zip(syllabes, codes)]
 					sent2.append(token2)
 				allsents.append(sent2)
@@ -342,7 +343,7 @@ def main():
 			myzip.close()
 
 			for snum, sentence in enumerate(html_parser.glosses) :
-				tokens = [enc.differential_encode(token.token, token.token)[1] for token in sentence[2]]
+				tokens = [enc.differential_encode(token.token, token.token, args.chunkmode)[1] for token in sentence[2]]
 				for phase in range(num_phases) :
 					features = make_features_from_tokens(tokens, phase, args.tone)
 					if taggers[phase]._model_file :

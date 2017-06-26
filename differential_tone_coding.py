@@ -74,10 +74,10 @@ def split2 (str_in, seperator) :
                 ret.append(buf)
         return ret
 
-def marginal_tone(taggers, tnum, tokens, tag, token) :
+def marginal_tone(taggers, tnum, tokens, tag, token, chunk_mode) :
 
 	enc = encoder_tones()
-	codes, syllabes = enc.differential_encode(token, tag.decode('utf-8'))
+	codes, syllabes = enc.differential_encode(token, tag.decode('utf-8'), chunk_mode)
 
 	k = 0
 	snums = []
@@ -517,11 +517,21 @@ def rm_sep(str_in, seprator_in = code_seperator, replacing = u''):
 			except :
 				raise
 
-def chunking (token) :
+def chunking (token, mode) :
 
 	chunks = []
-	for chunk in syllabify(token)[0]:
-		chunks.append(unicodedata.normalize('NFD', chunk))
+
+	if mode == 0 :
+	# sans segmenteur
+		chunks.append(token)
+	elif mode < 0 :
+	# syllabification
+		for chunk in syllabify(token)[0]:
+			chunks.append(unicodedata.normalize('NFD', chunk))
+	# segmentation à intervalle régulier
+	else :
+		token2 = unicodedata.normalize('NFD', token)
+		chunks = token2[::mode]
 
 	return chunks
 
@@ -638,6 +648,7 @@ class statistique () :
 		self.form_non_tonal = Counter()
 		self.form_tonal     = Counter()
 		self.code           = Counter()
+		self.code2          = Counter()
 		self.segment_code   = Counter()
 		self.dict_code      = defaultdict()
 		self.dict_form_tonal= defaultdict()
@@ -655,7 +666,7 @@ class statistique () :
 		ret += u"Entropies globales\n"
 		ret += u"\tE(Token)        = {:<6.2f} \n".format(entropy(self.form_non_tonal))
 		ret += u"\tE(Forme tonale) = {:<6.2f} \n".format(entropy(self.form_tonal))
-		ret += u"\tE(Code produit) = {:<6.2f} \n".format(entropy(self.code))
+		ret += u"\tE(Code produit) = {:<6.2f} \n".format(entropy(self.code2))
 		ret += u"Entropies par token (en moyenne)\n"
                 ret += u"\tE(Forme tonale) = {:<6.2f} \n".\
 			format(entropy2(self.dict_form_tonal, cnty = self.form_tonal, cntx = self.form_non_tonal))
@@ -711,7 +722,7 @@ class encoder_tones () :
 		self.stat.dst_insert[caracter_dst] += 1
 		self.stat.segment_code[repr(segment)] += 1
 
-	def differential_encode (self, form_non_tonal, form_tonal) :
+	def differential_encode (self, form_non_tonal, form_tonal, chunk_mode) :
 
 		self.p_src = -1
 		self.p_dst = -1
@@ -721,7 +732,7 @@ class encoder_tones () :
 		if not self.src :
 				return [[u""], [form_non_tonal]]
 
-		self.chunks = chunking(self.src)
+		self.chunks = chunking(self.src, chunk_mode)
 		self.ret = [u"" for i in range(len(self.chunks))]
 
 		self.dst = reshaping(form_tonal, False)
@@ -757,6 +768,8 @@ class encoder_tones () :
 		self.stat.num += 1
 		repr_code = repr(u"".join(self.ret))
 		self.stat.code[repr_code] += 1
+		for chunk_code in self.ret :
+			self.stat.code2[chunk_code] += 1
 		self.stat.dict_code.setdefault(self.src, []).append(repr_code)
 
 		# internal auto-check
@@ -767,10 +780,10 @@ class encoder_tones () :
 			if form1 != form2 :
 				self.stat.err_cnt += 1
 
-		for code in self.ret : 
-			if not is_a_good_code : 
-				print "(encode) ouput code incorrect !"; 
-				print code ; 
+		for code in self.ret :
+			if not is_a_good_code :
+				print "(encode) ouput code incorrect !";
+				print code ;
 				exit ()
 
 		return [self.ret, self.chunks]
@@ -827,7 +840,7 @@ def main () :
 	for form_non_tonal, form_tonal in zip(forms_non_tonal, forms_tonal) :
 		print u"Source      {}".format(reshaping(form_non_tonal, False))
 		print u"Destination {}".format(reshaping(form_tonal, False))
-		[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal)
+		[codes, chunks] = enc.differential_encode (form_non_tonal, form_tonal, chunk_mode)
 		i = 0
 		for chunk, code in zip(chunks, codes) :
 			sys.stdout.write(u"Syllabe_{} '{}' - '{}' -> '{}'\n".format(i, enc.differential_decode(chunk, code), chunk, repr(code)));
