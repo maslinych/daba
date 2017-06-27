@@ -21,22 +21,22 @@ mode_names   = [u"insert",u"delete"]
 markers_to_be_ignored = u"." # u"[].-" + code_seperator
 markers_to_be_replaced = dict() # {u"’":u"'"}
 
-def apply_filter_to_base_element(x, sets, show_approx_err = False) :
+def apply_filter_to_base_element(x, sets, sel_en, show_approx_err = False) :
 
 	if isinstance(x, tuple) :
-		return (x[0], filter(x[0], x[1].decode("utf-8"), sets, show_approx_err).encode("utf-8"))
+		return (x[0], filter(x[0], x[1].decode("utf-8"), sets, sel_en, show_approx_err).encode("utf-8"))
 	else :
-		return [apply_filter_to_base_element(element, sets, show_approx_err) for element in x]
+		return [apply_filter_to_base_element(element, sets, sel_en, show_approx_err) for element in x]
 
 
-def filter(token, tag, sets, show_approx_err = False) :
+def filter(token, tag, sets, sel_en, show_approx_err = False) :
 
-	subcodes = code_dispatcher(tag)
+	subcodes = code_dispatcher(tag, sel_en)
 	code2 = code_seperator.encode("utf-8").join([subcode for p, subcode in enumerate(subcodes) if (p in sets and subcode)])
 	ret = code_resort(code2)
 
 	if ret != tag and set(sets) == {0,1,2,3}and show_approx_err  :
-	# un coût d'approximation à payer :
+	# un prix d'approximation à payer :
 	# notre décomposition de la CRF paye bien un prix : la perte de l'ordre des caractères (de types différents) à insérer sur
 	# la même position par rapport qu token original, bien que ce soit rarissime d'insérer successivement un caractère non diacritique
 	# et un diacritique à la même position sur un token, ça peut arriver, donc générer une erreur observable si nous dés-commentons
@@ -74,7 +74,7 @@ def split2 (str_in, seperator) :
                 ret.append(buf)
         return ret
 
-def marginal_tone(taggers, tnum, tokens, tag, token, chunk_mode) :
+def marginal_tone(taggers, tnum, tokens, tag, token, chunk_mode, sel_en) :
 
 	enc = encoder_tones()
 	codes, syllabes = enc.differential_encode(token, tag.decode('utf-8'), chunk_mode)
@@ -96,7 +96,7 @@ def marginal_tone(taggers, tnum, tokens, tag, token, chunk_mode) :
 		if not taggers[p]._model_file :
 			continue
 		for i in range(len(syllabes)) :
-			subcode = code_dispatcher(codes[i])[p]
+			subcode = code_dispatcher(codes[i], sel_en)[p]
 			try :
 				prob = taggers[p]._tagger.marginal(subcode.encode('utf-8'), snums[i])
 			except :
@@ -131,13 +131,13 @@ def accuray2 (dataset1, dataset2, is_tone_mode = False) :
 	if not cnt_tot : return 0.0
 	else : return cnt_sucess / float(cnt_tot)
 
-def get_sub_tone_code_of_sentence (sentence, phase) :
+def get_sub_tone_code_of_sentence (sentence, phase, sel_en) :
 	labels = list()
 	for i, token in enumerate(sentence) :
 		label = list()
 		for j, syllabe_code in enumerate(token) :
 			syllabe, code = syllabe_code
-			subcode = code_dispatcher(code.decode('utf-8'))[phase].encode('utf-8')
+			subcode = code_dispatcher(code.decode('utf-8'), sel_en)[phase].encode('utf-8')
 			label.append(subcode)
 		labels.append(label)
 	return labels
@@ -309,7 +309,7 @@ def is_a_good_code(code) :
 	else :
 		return True
 
-def code_dispatcher(code) :
+def code_dispatcher(code, sel_en) :
 
 	lst = []
 	for i in mode_indicators :
@@ -321,8 +321,28 @@ def code_dispatcher(code) :
 	#if code[-1] == code_seperator : code = code[: -1]
 	# code_segments = code.split(code_seperator)
 	code_segments = split2(code,code_seperator)
-	for i in range(0, len(code_segments), 3) :
-		m, p, c = code_segments[i : i + 3]
+
+	# Filtering
+	def indexing(op) :
+		m,p,c = op
+		return 2 * int(p) + mode_indicators.index(m)
+
+	ops = [code_segments[i : i + 3] for i in range(0, len(code_segments), 3)]
+
+	if sel_en :
+		ops = sorted(ops, key=lambda op : indexing(op))
+		ops2 = list()
+		i_pre = -1
+		for op in ops :
+			i = indexing(op)
+			if i > i_pre :
+				ops2.append(op)
+			i_pre = i
+	else :
+		ops2 = ops
+
+	for op in ops2 :
+		m,p,c = op
 		phase = mode_indicators.index(m) + len(mode_indicators) * int(c in markers_tone)
 		lst[phase] += \
 			u"{}{}{}{}{}{}".format(m, code_seperator, p, code_seperator, c, code_seperator)

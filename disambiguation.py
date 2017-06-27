@@ -38,6 +38,7 @@ def main():
 	aparser.add_argument('-c', '--chunkmode', help='Chunking mode specification which is effective only for tone (default -1)', default=-1, type=int)
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data, the gloss list will be ordered by the probability growth order', default=None)
 	aparser.add_argument('--select', help = 'Option that will be taken into account only with the use of -d, which specifies the disambiguation modality is to select only the most likely gloss in each list.', action='store_true')
+	aparser.add_argument('--filtering', help = '', action='store_true')
 	aparser.add_argument('--diacritic_only', help = '', action='store_true')
 	aparser.add_argument('--non_diacritic_only', help = '', action='store_true')
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
@@ -127,7 +128,7 @@ def main():
 			if args.verbose :
 				enc.report()
 
-		R = 1 # 1 pour la totalité des corpus
+		R = 0.01 # 1 pour la totalité des corpus
 		p = (1 - args.evalsize / 100.0)
 		train_set, eval_set = sampling(allsents, p, R)
 		print 'Split the data in \t train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
@@ -160,7 +161,7 @@ def main():
 				if args.tone :
 					[tokens, labels] = make_tokens_from_sentence(sent, args.tone)
 					features = make_features_from_tokens(tokens, phase, args.tone)
-					labels = get_sub_tone_code_of_sentence(sent, phase)
+					labels = get_sub_tone_code_of_sentence(sent, phase, sel_en = args.filtering)
 					labels = list(itertools.chain(*labels))
 				else :
 					[tokens, labels] = make_tokens_from_sentence(sent, args.tone)
@@ -254,9 +255,12 @@ def main():
 			# sinon, nous obtiendrons un résultat pénalisé
 			# en voulant comparer une forme prédite partiellement à la forme tonale intégrale d'un même token
 			if args.diacritic_only :
-				gold_set = apply_filter_to_base_element(gold_set, [2,3])
+				gold_set = apply_filter_to_base_element(gold_set, [2,3], sel_en = args.filtering)
 			elif args.non_diacritic_only :
-				gold_set = apply_filter_to_base_element(gold_set, [0,1])
+				gold_set = apply_filter_to_base_element(gold_set, [0,1], sel_en = args.filtering)
+			elif args.filtering :
+				gold_set = apply_filter_to_base_element(gold_set, [0,1,2,3], sel_en = args.filtering)
+
 			"""
 			if args.verbose :
 				verify(gold_set)
@@ -354,7 +358,7 @@ def main():
 						for nopt, option in enumerate(token.value[2]) :
 							try: tag = option.form.encode('utf-8')
 							except : tag = ''
-							prob = marginal_tone(taggers, tnum, tokens, tag, token.token)
+							prob = marginal_tone(taggers, tnum, tokens, tag, token.token, sel_en = args.filtering)
 							options.append((prob, option))
 
 						reordered_probs, reordered_options = unzip(sorted(options, key = lambda x : x[0], reverse = True))
