@@ -41,6 +41,8 @@ def main():
 	aparser.add_argument('--filtering', help = '', action='store_true')
 	aparser.add_argument('--diacritic_only', help = '', action='store_true')
 	aparser.add_argument('--non_diacritic_only', help = '', action='store_true')
+	aparser.add_argument('--no_coding', help = '', action='store_true')
+
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
 	aparser.add_argument('-s', '--store', help='Store evaluation resault in file (.csv) for further research purpose', default=None)
@@ -111,7 +113,7 @@ def main():
 						allsents.append(sent)
 						sent = []
 
-		if args.tone :
+		if args.tone and not args.no_coding :
 			print 'Token segmentation and tonal informaiotn compression'
 			enc = encoder_tones()
 			allsents2 = allsents
@@ -136,7 +138,7 @@ def main():
 		print 'Building classifier (pyCRFsuite)'
 		# Initialization
 		t1 = time.time()
-		if args.tone :
+		if args.tone and not args.no_coding :
 			num_phases = 2 * len(mode_indicators)
 			myzip = zipfile.ZipFile(args.learn + '.zip', 'w')
 		else :
@@ -149,7 +151,7 @@ def main():
 			trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
 			trainer.set_params(tagger._training_options)
 			model_name = args.learn
-			if args.tone :
+			if args.tone and not args.no_coding :
 				if args.diacritic_only and (phase == 0 or phase == 1) :
 					continue
 				if args.non_diacritic_only and (phase == 2 or phase == 3) :
@@ -158,23 +160,23 @@ def main():
 
 			# A.2. Mettre à plat les structures de données pour préparer l'entrâinement contextuel
 			for sent in train_set :
-				if args.tone :
-					[tokens, labels] = make_tokens_from_sentence(sent, args.tone)
-					features = make_features_from_tokens(tokens, phase, args.tone)
+				if args.tone and not args.no_coding :
+					[tokens, labels] = make_tokens_from_sentence(sent, args.tone and not args.no_coding)
+					features = make_features_from_tokens(tokens, phase, args.tone and not args.no_coding)
 					labels = get_sub_tone_code_of_sentence(sent, phase, sel_en = args.filtering)
 					labels = list(itertools.chain(*labels))
 				else :
-					[tokens, labels] = make_tokens_from_sentence(sent, args.tone)
-					features = make_features_from_tokens(tokens, 0, args.tone)
+					[tokens, labels] = make_tokens_from_sentence(sent, args.tone and not args.no_coding)
+					features = make_features_from_tokens(tokens, 0, args.tone and not args.no_coding)
 
 				trainer.append(features, labels)
 			trainer.train(model = model_name)
 
-			if args.tone :
+			if args.tone and not args.no_coding :
 				myzip.write(model_name)
 				os.remove(model_name)
 
-		if args.tone :
+		if args.tone and not args.no_coding :
 			myzip.close()
 
 		print "... done in", get_duration(t1_secs = t1, t2_secs = time.time())
@@ -183,7 +185,7 @@ def main():
 		print 'Evaluating classifier'
 		gold_set = eval_set
 
-		if args.tone :
+		if args.tone and not args.no_coding :
 			myzip = zipfile.ZipFile(args.learn + '.zip', 'r')
 			predicted_set_acc = list()
 			for phase in range(num_phases) :
@@ -212,8 +214,8 @@ def main():
 				predicted_set = list()
 				for p, sent in enumerate(gold_set) :
 
-					[tokens, gold_labels] = make_tokens_from_sentence(sent, args.tone)
-					features = make_features_from_tokens(tokens, phase, args.tone)
+					[tokens, gold_labels] = make_tokens_from_sentence(sent, args.tone and not args.no_coding)
+					features = make_features_from_tokens(tokens, phase, args.tone and not args.no_coding)
 					labels = tagger._tagger.tag(features)
 					labels = reshape_tokens_as_sentnece(labels, sent)
 
@@ -243,13 +245,13 @@ def main():
 			# B.2. Annotation automatique token par token
 			predicted_set = list()
 			for sent in gold_set :
-				[tokens, gold_labels] = make_tokens_from_sentence(sent, args.tone)
-				features = make_features_from_tokens(tokens, 0, args.tone)
+				[tokens, gold_labels] = make_tokens_from_sentence(sent, args.tone and not args.no_coding)
+				features = make_features_from_tokens(tokens, 0, args.tone and not args.no_coding)
 				labels = tagger._tagger.tag(features)
 				predicted_set.append(zip(tokens, labels))
 
 
-		if args.tone :
+		if args.tone and not args.no_coding :
 			# on ajuste l'évaluation dans les cas d'apprentissage partiel
 			# en nous proposant de filtrer les caractères ignorés par l'apprentissage
 			# sinon, nous obtiendrons un résultat pénalisé
@@ -266,11 +268,11 @@ def main():
 				verify(gold_set)
 			"""
 
-		print "Accuracy : {:>5.3f}".format(accuray2(gold_set, predicted_set, args.tone))
+		print "Accuracy : {:>5.3f}".format(accuray2(gold_set, predicted_set, args.tone and not args.no_coding))
 
 		if args.store :
 			stored_filename = args.store
-			csv_export(stored_filename, gold_set, predicted_set, args.tone)
+			csv_export(stored_filename, gold_set, predicted_set, args.tone and not args.no_coding)
 
 		if args.verbose and args.store :
 			print ("Tagged result is exported in {}".format(args.store))
@@ -311,9 +313,10 @@ def main():
 						if args.select :
 							prob_max = reordered_probs[0]
 							reordered_options = tuple([reordered_options[i] for i, p in enumerate(reordered_probs) if p >= prob_max])
+
 						html_parser.glosses[snum][1][tnum] = reordered_options
 
-		elif args.tone :
+		elif args.tone and not args.no_coding :
 			try :
 				html_parser.read_file(args.infile)
 			except IOError:
@@ -349,7 +352,7 @@ def main():
 			for snum, sentence in enumerate(html_parser.glosses) :
 				tokens = [enc.differential_encode(token.token, token.token, args.chunkmode)[1] for token in sentence[2]]
 				for phase in range(num_phases) :
-					features = make_features_from_tokens(tokens, phase, args.tone)
+					features = make_features_from_tokens(tokens, phase, args.tone and not args.no_coding)
 					if taggers[phase]._model_file :
 						taggers[phase]._tagger.set(features)
 				for tnum, token in enumerate(sentence[2]) :
