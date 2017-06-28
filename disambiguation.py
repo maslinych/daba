@@ -40,7 +40,7 @@ def main():
 	aparser.add_argument('--select', help = 'Option that will be taken into account only with the use of -d, which specifies the disambiguation modality is to select only the most likely gloss in each list.', action='store_true')
 
 	aparser.add_argument('--filtering', help = 'Experimental option', action='store_true')
-	aparser.add_argument('--no_decomposition', help = 'Experimental option', action='store_false')
+	aparser.add_argument('--no_decomposition', help = 'Experimental option', action='store_true')
 	aparser.add_argument('--diacritic_only', help = 'Experimental option', action='store_true')
 	aparser.add_argument('--non_diacritic_only', help = 'Experimental option', action='store_true')
 	aparser.add_argument('--no_coding', help = 'Experimental option', action='store_true')
@@ -102,7 +102,6 @@ def main():
 								form = token.gloss.form.split('|')
 								tags = form[0]
 								sent.append((token.token, tags.encode('utf-8')))
-
 							elif args.gloss and not args.tone and not args.pos :
 								# sent : list(str,str)
 								tags = token.gloss.gloss
