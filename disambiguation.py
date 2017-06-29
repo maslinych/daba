@@ -157,6 +157,8 @@ def main():
 					continue
 				if args.non_diacritic_only and (phase == 2 or phase == 3) :
 					continue
+				elif args.no_decomposition and phase % len(mode_indicators) != 0 :
+					continue
 				model_name += '.' + str(phase)
 
 			# A.2. Mettre à plat les structures de données pour préparer l'entrâinement contextuel
@@ -205,6 +207,8 @@ def main():
 				if args.diacritic_only and (phase == 0 or phase == 1) :
 					continue
 				if args.non_diacritic_only and (phase == 2 or phase == 3):
+					continue
+				elif args.no_decomposition and phase % len(mode_indicators) != 0 :
 					continue
 
 				myzip.extract(model_basename)
@@ -345,6 +349,8 @@ def main():
                                         continue
                                 if args.non_diacritic_only and (phase == 2 or phase == 3):
                                         continue
+				elif args.no_decomposition and phase % len(mode_indicators) != 0 :
+					continue
 				myzip.extract(model_basename)
 				taggers[phase].set_model_file(model_basename)
 				os.remove(model_basename)
