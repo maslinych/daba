@@ -6,10 +6,10 @@ GIT_VERSION="$(git rev-parse HEAD)"
 NOM=exp_$(date +%H_%M)_"$GIT_VERSION"
 
 BASIC_OPTIONS="-v -t -l $NOM.mod"
-SUPP_OPTIONS="-e 1 --filtering"
+SUPP_OPTIONS="-e 10 --filtering"
 
 KEYWORD="Seconds required for this iteration: |Error norm|Iteration #"
-KEYWORD2="diacritic_only|chunkmode|filtering|no_coding|no_decomposition|r_E|accuracy|done"
+KEYWORD2="[^_]diacritic_only|chunkmode|filtering|no_coding|no_decomposition|r_E|accuracy|done|eval|total"
 FP_PAT="[-+]?[0-9]+\.?[0-9]*"
 
 touch "$NOM.log"
