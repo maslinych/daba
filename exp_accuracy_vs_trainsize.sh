@@ -16,7 +16,7 @@ touch "$NOM.log"
 
 for trainsize in 1 10 20 30 40 50 60 70 80 90
 do
-VAR_OPTS="-e $trainsize -s "$NOM_trainsize"_"$trainsize".csv"
+VAR_OPTS="-e $trainsize -s "$NOM"_trainsize_"$trainsize".csv"
 if hash stdbuf 2>/dev/null; then
 stdbuf -oL python disambiguation.py $VAR_OPTS $SUPP_OPTIONS $BASIC_OPTIONS \
 | gawk "BEGIN{IGNORECASE=1} /.*($KEYWORD2).*/ {print \$0} match(\$0, /.*($KEYWORD)[^.0-9+-]*($FP_PAT)/, ary) {print ary[2]}" \
