@@ -1,8 +1,10 @@
 #! /bin/sh
 
-find f in exp*.sh
+for f in *.sh
 do
-	bash f &
+	bash $f &
 done
+
+wait 60
 
 tail -f *.log
