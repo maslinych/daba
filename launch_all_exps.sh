@@ -1,10 +1,9 @@
 #! /bin/sh
 
-for f in *.sh
-do
-	bash $f &
-done
+#set -vx
 
-wait 60
+for f in exp*.sh ; do
+	bash "$f" &
+done
 
 tail -f *.log
