@@ -6,7 +6,7 @@ GIT_VERSION="$(git rev-parse HEAD)"
 NOM=exp_accuracy_vs_segmentation_type_no_decomposition_A_$(date +%d_%H_%M)_"$GIT_VERSION"
 
 BASIC_OPTIONS="-v -t -l $NOM"
-SUPP_OPTIONS="-e 1 --filtering --diacritic_only --no_decomposition"
+SUPP_OPTIONS="-e 90 --filtering --diacritic_only --no_decomposition"
 
 KEYWORD="Seconds required for this iteration: |Error norm|Iteration #"
 KEYWORD2="[^_]diacritic_only|chunkmode|filtering|no_coding|no_decomposition|r_E|accuracy|done|eval|total"

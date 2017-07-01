@@ -3,7 +3,7 @@
 set -vx
 
 GIT_VERSION="$(git rev-parse HEAD)"
-NOM=exp_accuracy_vs_trainsize_$(date +%d_%H_%M)_"$GIT_VERSION"
+NOM=exp_accuracy_vs_evalsize_$(date +%d_%H_%M)_"$GIT_VERSION"
 
 BASIC_OPTIONS="-v -t -l $NOM"
 SUPP_OPTIONS="--filtering --diacritic_only"
@@ -14,7 +14,7 @@ FP_PAT="[-+]?[0-9]+\.?[0-9]*"
 
 touch "$NOM.log"
 
-for trainsize in 1 10 20 30 40 50 60 70 80 90
+for evalsize in 10 20 30 40 50 60 70 80 90
 do
 VAR_OPTS="-e $trainsize -s "$NOM"_trainsize_"$trainsize".csv"
 if hash stdbuf 2>/dev/null; then
