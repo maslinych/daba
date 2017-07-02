@@ -87,18 +87,18 @@ def stat (str1, str2, cnt, cnt2) :
 			continue
 		if not op2 : # silence
 			tag = 'silence'
-			tag2 = op[1] + u'___'  + u'null'
+			tag2 = ''
 		elif op == op2 : # perfect
 			tag = 'good'
 			tag2 = op[1]
 		elif op[0] == op2[0] : # E_c - E_p
-			tag = 'error_only_on_chracter'
+			tag = 'error_only_on_character'
 			tag2 = op[1] + u'___' + op2[1]
 		elif op[1] == op2[1] : # E_p - E_c
 			tag = 'error_only_on_position'
 			tag2 = ''
 		else : # E_p inter E_c
-			tag = 'error_all'
+			tag = 'error_others'
 			tag2 = ''
 
 		cnt[tag] += 1
