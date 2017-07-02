@@ -249,11 +249,17 @@ def csv_export(filename, gold_set, test_set, is_tone_mode = False):
 				test_form = ''
 				token = ''
 				for gold_syllabe, test_syllabe in zip(gold_token, test_token) :
-					token += gold_syllabe[0]
-					gold_code += gold_syllabe[1]
-					test_code += test_syllabe[1]
-					gold_form += enc.differential_decode(gold_syllabe[0], gold_syllabe[1].decode('utf-8'))
-					test_form += enc.differential_decode(gold_syllabe[0], test_syllabe[1].decode('utf-8'))
+					token += gold_syllabe[0] + ' '
+					if gold_syllabe[1] :
+						gold_code += gold_syllabe[1] + ' '
+					else :
+						gold_code += 'NULL' + ' '
+					if test_syllabe[1] :
+						test_code += test_syllabe[1] + ' '
+					else :
+						test_code += 'NULL' + ' '
+					gold_form += enc.differential_decode(gold_syllabe[0], gold_syllabe[1].decode('utf-8')) + ' '
+					test_form += enc.differential_decode(gold_syllabe[0], test_syllabe[1].decode('utf-8')) + ' '
 					sameCodes = (gold_code == test_code)
 					sameForms = (gold_form == test_form)
 				sameCodes = (gold_code == test_code)
