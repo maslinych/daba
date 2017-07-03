@@ -2,7 +2,7 @@
 
 import re, argparse, sys, codecs
 from collections import Counter
-from differential_tone_coding import markers_tone
+markers_tone=[unichr(0x0301),unichr(0x0300),unichr(0x0302),unichr(0x030c)]
 
 def stat_from_cnt (cnt) :
 
@@ -86,19 +86,19 @@ def stat (str1, str2, cnt, cnt2) :
 		if op[1] not in markers_tone :
 			continue
 		if not op2 : # silence
-			tag = 'silence'
+			tag = '3_err_silence'
 			tag2 = ''
 		elif op == op2 : # perfect
-			tag = 'good'
+			tag = '4_good'
 			tag2 = op[1]
 		elif op[0] == op2[0] : # E_c - E_p
-			tag = 'error_only_on_character'
+			tag = '0_err_c'
 			tag2 = op[1] + u'___' + op2[1]
 		elif op[1] == op2[1] : # E_p - E_c
-			tag = 'error_only_on_position'
+			tag = '1_err_p'
 			tag2 = ''
 		else : # E_p inter E_c
-			tag = 'error_others'
+			tag = '2_err_others'
 			tag2 = ''
 
 		cnt[tag] += 1
@@ -125,11 +125,34 @@ def main(infile) :
 						cnt,cnt2 = stat(gold_code_segment, test_code_segment, cnt,cnt2)
 	return  cnt,cnt2
 
-def print_cnt (cnt) :
+def print_cnt (cnt, mode) :
 
-	tot = sum(cnt.values())
-	for k in cnt.keys() :
-		print k, str(round(cnt[k] / float(tot) * 100.0, 2))+'%'
+	tot = float(sum(cnt.values()))
+
+
+	if mode == 0:
+		for k in sorted(cnt.keys()) :
+			print u"{:16s} = {:05.4f}".format(k, cnt[k] / tot)
+	else :
+		# horizontal label
+		sys.stdout.write(u"{:5s}   ".format(''))
+		for k2 in markers_tone :
+			sys.stdout.write(u"{:>5s}   ".format(k2))
+		print ""
+
+		for k1 in markers_tone :
+			for i,k2 in enumerate(markers_tone) :
+				tag = k1 + u'___' + k2
+				if k1 == k2 and k1 in cnt.keys() : val = cnt[k1] / tot
+				elif k1 != k2 and tag in cnt.keys() : val = cnt[tag] / tot
+				else : val = 0
+				# vertical label
+				if not i : sys.stdout.write(u"{:>5s} & ".format(k1))
+				# matrix content
+				if i == len(markers_tone) - 1 : c = '\\\\'
+				else : c = '&'
+				sys.stdout.write(u"{:5.4f} {:1s} ".format(val,c))
+			print ""
 
 if __name__ == "__main__" :
 
@@ -137,6 +160,7 @@ if __name__ == "__main__" :
         aparser.add_argument('infile' , help='Input file (.csv)' , default=sys.stdin)
         args = aparser.parse_args()
 	cnt,cnt2 = main(args.infile)
-	print_cnt(cnt)
+	print args.infile
+	print_cnt(cnt,0)
 	print ""
-	print_cnt(cnt2)
+	print_cnt(cnt2,1)
