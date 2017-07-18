@@ -9,9 +9,8 @@ import codecs
 import unicodedata
 import hashlib
 import xml.etree.cElementTree as e
-import grammar
 from ntgloss import Gloss
-from orthography import detone
+#from orthography import detone
 from pytrie import StringTrie as trie
 from collections import namedtuple, MutableMapping, defaultdict, OrderedDict
 
@@ -52,9 +51,7 @@ def gloss_to_html(gloss, spanclass='lemma', variant=False):
 
 def glosstext_to_html(glosstext, variant=False, **kwargs):
     """Serialize text representation of a gloss into HTML string"""
-    toks = grammar.str_tokenize(glosstext)
-    gloss = grammar.stringgloss_parser().parse(toks)
-    html = gloss_to_html(gloss, variant=variant)
+    print "glosstext_to_html removed"
     return e.tostring(html, **kwargs)
 
 
@@ -627,12 +624,14 @@ class DictReader(object):
                         if not seengf:
                             ge = value
                             seenge = True
+		    """
                     elif tag in ['gv']:
                         if polisemy:
                             self._polisemy[key][ge].append(value)
                             dk = detone(key)
                             if not dk == key:
                                 self._polisemy[dk][ge].append(value)
+		    """
             else:
                 process_record(lemmalist)
 
