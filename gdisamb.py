@@ -29,7 +29,7 @@ import wx.lib.scrolledpanel
 import wx.stc
 
 import formats
-#import grammar
+import grammar
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
 from intervaltree import IntervalTree
@@ -365,7 +365,6 @@ class GlossInputDialog(wx.Dialog):
         return self.as_gloss
 
     def OnEditGlosstext(self, evt):
-	"""
         if not self.freeze:
             self.FitGlosstextWidth()
             glosstext = normalizeText(self.glosstext.GetValue())
@@ -383,8 +382,7 @@ class GlossInputDialog(wx.Dialog):
             except (LexerError, NoParseError):
                 self.glosstext.SetBackgroundColour('yellow')
                 self.glosstext.Refresh()
-	"""
-	pass
+
     def OnCheckLocaldict(self, evt):
         self.save = not self.save
 

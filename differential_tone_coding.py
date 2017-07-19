@@ -4,7 +4,7 @@
 import sys, math, unicodedata
 from collections import Counter, defaultdict
 import Levenshtein
-#from syllables import syllabify, vowels
+from syllables import syllabify, vowels
 import re
 import itertools
 import csv
@@ -12,9 +12,6 @@ import codecs
 
 # Installation of prerequisites
 # sudo pip install python-Levenshtein
-
-vowels = u'aiɛɔoeu'
-
 
 # Constant lists
 markers_tone  = [unichr(0x0300),unichr(0x0301),unichr(0x0302),unichr(0x030c)]
@@ -556,6 +553,10 @@ def chunking (token, mode) :
 	if mode == 0 :
 	# sans segmenteur
 		chunks.append(token)
+	elif mode < 0 :
+	# syllabification
+		for chunk in syllabify(token)[0]:
+			chunks.append(unicodedata.normalize('NFD', chunk))
 	# segmentation à intervalle régulier
 	else :
 		token2 = unicodedata.normalize('NFD', token)
