@@ -21,7 +21,7 @@ from differential_tone_coding import apply_filter_to_base_element, get_features_
 import unicodedata
 import zipfile, ntpath
 
-import codecs, sys
+import codecs, sys, fnmatch
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
@@ -67,19 +67,27 @@ def main():
 
 	if args.learn :
 		print 'Make list of files'
+
+		"""
 		files1 = glob.iglob("../corbama/*/*.dis.html")
 		files2 = glob.iglob("../corbama/*.dis.html")
 
 		allfiles = ""
 		for file1, file2 in zip(files1, files2):
 			allfiles += file1+','+file2+','
+		"""
+		allfiles = []
+		for root, dirnames, filenames in os.walk('../corbama'):
+			for filename in fnmatch.filter(filenames, '*.dis.html'):
+				allfiles.append(os.path.join(root, filename))
+
 		allsents = []
 
 		# pour le débogage rapide
 		# allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
 
 		print 'Making observation data from disambiggated corpus of which'
-		for infile in allfiles.split(','):
+		for infile in allfiles:
 			if infile :
 				print '\t', infile
 
