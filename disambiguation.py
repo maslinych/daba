@@ -368,7 +368,8 @@ def main():
 						for nopt, option in enumerate(token.value[2]) :
 							try: tag = option.form.encode('utf-8')
 							except : tag = ''
-							prob = marginal_tone(taggers, tnum, tokens, tag, token.token, sel_en = args.filtering, decomposition_en = not args.no_decomposition)
+							# def marginal_tone(taggers, tnum, tokens, tag, token, chunk_mode, sel_en, decomposition_en)
+							prob = marginal_tone(taggers, tnum, tokens, tag, token.token, chunk_mode = args.chunkmode, sel_en = args.filtering, decomposition_en = not args.no_decomposition)
 							options.append((prob, option))
 
 						reordered_probs, reordered_options = unzip(sorted(options, key = lambda x : x[0], reverse = True))
