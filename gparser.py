@@ -248,15 +248,20 @@ class MainFrame(wx.Frame):
     def OnExit(self,e):
         self.Close(True)
 
-    def OnOpen(self,e):
+    def OnOpen(self, e):
         """ Open a file"""
         dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             self.infile = dlg.GetPath()
             self.dirname = os.path.dirname(self.infile)
-            self.io.read(self.infile)
-            self.parsed = False
-            self.filepanel.control.SetValue('\n\n'.join(self.io.para))
+            try:
+                self.io.read(self.infile)
+                self.parsed = False
+                self.filepanel.control.SetValue('\n\n'.join(self.io.para))
+            except ValueError as e:
+                fileerror = wx.MessageDialog(self, "Unknown file type", "Unknown file type", wx.OK)
+                fileerror.ShowModal()
+                fileerror.Destroy()
         dlg.Destroy()
 
     def OnClose(self,e):

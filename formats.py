@@ -382,6 +382,8 @@ class FileWrapper(object):
         elif ext in ['.html', '.htm']:
             self.format = 'html'
             self._reader = HtmlReader(filename)
+        else:
+            raise(ValueError, "Unknown file extention: ", ext)
         self.metadata, self.para = self._reader.data()
         if self._reader.isdummy:
             self.parsed = False
