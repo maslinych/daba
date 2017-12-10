@@ -15,13 +15,13 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 
+from __future__ import absolute_import
+from __future__ import print_function
 import wx
 import wx.lib.intctrl
 import wx.lib.masked
 import os
-import re
 import xml.etree.cElementTree as e
-from xml.parsers.expat import ExpatError
 from collections import namedtuple, defaultdict
 import tempfile
 import shutil
@@ -44,13 +44,13 @@ class MetaData(object):
             try:
                 section, name = mkey.split(self.namesep)
             except (ValueError):
-                print "Malformed meta field:", name, content
+                print("Malformed meta field:", name, content)
             values = mvalue.split(self.valuesep)
             self._data[section][name] = values
 
     def toPlain(self):
         return dict(
-                (self.namesep.join([section, name]), self.valuesep.join(values)) 
+                (self.namesep.join([section, name]), self.valuesep.join(values))
                 for section, d in self._data.iteritems() for name, values in d.iteritems()
                 )
 
@@ -126,17 +126,17 @@ class GUIBuilder(object):
             d.ParseDate(str)
             return d
         self.wvalues = {
-                'text': operate(wx.TextCtrl.GetValue, 
+                'text': operate(wx.TextCtrl.GetValue,
                     lambda w,t: wx.TextCtrl.SetValue(w, unicode(t))),
-                'long_text': operate(wx.TextCtrl.GetValue, 
+                'long_text': operate(wx.TextCtrl.GetValue,
                     lambda w,t: wx.TextCtrl.SetValue(w, unicode(t))),
-                'int': operate(wx.lib.intctrl.IntCtrl.GetValue, 
+                'int': operate(wx.lib.intctrl.IntCtrl.GetValue,
                     lambda w,t: wx.lib.intctrl.IntCtrl.SetValue(w,int(t) if t else 0)),
-                'closed_list': operate(wx.Choice.GetStringSelection, 
+                'closed_list': operate(wx.Choice.GetStringSelection,
                     lambda w,t: wx.Choice.SetStringSelection(w, unicode(t) if t else u'inconnu')),
-                'open_list': operate(wx.ComboBox.GetValue, 
+                'open_list': operate(wx.ComboBox.GetValue,
                     lambda w,t: wx.ComboBox.SetValue(w, unicode(t))),
-                'checklist': operate(lambda t: ';'.join(wx.CheckListBox.GetCheckedStrings(t)), 
+                'checklist': operate(lambda t: ';'.join(wx.CheckListBox.GetCheckedStrings(t)),
                     lambda w,t: wx.CheckListBox.SetCheckedStrings(w, t.split(';'))),
                 'date': operate(lambda t: wx.GenericDatePickerCtrl.GetValue(t).FormatDate(),
                     lambda w,t: wx.GenericDatePickerCtrl.SetValue(w, parse_date(t))),
@@ -166,7 +166,7 @@ class GUIBuilder(object):
             self.wvalues[wtype].set(widget, value)
         except (AssertionError):
             if value:
-                print u"Incorrect value '{0}' for field '{1}' will be ignored".format(field, value)
+                print(u"Incorrect value '{0}' for field '{1}' will be ignored".format(field, value))
                 return False
         return True
 
@@ -204,7 +204,7 @@ class DataPanel(wx.ScrolledWindow):
             try:
                 self.builder.setWidgetValue(wtype, widget, value)
             except (ValueError, TypeError):
-                print "Problem with setting value", u'{1}, {2}:{3}'.format(wtype, name, value).encode('utf-8')
+                print("Problem with setting value", u'{1}, {2}:{3}'.format(wtype, name, value).encode('utf-8'))
 
     def getPanelData(self):
         return [(name, self.getFieldValue(name)) for name in self.widgetlist.iterkeys()]
@@ -255,8 +255,8 @@ class MetaDB(object):
             try:
                 utf[k.decode('utf-8')] = v.decode('utf-8')
             except (AttributeError):
-                print "ERROR:", k, v
-                print "ROW", row
+                print("ERROR:", k, v)
+                print("ROW", row)
                 utf[k.decode('utf-8')] = ''
         #utf = self._normalize_row(utf)
         utf = dict((self._strip_secname(k),v) for k,v in utf.iteritems())
@@ -291,7 +291,7 @@ class MetaDB(object):
         try:
             return u' '.join([row[self._strip_secname(field)] for field in self.csvnames if self._strip_secname(field) != self.idcolumn])
         except (KeyError, TypeError):
-            print self.csvnames, row
+            print(self.csvnames, row)
     
     def _make_keystring(self, mdict):
         return self._row_as_string(self._normalize_row(mdict))
@@ -375,7 +375,7 @@ class MetaPanel(wx.Panel):
         self.panels = []
         self.title = self.config.getSectionTitle(self.section)
         self.db = None
-    
+
         if self.hasdbfile:
             fieldnames = self.config.getSectionFieldnames(self.section)
             self.db = MetaDB(self.secattrs['dbfile'], self.section, fieldnames, keyfield=self.secattrs['keyfield'])
@@ -384,11 +384,11 @@ class MetaPanel(wx.Panel):
             choicelist = self.db.getList() or ['']
             self.selector = TextCtrlAutoComplete(self, choices=choicelist)
             self.selector.SetSelectCallback(self.onItemSelected)
-            #selectbutton = wx.Button(self, label="Selectionner")
-            #selectbutton.Bind(wx.EVT_BUTTON, self.onItemSelected)
+            # selectbutton = wx.Button(self, label="Selectionner")
+            # selectbutton.Bind(wx.EVT_BUTTON, self.onItemSelected)
             searchbox.Add(label)
             searchbox.Add(self.selector, 1, wx.EXPAND)
-            #searchbox.Add(selectbutton)
+            # searchbox.Add(selectbutton)
             self.sizer.Add(searchbox, 0, wx.EXPAND)
 
         if self.multiple:
@@ -443,7 +443,7 @@ class MetaPanel(wx.Panel):
                 if dbentrykey:
                     data = self.db.getEntryByUUID(dbentrykey).items()
             panel.setPanelData(data)
-            
+
     def setCurrentPanelData(self, secdata):
         self.getCurrentPanel().setPanelData(secdata)
 
@@ -480,12 +480,12 @@ class MetaNotebook(wx.Notebook):
         self.SetSizer(Sizer)
         self.Layout()
 
+
 class FilePanel(wx.Panel):
     'Text fileview panel'
     def __init__(self, parent, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.parent = parent
-
         self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY)
         Sizer = wx.BoxSizer(wx.VERTICAL)
         Sizer.Add(self.control, 1, wx.EXPAND)
@@ -505,19 +505,19 @@ class MainFrame(wx.Frame):
         self.metapanels = {}
         self.encoding = encoding
 
-        filemenu= wx.Menu()
-        menuOpen = filemenu.Append(wx.ID_OPEN,"O&pen"," Open text file")
+        filemenu = wx.Menu()
+        menuOpen = filemenu.Append(wx.ID_OPEN, "O&pen", " Open text file")
         self.Bind(wx.EVT_MENU, self.OnOpen, menuOpen)
-        menuSave = filemenu.Append(wx.ID_SAVE,"S&ave"," Save an xhtml file")
+        menuSave = filemenu.Append(wx.ID_SAVE, "S&ave", " Save an xhtml file")
         self.Bind(wx.EVT_MENU, self.OnSave, menuSave)
-        menuSaveAs = filemenu.Append(wx.ID_SAVEAS,"S&ave as"," Save an xhtml file")
+        menuSaveAs = filemenu.Append(wx.ID_SAVEAS, "S&ave as", " Save an xhtml file")
         self.Bind(wx.EVT_MENU, self.OnSaveAs, menuSaveAs)
-        menuClose = filemenu.Append(wx.ID_CLOSE, "C&lose","Close current file")
+        menuClose = filemenu.Append(wx.ID_CLOSE, "C&lose", "Close current file")
         self.Bind(wx.EVT_MENU, self.OnClose, menuClose)
-        menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
+        menuExit = filemenu.Append(wx.ID_EXIT, "E&xit", " Terminate the program")
         self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
         menuBar = wx.MenuBar()
-        menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
+        menuBar.Append(filemenu, "&File")  # Adding the "filemenu" to the MenuBar
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 
         splitter = wx.SplitterWindow(self, wx.ID_ANY, style=wx.SP_LIVE_UPDATE)
@@ -529,11 +529,11 @@ class MainFrame(wx.Frame):
 
         splitter.SplitVertically(self.filepanel, self.notebook)
 
-        configbutton = wx.FilePickerCtrl(self, -1, wildcard="*.xml", style=wx.FLP_USE_TEXTCTRL | wx.FLP_OPEN | wx.FLP_FILE_MUST_EXIST)
+        configbutton = wx.FilePickerCtrl(self, wx.ID_ANY, wildcard="*.xml", style=wx.FLP_USE_TEXTCTRL | wx.FLP_OPEN | wx.FLP_FILE_MUST_EXIST)
         configbutton.Bind(wx.EVT_FILEPICKER_CHANGED, self.OnConfigSelected)
         configbutton.SetTextCtrlProportion(2)
         configbutton.SetTextCtrlGrowable(True)
-        retainbutton = wx.ToggleButton(self, -1, 'Retain values for the next file')
+        retainbutton = wx.ToggleButton(self, wx.ID_ANY, 'Retain values for the next file')
         retainbutton.Bind(wx.EVT_TOGGLEBUTTON, self.OnRetainToggled)
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
         self.Sizer.Add(configbutton, 0, wx.EXPAND)
@@ -625,7 +625,7 @@ class MainFrame(wx.Frame):
             self.filepanel.control.SetValue(self.txt)
         dlg.Destroy()
 
-    def OnSave(self,e):
+    def OnSave(self, e):
         if not self.filename:
             self.NoFileError(e)
         if os.path.splitext(self.filename)[1] in ['.html', '.xhtml', '.xml']:
@@ -633,7 +633,7 @@ class MainFrame(wx.Frame):
         else:
             self.OnSaveAs(e)
 
-    def OnSaveAs(self,e):
+    def OnSaveAs(self, e):
         if not self.filename:
             self.NoFileError(e)
         else:
@@ -660,10 +660,9 @@ class MainFrame(wx.Frame):
 
 
 if __name__ == '__main__':
-    #confname = 'meta.xml'
-    #metaconfig = MetaConfig(confname)
+    # confname = 'meta.xml'
+    # metaconfig = MetaConfig(confname)
     app = wx.App()
     frame = MainFrame(None, title="Bamana corpus metaeditor")
     frame.Show()
     app.MainLoop()
-

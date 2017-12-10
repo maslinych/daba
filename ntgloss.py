@@ -1,10 +1,15 @@
 #/usr/bin/python
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import print_function
 
 from collections import namedtuple
 from contextlib import closing
 import re
-import cPickle
+try:
+    import cPickle
+except ImportError:
+    import _pickle as cPickle
 import itertools
 import xml.etree.cElementTree as e
 
@@ -211,7 +216,7 @@ class Pattern(object):
                                 newmorphs = list(zip(*newmorphs)[1])
                             except IndexError:
                                 #FIXME: should not happen, add proper error handling
-                                print "Error matching pattern:", newmorphs
+                                print("Error matching pattern:", newmorphs)
                             target = target._replace(morphemes = tuple(unfold([[emptyGloss._replace(form=newform) for newform in newmorphs] if j==i else [tm] for j,tm in enumerate(target.morphemes)])))
                             for m in newmorphs[1:]:
                                 shift += 1

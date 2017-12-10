@@ -1,5 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import print_function
 
 import re
 import unicodedata
@@ -44,7 +46,7 @@ class Syllabify(MutableSequence):
                 try:
                     self._syllables.append(Syllable(*syl.groups()))
                 except (TypeError):
-                    print syl.groups()
+                    print(syl.groups())
         if index < len(nword):
             raise ValueError(u"Nonconforming syllabic structure: {0}, at pos: {1}-".format(nword, nword[:index]))
 

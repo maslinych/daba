@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-## FIXME: add copyright notice
+# FIXME: add copyright notice
+from __future__ import absolute_import
+from __future__ import print_function
 
 import os
 import re
@@ -272,10 +274,10 @@ class HtmlReader(BaseReader):
 
 
 class SimpleHtmlWriter(object):
-    def __init__(self, (metadata, para), filename, encoding="utf-8"):
+    def __init__(self, datatuple, filename, encoding="utf-8"):
         self.encoding = encoding
-        self.metadata = metadata
-        self.para = para
+        self.metadata = datatuple[0]
+        self.para = datatuple[1]
         self.filename = filename
 
         html = e.Element('html')
@@ -295,10 +297,10 @@ class SimpleHtmlWriter(object):
 
 
 class HtmlWriter(object):
-    def __init__(self, (metadata, para), filename, encoding="utf-8"):
+    def __init__(self, datatuple, filename, encoding="utf-8"):
         self.encoding = encoding
-        self.metadata = metadata
-        self.para = para
+        self.metadata = datatuple[0]
+        self.para = datatuple[1]
         self.filename = filename
 
         self.stylesheet = """
@@ -375,7 +377,7 @@ class FileWrapper(object):
         try:
             basename, ext = os.path.splitext(filename)
         except (AttributeError):
-            print "FILENAME", filename
+            print("FILENAME", filename)
         if ext in ['.txt']:
             self.format = 'txt'
             self._reader = TxtReader(filename)
@@ -418,7 +420,7 @@ class DictWriter(object):
     def write(self):
         def makeGlossSfm(gloss,morpheme=False):
             if not morpheme:
-                sfm = ur"""
+                sfm = u"""
 \lx {0}
 \ps {1}
 \ge {2}
@@ -572,7 +574,7 @@ class DictReader(object):
                     ps = ()
                 return Gloss(f, ps, g, ())
             except (ValueError):
-                print "Error line:", str(self.line), unicode(v).encode('utf-8')
+                print("Error line:", str(self.line), unicode(v).encode('utf-8'))
 
         def normalize(value): 
             return normalizeText(value.translate({ord(u'.'):None,ord(u'-'):None}).lower())
@@ -639,9 +641,9 @@ class DictReader(object):
                 process_record(lemmalist)
 
             if not self._dict.attributed():
-                print r"Dictionary does not contain obligatory \lang, \name or \ver fields.\
-                        Please specify them and try to load again."
-                print self._dict.lang, self._dict.name, self._dict.ver
+                print("Dictionary does not contain obligatory \lang, \name or \ver fields.\
+                        Please specify them and try to load again.")
+                print(self._dict.lang, self._dict.name, self._dict.ver)
             
 
     #FIXME: kept for backward compatibility, remove after refactoring
