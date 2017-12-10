@@ -150,12 +150,12 @@ def parse(seq):
     func_clause = oneplus(f_add | f_apply | f_lookup | f_parallel | f_sequential | f_firstmatch) + maybe(f_parse | f_decompose) >> unfoldl >> tuple
     stage_clause = skip(n('stage')) + skip(space) + name + skip(space) + func_clause + skip(maybe(space))
     return_clause = n('return') + skip(space) + skip(n('if')) + skip(space) + name + skip(maybe(space))
-    for_clause = skip(n('for')) + skip(space) + name + skip(op(':')) + many(stage_clause | return_clause ) >> tuple
+    for_clause = skip(n('for')) + skip(space) + name + skip(op(':')) + skip(space) + many(stage_clause | return_clause ) >> tuple
     plan_dict = oneplus(for_clause) >> dict
-    plan = n('plan') + plan_dict  >> tuple
+    plan = n('plan') + skip(space) + plan_dict  >> tuple
     # pattern syntax
     pattern = skip(n('pattern')) + skip(space) + fullgloss_parser() + skip(space) + skip(op('|')) + skip(space) + fullgloss_parser() + skip(maybe(space)) >> unarg(Pattern)
-    sec_header = skip(n('section')) + skip(space) + name 
+    sec_header = skip(n('section')) + skip(space) + name + skip(maybe(space))
     section = sec_header + many(pattern) 
     sections = many(section) >> dict
     patterns = sections >> make_patterns
@@ -190,16 +190,17 @@ import unittest
 class TestGrammarParser(unittest.TestCase):
 
     def setUp(self):
+        self.maxDiff = None
         self.minimal = 'plan for token: stage 0 add lookup section n pattern :: | ::'
-        self.gmin = {'patterns': {'n': [Pattern(Gloss(u'::'), Gloss(u'::'))]}, 'plan': {'token': [('0', ('add', 'lookup'))]}}
+        self.gmin = {'patterns': {'n': [Pattern(Gloss(None, (), None, ()), Gloss(None, (), None, ()))]}, 'plan': {'token': [('0', ('add', 'lookup'))]}}
         self.real = """
-        plan for token: stage 0 add lookup
-        return if unparsed
-        # some comment
-        section n
-        pattern :: [ {<re>[^n]$</re>|la}::] | :v: [:v: ::PROG]
-        """
-        self.greal = {'patterns': {'n': [Pattern(Gloss(u'::', [Gloss(u'{<re>[^n]$</re>|la}::')]), Gloss(u':v:', [Gloss(u':v:'), Gloss(u'::PROG')]))]}, 'plan': {'token': [('0', ('add', 'lookup')), ('return', 'unparsed')]}}
+plan for token: stage 0 add lookup
+return if unparsed
+# some comment
+section n
+pattern :: [ la::] | :v: [:v: ::PROG]
+"""
+        self.greal = {'patterns': {'n': [Pattern(Gloss(None, (), None, (Gloss('la', (), None, ()),)), Gloss(None, ('v',), None, (Gloss(None, ('v',), None, ()), Gloss(None, (), 'PROG', ()),)))]}, 'plan': {'token': [('0', ('add', 'lookup')), ('return', 'unparsed')]}}
 
     def test_parser(self):
         self.assertEquals(unicode(self.gmin), unicode(parse(tokenize(self.minimal))))
