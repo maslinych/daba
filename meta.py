@@ -17,6 +17,7 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
+from future.utils import iteritems
 import wx
 import wx.lib.intctrl
 import wx.lib.masked
@@ -30,7 +31,6 @@ import uuid
 from TextCtrlAutoComplete import TextCtrlAutoComplete
 import formats
 
-
 class MetaData(object):
     def __init__(self, metadict=None):
         self.namesep = u':'
@@ -40,7 +40,7 @@ class MetaData(object):
             self.fromPlain(metadict)
 
     def fromPlain(self, metadict):
-        for mkey, mvalue in metadict.iteritems():
+        for mkey, mvalue in iteritems(metadict):
             try:
                 section, name = mkey.split(self.namesep)
             except (ValueError):
@@ -51,11 +51,11 @@ class MetaData(object):
     def toPlain(self):
         return dict(
                 (self.namesep.join([section, name]), self.valuesep.join(values))
-                for section, d in self._data.iteritems() for name, values in d.iteritems()
+                for section, d in iteritems(self._data) for name, values in iteritems(d)
                 )
 
     def getSection(self, section):
-        fnames, fvalues = zip(*[(k,v) for k,v in self._data[section].iteritems()])
+        fnames, fvalues = zip(*[(k,v) for k,v in iteritems(self._data[section])])
         return map(lambda vs: zip(fnames, vs), zip(*fvalues))
 
     def setSection(self, section, secdata):
@@ -105,7 +105,7 @@ class MetaConfig(object):
         return self._data[section][0]
 
     def sections(self):
-        return self._data.iterkeys()
+        return self._data.keys()
 
 
 class GUIBuilder(object):
@@ -207,7 +207,7 @@ class DataPanel(wx.ScrolledWindow):
                 print("Problem with setting value", u'{1}, {2}:{3}'.format(wtype, name, value).encode('utf-8'))
 
     def getPanelData(self):
-        return [(name, self.getFieldValue(name)) for name in self.widgetlist.iterkeys()]
+        return [(name, self.getFieldValue(name)) for name in self.widgetlist.keys()]
 
     def getFieldValue(self, name):
         widget, wtype = self.widgetlist[name]
@@ -251,7 +251,7 @@ class MetaDB(object):
 
     def _decode_row(self, row):
         utf = {}
-        for k,v in row.iteritems():
+        for k,v in iteritems(row):
             try:
                 utf[k.decode('utf-8')] = v.decode('utf-8')
             except (AttributeError):
@@ -259,7 +259,7 @@ class MetaDB(object):
                 print("ROW", row)
                 utf[k.decode('utf-8')] = ''
         #utf = self._normalize_row(utf)
-        utf = dict((self._strip_secname(k),v) for k,v in utf.iteritems())
+        utf = dict((self._strip_secname(k),v) for k,v in iteritems(utf))
         if self.idcolumn not in utf.keys():
             key = self._add_uuid(utf)
         return utf
@@ -270,19 +270,19 @@ class MetaDB(object):
         return key
 
     def _remove_uuid(self, mdict):
-        return dict((k,v) for k,v in mdict.iteritems() if k != self.idcolumn)
+        return dict((k,v) for k,v in iteritems(mdict) if k != self.idcolumn)
 
     def _add_secname(self, key):
         return self.namesep.join([self.secname, key])
     
     def _encode_row(self, row):
         utf = {}
-        for k,v in row.iteritems():
+        for k,v in iteritems(row):
             utf[self._add_secname(k).encode('utf-8')] = v.encode('utf-8')
         return utf
 
     def _normalize_row(self, row):
-        for k,v in row.iteritems():
+        for k,v in iteritems(row):
             if row[k] in [0, "0", 'inconnu']:
                 row[k] = ""
         return row
@@ -312,7 +312,7 @@ class MetaDB(object):
         return self._normalize_row(mdict) == self._remove_uuid(dbentry)
 
     def content_matches(self, mdict):
-        return any([self._match_content(mdict, dbentry) for dbentry in self._map.itervalues()])
+        return any([self._match_content(mdict, dbentry) for dbentry in self._map.values()])
 
     def append(self, mdict):
         key = self._add_uuid(mdict)
@@ -337,7 +337,7 @@ class MetaDB(object):
             if self.is_known_by_key(mdict):
                 return mdict[self.idcolumn]
             elif self.content_matches(mdict):
-                for key, dbentry in self._map.iteritems():
+                for key, dbentry in iteritems(self._map):
                     if self._match_content(mdict, dbentry):
                         return key
         else:
@@ -458,7 +458,7 @@ class MetaPanel(wx.Panel):
     def onItemSelected(self, values):
         for keystr in values:
             dbentry = self.db.getEntryByKey(keystr)
-            self.setCurrentPanelData(dbentry.iteritems())
+            self.setCurrentPanelData(iteritems(dbentry))
 
     def saveDBEntries(self):
         for panel in self.panels:
@@ -571,7 +571,7 @@ class MainFrame(wx.Frame):
 
     def update_metadata(self):
         # collect all metadata given
-        for secname, mp in self.metapanels.iteritems():
+        for secname, mp in iteritems(self.metapanels):
             self.metadata.setSection(secname, mp.getSectionData())
 
     def write_xmldata(self):
