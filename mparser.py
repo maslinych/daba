@@ -275,7 +275,7 @@ class Processor(object):
                         # suggest proper name variant for capitalized words (not in sentence-initial position)
                         if token.value.istitle() and prevtoken and 'n.prop' not in set([]).union(*[g.ps for g in glosslist]):
                             propn = Gloss(token.value, ('n.prop',), token.value, ())
-                            glosslist.insert(0, propn)
+                            glosslist.append(propn)
 
                         annot.append(formats.GlossToken(('w', (token.value, unicode(stage), glosslist))))
                         prevtoken = True
