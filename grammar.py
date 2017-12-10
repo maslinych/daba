@@ -38,15 +38,15 @@ PSLIST = [
 def tokenize(string):
     'unicode -> Sequence(Token)'
     specs = [
-            ('Comment', (r'#.*',)),
-            ('NL', (r'[\r\n]+',)),
-            ('Space', (r'[ ]+',)),
-            ('JunkSpace', (r'[\t]+',)),
-            ('Op', (r'[\[\]|:{}]',)),
+            ('Comment', (u'#.*',)),
+            ('NL', (u'[\r\n]+',)),
+            ('Space', (u'[ ]+',)),
+            ('JunkSpace', (u'[\t]+',)),
+            ('Op', (u'[\[\]|:{}]',)),
             #('Regex', (r'<(\w|[-={}\[\]|().,^$+*?:\\])*>', re.UNICODE)),
-            ('Regex', (r'<re>.*?</re>', re.UNICODE)),
-            ('QuotedName', (ur'"[^"\n]+"', re.UNICODE)),
-            ('Name', (ur'[^:<>\[\]{}| \n]+', re.UNICODE)),
+            ('Regex', (u'<re>.*?</re>', re.UNICODE)),
+            ('QuotedName', (u'"[^"\n]+"', re.UNICODE)),
+            ('Name', (u'[^:<>\[\]{}| \n]+', re.UNICODE)),
             #('Name', (ur"(\w[\u0300\u0301\u0302]?)+([-./](\w[\u0300\u0301\u0302]?)+)*['\u2019]?",re.UNICODE)),
             #('Name', (ur'(\w[\u0300\u0301]?([-./](\w[\u0300\u0301]?)+)*|[-0-9][-0-9]*)',re.UNICODE))
             ]
@@ -59,7 +59,7 @@ def tokenize(string):
 def unwrap_re(tupl):
     unre = lambda s: s[4:-5]
     if not isinstance(tupl, tuple):
-        return re.compile(ur'^(?P<__group0>{0})$'.format(unre(tupl)))
+        return re.compile(u'^(?P<__group0>{0})$'.format(unre(tupl)))
     unfolded = []
     for i,part in enumerate(tupl):
         # FIXME: to be done by formparser
@@ -69,8 +69,8 @@ def unwrap_re(tupl):
             part = '.+'
         elif part.startswith('<re>'):
             part = unre(part)
-        unfolded.append(ur'(?P<__group{0}>{1})'.format(i,part))
-    return re.compile(ur'^{0}$'.format(''.join(unfolded)))
+        unfolded.append(u'(?P<__group{0}>{1})'.format(i,part))
+    return re.compile(u'^{0}$'.format(''.join(unfolded)))
 
 tokval = lambda x: x.value
 unquote = lambda s: s.strip('"')
@@ -100,10 +100,10 @@ def flatten_list(l):
 def str_tokenize(string):
     'unicode -> Sequence(Token)'
     specs = [
-            ('JunkSpace', (r'[\r\n\t]+',)),
-            ('Space', (r'[ ]+',)),
-            ('Op', (r'[:/\[\]]',)),
-            ('Name', (ur'[^:/ \[\]\r\t\n]+', re.UNICODE)),
+            ('JunkSpace', (u'[\r\n\t]+',)),
+            ('Space', (u'[ ]+',)),
+            ('Op', (u'[:/\[\]]',)),
+            ('Name', (u'[^:/ \[\]\r\t\n]+', re.UNICODE)),
             ]
     useless = ['JunkSpace']
     tok = make_tokenizer(specs)

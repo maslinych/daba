@@ -25,8 +25,8 @@ def unwrap_re(tupl):
         #    part = part[4:-5]
         if not part:
             part = '.+'
-        unfolded.append(ur'(?P<__group{0}>{1})'.format(i,part))
-    return re.compile(ur'^{0}$'.format(''.join(unfolded)))
+        unfolded.append(u'(?P<__group{0}>{1})'.format(i,part))
+    return re.compile(u'^{0}$'.format(''.join(unfolded)))
 
 def match_any(my, other):
     try:

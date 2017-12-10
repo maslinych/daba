@@ -29,7 +29,7 @@ class Syllabify(MutableSequence):
         nword = unicodedata.normalize('NFKD', word)        
         self._syllables = []
         index = 0
-        syllable = re.compile(ur"""
+        syllable = re.compile(u"""
                 (                                           # raw: whole syllable group
                     ([^auieoɛɔƐƆ\u030c\u0300\u0301\u0302]*)   # consonant: optional initiale
                     (?P<v>[auieoɛɔwnŋɲƐƆ'])                      # vowel: syllable core, obligatory
