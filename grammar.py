@@ -127,7 +127,7 @@ def fullgloss_parser():
     form_expr = op_('{') + (maybe(re_or_string) >> foldl) + splitter + op_('}') >> unfoldl >> tuple >> unwrap_re
     lemma = skip(maybe(space)) + maybe(form_expr | unregex | name) + op_(':') + (maybe(name) >> maketuple) + op_(':') + maybe(name | unregex)
     fullgloss = forward_decl()
-    glosslist = skip(space) + skip(op('[')) + many(fullgloss) + skip(op(']')) >> tuple
+    glosslist = skip(space) + skip(op('[')) + skip(maybe(space)) + many(fullgloss) + skip(maybe(space)) + skip(op(']')) >> tuple
     fullgloss.define(lemma + ( maybe(glosslist) >> denone ) >> unarg(Gloss))
 #    fullgloss.define(lemma + maybe(glosslist) >> unarg(Gloss))
 
@@ -150,9 +150,9 @@ def parse(seq):
     func_clause = oneplus(f_add | f_apply | f_lookup | f_parallel | f_sequential | f_firstmatch) + maybe(f_parse | f_decompose) >> unfoldl >> tuple
     stage_clause = skip(n('stage')) + skip(space) + name + skip(space) + func_clause + skip(maybe(space))
     return_clause = n('return') + skip(space) + skip(n('if')) + skip(space) + name + skip(maybe(space))
-    for_clause = skip(n('for')) + skip(space) + name + skip(op(':')) + skip(space) + many(stage_clause | return_clause ) >> tuple
+    for_clause = skip(n('for')) + skip(space) + name + skip(op(':')) + skip(maybe(space)) + many(stage_clause | return_clause ) >> tuple
     plan_dict = oneplus(for_clause) >> dict
-    plan = n('plan') + skip(space) + plan_dict  >> tuple
+    plan = n('plan') + skip(maybe(space)) + plan_dict  >> tuple
     # pattern syntax
     pattern = skip(n('pattern')) + skip(space) + fullgloss_parser() + skip(space) + skip(op('|')) + skip(space) + fullgloss_parser() + skip(maybe(space)) >> unarg(Pattern)
     sec_header = skip(n('section')) + skip(space) + name + skip(maybe(space))
@@ -202,6 +202,24 @@ pattern :: [ la::] | :v: [:v: ::PROG]
 """
         self.greal = {'patterns': {'n': [Pattern(Gloss(None, (), None, (Gloss('la', (), None, ()),)), Gloss(None, ('v',), None, (Gloss(None, ('v',), None, ()), Gloss(None, (), 'PROG', ()),)))]}, 'plan': {'token': [('0', ('add', 'lookup')), ('return', 'unparsed')]}}
 
+    def test_fullgloss_opt_spaces(self):
+        fg = u':v: [::]'
+        fg1 = u':v: [ :: ]'
+        fg2 = u':v: [:: ]'
+        fg3 = u':v: [ ::]'
+        fg4 = u':v: [a:b:C]'
+        fg5 = u':v: [ a:b:C ]'
+        fg6 = u':v: [ a:b:C]'
+        pg = Gloss(form=None, ps=(u'v',), gloss=None, morphemes=(Gloss(form=None, ps=(), gloss=None, morphemes=()),))
+        pg1 = Gloss(form=None, ps=(u'v',), gloss=None, morphemes=(Gloss(form=u'a', ps=(u'b',), gloss=u'C', morphemes=()),))
+        self.assertEquals(fullgloss_parser().parse(tokenize(fg)), pg) 
+        self.assertEquals(fullgloss_parser().parse(tokenize(fg1)), pg) 
+        self.assertEquals(fullgloss_parser().parse(tokenize(fg2)), pg) 
+        self.assertEquals(fullgloss_parser().parse(tokenize(fg3)), pg) 
+        self.assertEquals(fullgloss_parser().parse(tokenize(fg4)), pg1) 
+        self.assertEquals(fullgloss_parser().parse(tokenize(fg5)), pg1) 
+        self.assertEquals(fullgloss_parser().parse(tokenize(fg6)), pg1) 
+        
     def test_parser(self):
         self.assertEquals(unicode(self.gmin), unicode(parse(tokenize(self.minimal))))
         self.assertEquals(unicode(self.greal), unicode(parse(tokenize(self.real))))
