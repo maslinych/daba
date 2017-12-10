@@ -1086,7 +1086,7 @@ class SentPanel(wx.Panel):
         self.senttext = self.senttext.strip()
         if self.isshown:
             self.sentsource.ClearSentence()
-            self.Sizer.Remove(self.annotlist)
+            self.Sizer.Remove(self.annotlist.GetSizer())
             self.annotlist.Destroy()
         self.snum = snum
         self.sentnumbutton.SetValue(snum+1)
