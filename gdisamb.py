@@ -1309,7 +1309,7 @@ class MainFrame(wx.Frame):
         if not self.fileopened:
             self.NoFileError(e)
         else:
-            dlg = wx.FileDialog(self, "Choose localdict file", self.dirname, "localdict.txt", "*.*", wx.OPEN)
+            dlg = wx.FileDialog(self, "Choose localdict file", self.dirname, "localdict.txt", "*.*", wx.FD_OPEN)
             if dlg.ShowModal() == wx.ID_OK:
                 dictfile = dlg.GetPath()
                 self.SetLocaldict(dictfile)
@@ -1507,7 +1507,7 @@ class MainFrame(wx.Frame):
         if self.fileopened:
             self.FileOpenedError(e)
         else:
-            dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
+            dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.FD_OPEN)
             if dlg.ShowModal() == wx.ID_OK:
                 self.DoOpen(dlg.GetPath())
                 dlg.Destroy()

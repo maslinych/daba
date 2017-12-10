@@ -97,7 +97,7 @@ class DictionaryLister(wx.Panel):
         
         
     def OnAdd(self, evt):
-        dlg = wx.FileDialog(self, message="Select dictionary file", wildcard="Toolbox dict (*.txt)|*.txt", style=wx.OPEN)
+        dlg = wx.FileDialog(self, message="Select dictionary file", wildcard="Toolbox dict (*.txt)|*.txt", style=wx.FD_OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             dictfile = dlg.GetPath()
             dictid = self.dictloader.addfile(dictfile)
@@ -130,7 +130,7 @@ class GrammarLister(wx.Panel):
         self.Layout()
 
     def OnLoad(self, evt):
-        dlg = wx.FileDialog(self, message="Select grammar file", wildcard="Mparser grammar (*.txt)|*.txt", style=wx.OPEN)
+        dlg = wx.FileDialog(self, message="Select grammar file", wildcard="Mparser grammar (*.txt)|*.txt", style=wx.FD_OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             gramfile = dlg.GetPath()
             self.grammarloader.load(gramfile)
@@ -250,7 +250,7 @@ class MainFrame(wx.Frame):
 
     def OnOpen(self, e):
         """ Open a file"""
-        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
+        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.FD_OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             self.infile = dlg.GetPath()
             self.dirname = os.path.dirname(self.infile)

@@ -614,7 +614,7 @@ class MainFrame(wx.Frame):
         if not self.config:
             self.NoFileError(e)
             return False
-        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
+        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.FD_OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             self.infile = dlg.GetPath()
             self.filename = os.path.basename(self.infile)
