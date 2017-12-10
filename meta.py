@@ -16,6 +16,7 @@
 # GNU General Public License for more details.
 
 import wx
+import wx.adv
 import wx.lib.intctrl
 import wx.lib.masked
 import os
@@ -117,7 +118,7 @@ class GUIBuilder(object):
                 'closed_list': (wx.Choice, 'choices', None),
                 'open_list': (wx.ComboBox, 'choices', None),
                 'checklist': (wx.CheckListBox, 'choices', None),
-                'date': (wx.GenericDatePickerCtrl, None, None),
+                'date': (wx.adv.DatePickerCtrl, None, None),
                 'datetext': (wx.lib.masked.Ctrl, None, {'autoformat': 'EUDATEDDMMYYYY.'}),
                 }
         operate = namedtuple('Operate', 'get set')
@@ -138,8 +139,8 @@ class GUIBuilder(object):
                     lambda w,t: wx.ComboBox.SetValue(w, unicode(t))),
                 'checklist': operate(lambda t: ';'.join(wx.CheckListBox.GetCheckedStrings(t)), 
                     lambda w,t: wx.CheckListBox.SetCheckedStrings(w, t.split(';'))),
-                'date': operate(lambda t: wx.GenericDatePickerCtrl.GetValue(t).FormatDate(),
-                    lambda w,t: wx.GenericDatePickerCtrl.SetValue(w, parse_date(t))),
+                'date': operate(lambda t: wx.adv.DatePickerCtrl.GetValue(t).FormatDate(),
+                    lambda w,t: wx.adv.DatePickerCtrl.SetValue(w, parse_date(t))),
                 'datetext': operate(wx.lib.masked.TextCtrl.GetValue,
                     lambda w,t: wx.lib.masked.BaseMaskedTextCtrl.SetValue(w, unicode(t))),
                 }
