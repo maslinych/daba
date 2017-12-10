@@ -281,7 +281,7 @@ class MainFrame(wx.Frame):
         if not self.infile:
             self.NoFileError(e)
         else:
-            dlg = wx.FileDialog(self, "Choose a file", get_outdir(self.infile), get_outfile(self.infile), "*.html", wx.SAVE)
+            dlg = wx.FileDialog(self, "Choose a file", get_outdir(self.infile), get_outfile(self.infile), "*.html", wx.FD_SAVE)
             if dlg.ShowModal() == wx.ID_OK:
                 self.outfile = dlg.GetPath()
                 if not os.path.splitext(self.outfile)[1] == '.html' :

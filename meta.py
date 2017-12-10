@@ -640,7 +640,7 @@ class MainFrame(wx.Frame):
         else:
             xfilename = os.path.splitext(self.filename)[0]
 
-            dlg = wx.FileDialog(self, "Choose a file", self.dirname, xfilename, "*.html", wx.SAVE)
+            dlg = wx.FileDialog(self, "Choose a file", self.dirname, xfilename, "*.html", wx.FD_SAVE)
             if dlg.ShowModal() == wx.ID_OK:
                 self.outfile = dlg.GetPath()
                 self.filename = os.path.basename(self.outfile)
