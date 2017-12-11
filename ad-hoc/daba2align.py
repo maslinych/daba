@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import argparse
+import formats
+
+
+def token_iterator(infile, select_types=('s',)):
+    reader = formats.HtmlReader(infile)
+    for token in reader:
+        if token.type in select_types:
+            yield token
+
+
+def token_printer(token, number):
+    return u'<{0} n="{1}">{2}</{0}>\n'.format(token.type, number, token.value)
+
+
+def main():
+    def parse_arguments():
+        parser = argparse.ArgumentParser(
+            description='Parallel corpus alignment helper')
+        parser.add_argument('infile', help='Input file (daba html format)')
+        parser.add_argument('outfile', help='Output file (txt)')
+        return parser.parse_args()
+    args = parse_arguments()
+
+    with open(args.outfile, 'w') as out:
+        for n, t in enumerate(token_iterator(args.infile)):
+            out.write(token_printer(t, n).encode('utf-8'))
+
+
+if __name__ == '__main__':
+    main()
