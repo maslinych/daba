@@ -3,106 +3,28 @@
 
 # Auteur : Elvis Mboning, Stagiaire 2016, INALCO
 # Auteur : Damien Nouvel, MCF, INALCO
+# Auteur : Luigi (Yu-Cheng) Liu, Stagiaire 2017, INALCO
 
 # Le principale rôle de ce script est de créer des modèles de données pour l'apprentissage automatique avec CRFTagger.
 # Le CRF implémenté provient du module tag de NLTK inspiré de CRFSuite (http://www.nltk.org/api/nltk.tag.html#module-nltk.tag.crf).
 # Trois modèles sont possibles : les POS, les tons, les gloses
 
-# todo:
-# * petit rapport sur les distributions de caractères et leurs natures dans le corpus
-## * enregistrement et téléverser
-# * models produits /models/pos_exactitude_0p92.mod
-# * models produits /models/tone_exactitude_0p91.mod
-# * avec un fihier in et un fichier out
-#
-# des RDV. prévus
-# mercredi 17 mai à 14 : 30
 
-import sys, re, codecs, glob, time, os
-import argparse
+import sys, re, codecs, glob, time, os, collections, argparse, itertools
 import formats,  grammar
-import collections
+from gdisamb import FileParser
 from ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
-from gdisamb import FileParser
-from differential_tone_coding import encoder_tones, repr, token_seperator, _get_features_customised_for_tones, code_dispatcher, code_resort, mode_indicators
-import unicodedata
-import pycrfsuite
-import csv
 import nltk.tag.util
-import itertools
-from nltk.metrics.scores import accuracy
-import zipfile
+import pycrfsuite
+from differential_tone_coding import apply_filter_to_base_element, get_features_customised, get_duration, sampling, csv_export, unzip, encoder_tones, mode_indicators, marginal_tone, accuray2, get_sub_tone_code_of_sentence, accumulate_tone_code_of_dataset, reshape_tokens_as_sentnece, make_tokens_from_sentence, make_features_from_tokens
+import unicodedata
+import zipfile, ntpath
 
-import codecs, sys
+import codecs, sys, fnmatch
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
-def unzip(input) :
-	return [list(li) for li in zip(*input)]
-
-# dataset : list((str,str))
-def getTag(dataset) :
-	ret = []
-	buf = str()
-	for data in dataset :
-		if data[0] != token_seperator :
-			buf += data[1]
-		else :
-			ret.append(buf)
-			buf = str()
-	if buf :
-		ret.append(buf)
-	return ret
-
-def csv_export(enc, filename, gold_tokens, test_tokens):
-
-	try :
-		csvfile = codecs.open(filename, 'wb')
-		writer = csv.writer(csvfile)
-		writer.writerow(["Token", "Golden Form", "Predicted Form","Golden code", "Predicted code", "Same"])
-		for g, t in zip(gold_tokens, test_tokens) :
-			token          = g[0]
-			golden_code    = g[-1]
-			predicted_code = t[-1]
-			golden_form    = enc.differential_decode(token, golden_code.decode('utf-8'))
-			predicted_form = enc.differential_decode(token, predicted_code.decode('utf-8'))
-			sameCodes = (golden_code == predicted_code)
-			sameForms = (golden_form == predicted_form)
-
-			if not repr(token.encode('utf-8')) :
-				sameCodes = u''
-			row = [\
-				repr(token.encode('utf-8')), \
-				repr(golden_form.encode('utf-8')), \
-				repr(predicted_form.encode('utf-8')), \
-				repr(golden_code, spaces=True), \
-				repr(predicted_code, spaces=True), \
-				sameCodes]
-
-			writer.writerow(row)
-		csvfile.close()
-	except :
-		raise
-		print "unable to dump result in CSV file to create !"
-
-def sampling(allsents, p, ratio = 1) :
-	train_set, eval_set = [], []
-	for i, sent in enumerate(allsents[0 : : int(1/float(ratio))]) :
-		p_approx = float(len(train_set) + 1) / float(len(eval_set) + len(train_set) + 1)
-		if p_approx <= p :
-			train_set.append(sent)
-		else:
-			eval_set.append(sent)
-	return [train_set, eval_set]
-
-def get_duration(t1_secs, t2_secs) :
-	secs = abs(t1_secs - t2_secs)
-	days = secs // 86400
-	hours = secs // 3600 - days * 24
-	minutes = secs // 60 - hours * 60 - days * 60 * 24
-	secondes = int(secs) % 60
-	return '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(days, hours, minutes, secondes)
 
 def main():
 
@@ -111,187 +33,265 @@ def main():
 	aparser.add_argument('-l', '--learn', help='Learn model from data (and save as F if provided)', default=None)
 	aparser.add_argument('-p', '--pos', help='Prediction for POS', default=False, action='store_true')
 	aparser.add_argument('-t', '--tone', help='Prediction for tones', default=False, action='store_true')
-	# aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
-	aparser.add_argument('-e', '--evalsize', help='Percent of training data with respect to training and test one (default 10)', default=10)
+	aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
+	aparser.add_argument('-e', '--evalsize', help='Percent of training data with respect to training and test one (default 10)', default=10, type=float)
+	aparser.add_argument('-c', '--chunkmode', help='Chunking mode specification which is effective only for tone (default -1)', default=-1, type=int)
 	aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data, the gloss list will be ordered by the probability growth order', default=None)
 	aparser.add_argument('--select', help = 'Option that will be taken into account only with the use of -d, which specifies the disambiguation modality is to select only the most likely gloss in each list.', action='store_true')
+
+	aparser.add_argument('--filtering', help = 'Experimental option', action='store_true')
+	aparser.add_argument('--no_decomposition', help = 'Experimental option', action='store_true')
+	aparser.add_argument('--diacritic_only', help = 'Experimental option', action='store_true')
+	aparser.add_argument('--non_diacritic_only', help = 'Experimental option', action='store_true')
+	aparser.add_argument('--no_coding', help = 'Experimental option', action='store_true')
+
 	aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
 	aparser.add_argument('-o', '--outfile', help='Output file (.html)', default=sys.stdout)
-	aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for further research purpose', default=None)
+	aparser.add_argument('-s', '--store', help='Store evaluation resault in file (.csv) for further research purpose', default=None)
 
 	args = aparser.parse_args()
 	if args.verbose :
-		print args
+		print 'Arguments received by script'
+		dico = vars(args)
+		for key,val in dico.items():
+			typeName = type(val).__name__
+			sys.stdout.write("\t{} = {} ".format(key, val))
+			if val :
+				sys.stdout.write("({})".format(typeName))
+			print ""
 
-	if args.learn and (args.pos or args.tone or args.gloss):
-
-		if not (args.pos or args.tone or args.gloss) :
-			print 'Choose pos, tone, gloss or combination of them'
+	if not (args.pos or args.tone or args.gloss) :
+			print 'Choose pos, tone, gloss'
+			aparser.print_help()
 			exit(0)
 
+	if args.learn :
 		print 'Make list of files'
+
+		"""
 		files1 = glob.iglob("../corbama/*/*.dis.html")
 		files2 = glob.iglob("../corbama/*.dis.html")
 
 		allfiles = ""
 		for file1, file2 in zip(files1, files2):
 			allfiles += file1+','+file2+','
+		"""
+		allfiles = []
+		for root, dirnames, filenames in os.walk('../corbama'):
+			for filename in fnmatch.filter(filenames, '*.dis.html'):
+				allfiles.append(os.path.join(root, filename))
+
 		allsents = []
 
-		# pour le débogage
-		allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
+		# pour le débogage rapide
+		# allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
 
-		if args.tone :
-			try :
-				enc = encoder_tones()
-			except :
-				enc = None
-				print ("Error : unable to initialize the tone encoder !")
-
-		print 'Open files and find features / supervision tags'
-		for infile in allfiles.split(','):
-			if(len(infile)) :
-				print '-', infile
-				sent = []
+		print 'Making observation data from disambiggated corpus of which'
+		for infile in allfiles:
+			if infile :
+				print '\t', infile
 
 				html_parser = FileParser()
 				html_parser.read_file(infile)
 
-				for snum, sentence in enumerate(html_parser.glosses) :
-					for tnum, token in enumerate(sentence[2]) :
-						tag = ''
-						if token.type == 'w' or token.type == 'c':
-							tags = ''
-							if args.pos:
-								for ps in token.gloss.ps : tags += ps.encode('utf-8')
-								sent.append((token.token, tags))
-							elif args.tone:
-								# Pourquoi ne pas apprendre la forme tonale contenant une barre veticale ?
-								# Parce que dans l'ensemble des corpus désambiguïsés, son occurrence est
-								# au dessous de 10, ce cas de figure semble trop peu fréquent pour apporter
-								# une réélle amélioration dans la modélisation de tonalisation. Néanmoins,
-								# dans la conception du cadre logiciel, rien n'interdit de l'inclure dans
-								# les données d'entraînement et d'en observer le apport
-								if '|' not in token.gloss.form :
-									[codes, chunks] = enc.differential_encode(token.token, token.gloss.form)
-									for chunk, code in zip(chunks, codes) :
-										try : sent.append((chunk, code.encode('utf-8')))
-										except LookupError: pass
-							"""
-							elif args.gloss:
-								tags += token.gloss.gloss.encode('utf-8')
-								sent.append((token.token, tags))
-							"""
+				sent = []
+				for sentence in html_parser.glosses :
+					for token in sentence[2] :
+						if token.type == 'w' or \
+						   token.type == 'c':
+							if args.pos and not args.tone and not args.gloss :
+								# sent : list(str,str)
+								tags = ''
+								for ps in token.gloss.ps :
+									tags += ps
+								sent.append((token.token, tags.encode('utf-8')))
+							elif args.tone and not args.pos and not args.gloss :
+								# sent : list(str,str)
+								form = token.gloss.form.split('|')
+								tags = form[0]
+								sent.append((token.token, tags.encode('utf-8')))
+							elif args.gloss and not args.tone and not args.pos :
+								# sent : list(str,str)
+								tags = token.gloss.gloss
+								sent.append((token.token, tags.encode('utf-8')))
+							else :
+								print ('Error : multi-modal learning is not yet be supported !')
+								exit()
 
 					if len(sent) > 1:
 						allsents.append(sent)
 						sent = []
 
-		if args.verbose and args.tone :
-			enc.report()
+		if args.tone and not args.no_coding :
+			print 'Token segmentation and tonal informaiotn compression'
+			enc = encoder_tones()
+			allsents2 = allsents
+			allsents = []
+			for sent in allsents2 :
+				sent2 = []
+				for token_tags in sent :
+					token, tags = token_tags
+					[codes, syllabes] = enc.differential_encode(token, tags.decode('utf-8'), args.chunkmode)
+					token2 = [(syllabe, code.encode('utf-8')) for syllabe, code in zip(syllabes, codes)]
+					sent2.append(token2)
+				allsents.append(sent2)
 
-		# Constitution des ensmebles d'entraînement de d'évaluation
+			if args.verbose :
+				enc.report()
+
+		R = 1 # 1 pour la totalité des corpus
 		p = (1 - args.evalsize / 100.0)
-		train_set, eval_set = sampling(allsents, p)
-		print 'Split the data in train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
+		train_set, eval_set = sampling(allsents, p, R)
+		print 'Split the data in \t train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
 
-		print 'Building classifier (CRF/NLTK)'
+		print 'Building classifier (pyCRFsuite)'
 		# Initialization
 		t1 = time.time()
-		if args.tone  :
-			num_phases = len([False, True]) * len(mode_indicators)
+		if args.tone and not args.no_coding :
+			num_phases = 2 * len(mode_indicators)
 			myzip = zipfile.ZipFile(args.learn + '.zip', 'w')
 		else :
 			num_phases = 1
 
-		# Training
+		# A. Entrâinement des modèles
 		for phase in range(num_phases) :
+			# A.1. Initialiser un nouveau modèle CRF
 			tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
 			trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
 			trainer.set_params(tagger._training_options)
-			if num_phases > 1 :
-				model_name = args.learn + '.' + str(phase)
-			else:
-				model_name = args.learn
+			model_name = args.learn
+			if args.tone and not args.no_coding :
+				if args.diacritic_only and (phase == 0 or phase == 1) :
+					continue
+				if args.non_diacritic_only and (phase == 2 or phase == 3) :
+					continue
+				elif args.no_decomposition and phase % len(mode_indicators) != 0 :
+					continue
+				model_name += '.' + str(phase)
 
-			# train_set : list(list((str,list(str))))
-			for sent in train_set:
-				tokens = unzip(sent)[0]
-				labels = unzip(sent)[1]
-				if num_phases > 1 :
-					for lab in labels :
-						pass
-					labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
-				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
+			# A.2. Mettre à plat les structures de données pour préparer l'entrâinement contextuel
+			for sent in train_set :
+				if args.tone and not args.no_coding :
+					[tokens, labels] = make_tokens_from_sentence(sent, args.tone and not args.no_coding)
+					features = make_features_from_tokens(tokens, phase, args.tone and not args.no_coding)
+					labels = get_sub_tone_code_of_sentence(sent, phase, sel_en = args.filtering, decomposition_en = not args.no_decomposition)
+					labels = list(itertools.chain(*labels))
+				else :
+					[tokens, labels] = make_tokens_from_sentence(sent, args.tone and not args.no_coding)
+					features = make_features_from_tokens(tokens, 0, args.tone and not args.no_coding)
+
 				trainer.append(features, labels)
 			trainer.train(model = model_name)
-			if num_phases > 1 :
+
+			if args.tone and not args.no_coding :
 				myzip.write(model_name)
 				os.remove(model_name)
-		if num_phases > 1 :
+
+		if args.tone and not args.no_coding :
 			myzip.close()
 
 		print "... done in", get_duration(t1_secs = t1, t2_secs = time.time())
 
-		# Evaluation
+		# B. Evaluation
 		print 'Evaluating classifier'
-		# gold_set, predicted_set : list(list((str, str)))
-		# input_set, output_gold_set : list(list(str))
 		gold_set = eval_set
-		input_set = [unzip(sent)[0] for sent in gold_set]
-		predicted_set = [list() for sent in gold_set]
-		if num_phases > 1 :
+
+		if args.tone and not args.no_coding :
 			myzip = zipfile.ZipFile(args.learn + '.zip', 'r')
-		for phase in range(num_phases) :
+			predicted_set_acc = list()
+			for phase in range(num_phases) :
+
+				# B.1. Charger le modèle CRF pour une des quatre phases d'annoation tonale
+				tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
+				trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
+				trainer.set_params(tagger._training_options)
+				model_basename = ''
+				for m in myzip.namelist() :
+					if m.endswith(str(phase)):
+						model_basename = m
+						break
+				if not model_basename :
+					continue
+				if args.diacritic_only and (phase == 0 or phase == 1) :
+					continue
+				if args.non_diacritic_only and (phase == 2 or phase == 3):
+					continue
+				elif args.no_decomposition and phase % len(mode_indicators) != 0 :
+					continue
+
+				myzip.extract(model_basename)
+				tagger.set_model_file(model_basename)
+				os.remove(model_basename)
+
+				# B.2 Annotation automatique syllabe par syllabe pour une phrase
+				predicted_set = list()
+				for p, sent in enumerate(gold_set) :
+
+					[tokens, gold_labels] = make_tokens_from_sentence(sent, args.tone and not args.no_coding)
+					features = make_features_from_tokens(tokens, phase, args.tone and not args.no_coding)
+					labels = tagger._tagger.tag(features)
+					labels = reshape_tokens_as_sentnece(labels, sent)
+
+					predicted_tokens = list()
+					for i, token in enumerate(sent) :
+						predicted_tokens.append(map(list, zip(tokens[i], labels[i])))
+					predicted_set.append(predicted_tokens)
+
+				# B.3 Accumuler en ordonner l'annotation syllabique
+				if not predicted_set_acc :
+					predicted_set_acc = \
+						[[[['',''] for syllabe in token] for token in sent] for sent in predicted_set]
+
+				predicted_set_acc = accumulate_tone_code_of_dataset (predicted_set_acc, predicted_set)
+
+			predicted_set = predicted_set_acc
+
+
+		else :
+			# B.1. Charger le modèle CRF pour l'annoation
 			tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
 			trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
 			trainer.set_params(tagger._training_options)
-			if num_phases > 1:
-				model_name = args.learn + '.' + str(phase)
-				myzip.extract(model_name)
-			else :
-				model_name = args.learn
+			model_name = args.learn
 			tagger.set_model_file(model_name)
-			for i, sent in enumerate(input_set) :
-				features = [_get_features_customised_for_tones(sent,j) for j in range(len(sent))]
+
+			# B.2. Annotation automatique token par token
+			predicted_set = list()
+			for sent in gold_set :
+				[tokens, gold_labels] = make_tokens_from_sentence(sent, args.tone and not args.no_coding)
+				features = make_features_from_tokens(tokens, 0, args.tone and not args.no_coding)
 				labels = tagger._tagger.tag(features)
-				if num_phases > 1 :
-					labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
-				tagged_sent = list(zip(sent, labels))
-				if not predicted_set[i] :
-					predicted_set[i] = tagged_sent
-				else :
-					sent_acc, labels_acc = unzip(predicted_set[i])
-					labels_acc = [label_acc + label for label_acc, label in zip(labels_acc, labels)]
-					predicted_set[i] = list(zip(sent_acc, labels_acc))
-			if num_phases > 1 :
-				os.remove(model_name)
-		myzip.close()
+				predicted_set.append(zip(tokens, labels))
 
-		# gold_tokens, predicted_tokens : list((str,str))
-		predicted_tokens = list(itertools.chain(*predicted_set))
-		if num_phases > 1 :
-			predicted_tokens = [ tuple([pair[0], code_resort(pair[1].decode('utf-8')).encode('utf-8')]) for pair  in predicted_tokens]
-		gold_tokens = list(itertools.chain(*gold_set))
-		# gold_tokens_eval, predicted_tokens_eval : list(str)
-		if args.tone :
-			gold_tokens_eval = getTag(gold_tokens)
-			predicted_tokens_eval = getTag(predicted_tokens)
-		else :
-			gold_tokens_eval = gold_tokens
-			predicted_tokens_eval = predicted_tokens
 
-		if args.store and args.tone :
+		if args.tone and not args.no_coding :
+			# on ajuste l'évaluation dans les cas d'apprentissage partiel
+			# en nous proposant de filtrer les caractères ignorés par l'apprentissage
+			# sinon, nous obtiendrons un résultat pénalisé
+			# en voulant comparer une forme prédite partiellement à la forme tonale intégrale d'un même token
+			if args.diacritic_only :
+				gold_set = apply_filter_to_base_element(gold_set, [2,3], sel_en = args.filtering, decomposition_en = not args.no_decomposition)
+			elif args.non_diacritic_only :
+				gold_set = apply_filter_to_base_element(gold_set, [0,1], sel_en = args.filtering, decomposition_en = not args.no_decomposition)
+			elif args.filtering :
+				gold_set = apply_filter_to_base_element(gold_set, [0,1,2,3], sel_en = args.filtering, decomposition_en = not args.no_decomposition)
+
+			"""
+			if args.verbose :
+				verify(gold_set)
+			"""
+
+		print "Accuracy : {:>5.3f}".format(accuray2(gold_set, predicted_set, args.tone and not args.no_coding))
+
+		if args.store :
 			stored_filename = args.store
-			csv_export(enc, stored_filename, gold_tokens, predicted_tokens)
-
-		print "Exactitude : {:>5.3f}".format(accuracy(gold_tokens_eval, predicted_tokens_eval))
+			csv_export(stored_filename, gold_set, predicted_set, args.tone and not args.no_coding)
 
 		if args.verbose and args.store :
 			print ("Tagged result is exported in {}".format(args.store))
 
 	elif args.disambiguate and args.infile and args.outfile :
-		# Lecture de texte en .HTML
+
 		html_parser = FileParser()
 		tagger = CRFTagger()
 
@@ -307,35 +307,92 @@ def main():
 				print "Error : unable to open the input file {} !".format(args.infile)
 				exit(1)
 
-			# Exportation du résultat de désambiguïsation en .HTML
 			for snum, sentence in enumerate(html_parser.glosses) :
 				tokens = [token.token for token in sentence[2]]
-				features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
+				features = [get_features_customised(tokens, i) for i in range(len(tokens))]
 				tagger._tagger.set(features)
 				for tnum, token in enumerate(sentence[2]) :
 					options = list()
 					if token.value and len(token.value) > 2:
 						for nopt, option in enumerate(token.value[2]) :
 							try: tag = option.ps[0]
-							except IndexError : tag = ''
-							prob = tagger._tagger.marginal(tag, tnum)
+							except : tag = ''
+							try:
+								prob = tagger._tagger.marginal(tag, tnum)
+							except :
+								prob = 0.0
 							options.append((prob, option))
-						reordered_probs, reordered_options = unzip(sorted(options, reverse = True))
+						reordered_probs, reordered_options = unzip(sorted(options, key = lambda x : x[0], reverse = True))
+						if args.select :
+							prob_max = reordered_probs[0]
+							reordered_options = tuple([reordered_options[i] for i, p in enumerate(reordered_probs) if p >= prob_max])
+
+						html_parser.glosses[snum][1][tnum] = reordered_options
+
+		elif args.tone and not args.no_coding :
+			try :
+				html_parser.read_file(args.infile)
+			except IOError:
+				print "Error : unable to open the input file {} !".format(args.infile)
+				exit(1)
+			try :
+				myzip = zipfile.ZipFile(args.disambiguate, 'r')
+			except IOError:
+				print "Error : unable to open the model file {} !".format((args.disambiguate + '.zip'))
+				exit(1)
+
+			num_phases = 2 * len(mode_indicators)
+			taggers = []
+			enc = encoder_tones()
+			for phase in range(num_phases) :
+				taggers.append(CRFTagger())
+				model_basename = ''
+                                for m in myzip.namelist() :
+                                        if m.endswith(str(phase)):
+                                                model_basename = m
+                                                break
+                                if not model_basename :
+                                        continue
+                                if args.diacritic_only and (phase == 0 or phase == 1) :
+                                        continue
+                                if args.non_diacritic_only and (phase == 2 or phase == 3):
+                                        continue
+				elif args.no_decomposition and phase % len(mode_indicators) != 0 :
+					continue
+				myzip.extract(model_basename)
+				taggers[phase].set_model_file(model_basename)
+				os.remove(model_basename)
+			myzip.close()
+
+			for snum, sentence in enumerate(html_parser.glosses) :
+				tokens = [enc.differential_encode(token.token, token.token, args.chunkmode)[1] for token in sentence[2]]
+				for phase in range(num_phases) :
+					features = make_features_from_tokens(tokens, phase, args.tone and not args.no_coding)
+					if taggers[phase]._model_file :
+						taggers[phase]._tagger.set(features)
+				for tnum, token in enumerate(sentence[2]) :
+					options = list()
+					if token.value and len(token.value) > 2:
+						for nopt, option in enumerate(token.value[2]) :
+							try: tag = option.form.encode('utf-8')
+							except : tag = ''
+							# def marginal_tone(taggers, tnum, tokens, tag, token, chunk_mode, sel_en, decomposition_en)
+							prob = marginal_tone(taggers, tnum, tokens, tag, token.token, chunk_mode = args.chunkmode, sel_en = args.filtering, decomposition_en = not args.no_decomposition)
+							options.append((prob, option))
+
+						reordered_probs, reordered_options = unzip(sorted(options, key = lambda x : x[0], reverse = True))
 						if args.select :
 							prob_max = reordered_probs[0]
 							reordered_options = tuple([reordered_options[i] for i, p in enumerate(reordered_probs) if p >= prob_max])
 						html_parser.glosses[snum][1][tnum] = reordered_options
 
-		elif args.tone :
-			pass
-
-		try : html_parser.write(args.outfile)
-		except IOError: print "Error : unable to create the output file {}".format(args.outfile)
+		try :
+			html_parser.write(args.outfile)
+			print "Disambiggated resulat for {} is saved in {}".format(args.infile,args.outfile)
+		except IOError: print "Error : unable to create the output file {} !".format(args.outfile)
 
 	else :
 		aparser.print_help()
-
-
 
 	exit(0)
 
