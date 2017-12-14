@@ -1,3 +1,3 @@
-#!/usr/bin/pyton
+#!/usr/bin/env python
 
 from ntgloss import *
