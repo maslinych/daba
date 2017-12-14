@@ -63,7 +63,8 @@ setup(
         # 'Programming Language :: Python :: 3.5',
         # 'Programming Language :: Python :: 3.6',
     ],
-
+    # supprted python versions
+    python_requires='>=2.6, <3',
     # This field adds keywords for your project which will appear on the
     # project page. What does your project relate to?
     #
@@ -92,9 +93,9 @@ setup(
         'intervaltree',
         'pytrie',
         'wxPython',
-        'Levenshtein',
+        'python-Levenshtein',
         'nltk',
-        'pycrfsuite'
+        'python-crfsuite'
     ],
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
