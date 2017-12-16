@@ -660,7 +660,7 @@ class MainFrame(wx.Frame):
         self.filepanel.control.SetValue('')
 
 
-if __name__ == '__main__':
+def main():
     #confname = 'meta.xml'
     #metaconfig = MetaConfig(confname)
     app = wx.App()
@@ -668,3 +668,6 @@ if __name__ == '__main__':
     frame.Show()
     app.MainLoop()
 
+
+if __name__ == '__main__':
+    main()

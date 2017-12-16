@@ -291,9 +291,12 @@ class MainFrame(wx.Frame):
             dlg.Destroy()
 
 
-if __name__ == '__main__':
+def main():
     app = wx.App()
     frame = MainFrame(None, title="Bamana morphological parser (GUI)")
     frame.Show()
     app.MainLoop()
+
+if __name__ == '__main__':
+    main()
 
