@@ -24,7 +24,7 @@ import cPickle
 import funcparserlib.lexer
 import formats
 from plugins import OrthographyConverter
-
+import pkg_resources
 
 class Tokenizer(object):
     def tokenize(self, string):
@@ -285,10 +285,13 @@ class Processor(object):
 
 
 def load_plugins():
-    plugindir = os.path.join(os.path.abspath(os.path.dirname(sys.argv[0])), 'plugins')
-    plugins = [x[:-3] for x in os.listdir(plugindir) if x.endswith('.py') and not x.startswith('__')]
-    for plugin in plugins:
-        mod = __import__('.'.join(['plugins', plugin]))
+    plugins = {
+        plugin.name: plugin.load()
+        for plugin
+        in pkg_resources.iter_entry_points('daba.plugins')
+    }
+    return plugins
+
 
 def parse_file(infile, outfile, pp, args):
     print 'Processing', infile
@@ -300,12 +303,12 @@ def parse_file(infile, outfile, pp, args):
 
 def main():
     
-    load_plugins() 
+    plugins = load_plugins()
 
     aparser = argparse.ArgumentParser(description='Daba suite. Command line morphological parser.')
     aparser.add_argument('-i', '--infile', help='Input file (.txt or .html)', default="sys.stdin")
     aparser.add_argument('-o', '--outfile', help='Output file', default="sys.stdout")
-    aparser.add_argument('-s', '--script', action='append', choices=OrthographyConverter.get_plugins().keys(), default=None, help='Perform orthographic conversion operations (defined in plugins). Conversions will be applied in the order they appear on command line.')
+    aparser.add_argument('-s', '--script', action='append', choices=plugins.keys(), default=None, help='Perform orthographic conversion operations (defined in plugins). Conversions will be applied in the order they appear on command line.')
     aparser.add_argument("-d", "--dictionary", action="append", help="Toolbox dictionary file (may be added multiple times)")
     aparser.add_argument("-g", "--grammar", help="Grammar specification file")
     aparser.add_argument("-n", "--noparse", action='store_true', help="Do not parse, only process resources")
@@ -333,6 +336,7 @@ def main():
         else:
             parse_file(args.infile, args.outfile, pp, args)
     exit(0)
+
 
 if __name__ == '__main__':
     main()

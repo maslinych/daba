@@ -143,5 +143,13 @@ setup(
             'gdisamb=daba.gdisamb:main',
             'dabased=daba.dabased:main',
         ],
+        'daba.plugins': [
+            'apostrophe = daba.plugins.apostrophe',
+            'bailleul = daba.plugins.bailleul',
+            'bamlatinold = daba.plugins.bamlatinold',
+            'emklatinold = daba.plugins.emklatinold',
+            'nko = daba.plugins.nko',
+            'vydrine = daba.plugins.vydrine'
+        ]
     },
 )
