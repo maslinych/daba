@@ -142,14 +142,17 @@ class DictLoader(object):
         self.runtimedir = runtimedir
         self.dictionary = ChainDict()
         self.verbose = verbose
-        for f in os.listdir(self.runtimedir):
-            name, ext = os.path.splitext(f)
-            if ext in ['.bdi']:
-                with open(os.path.join(self.runtimedir, f)) as bdi:
-                    dic = cPickle.load(bdi)
-                    assert isinstance(dic, formats.DabaDict)
-                    self.load(dic)
-    
+        if not os.path.exists(self.runtimedir):
+            os.mkdir(self.runtimedir)
+        else:
+            for f in os.listdir(self.runtimedir):
+                name, ext = os.path.splitext(f)
+                if ext in ['.bdi']:
+                    with open(os.path.join(self.runtimedir, f)) as bdi:
+                        dic = cPickle.load(bdi)
+                        assert isinstance(dic, formats.DabaDict)
+                        self.load(dic)
+
     def filepath(self, dic):
         return os.path.join(self.runtimedir, os.path.extsep.join(['-'.join([dic.lang, dic.name, dic.hash]), 'bdi']))
 
