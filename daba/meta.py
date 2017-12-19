@@ -28,7 +28,6 @@ import tempfile
 import shutil
 import csv
 import uuid
-from TextCtrlAutoComplete import TextCtrlAutoComplete
 import formats
 
 
@@ -383,13 +382,12 @@ class MetaPanel(wx.Panel):
             searchbox = wx.BoxSizer(wx.HORIZONTAL)
             label = wx.StaticText(self, wx.ID_ANY, "Chercher dans la liste")
             choicelist = self.db.getList() or ['']
-            self.selector = TextCtrlAutoComplete(self, choices=choicelist)
-            self.selector.SetSelectCallback(self.onItemSelected)
-            #selectbutton = wx.Button(self, label="Selectionner")
-            #selectbutton.Bind(wx.EVT_BUTTON, self.onItemSelected)
+            self.selector = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
+            self.selector.AutoComplete(choices=choicelist)
+            self.selector.Bind(wx.EVT_TEXT_ENTER, self.onItemSelected)
+            self.selector.Bind(wx.EVT_TEXT, self.onItemSelected)
             searchbox.Add(label)
             searchbox.Add(self.selector, 1, wx.EXPAND)
-            #searchbox.Add(selectbutton)
             self.sizer.Add(searchbox, 0, wx.EXPAND)
 
         if self.multiple:
@@ -457,9 +455,12 @@ class MetaPanel(wx.Panel):
         return [panel.getPanelData() for panel in self.panels]
 
     def onItemSelected(self, values):
-        for keystr in values:
-            dbentry = self.db.getEntryByKey(keystr)
-            self.setCurrentPanelData(dbentry.iteritems())
+        if self.selector.IsModified():
+            try:
+                dbentry = self.db.getEntryByKey(self.selector.GetValue())
+                self.setCurrentPanelData(dbentry.iteritems())
+            except KeyError:
+                pass
 
     def saveDBEntries(self):
         for panel in self.panels:
