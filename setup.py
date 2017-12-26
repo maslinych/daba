@@ -93,9 +93,6 @@ setup(
         'intervaltree',
         'pytrie',
         'wxPython',
-        'python-Levenshtein',
-        'nltk',
-        'python-crfsuite'
     ],
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
@@ -108,6 +105,11 @@ setup(
     extras_require={  # Optional
         'dev': ['check-manifest'],
         'test': ['coverage'],
+        'ml': [
+            'python-Levenshtein',
+            'nltk',
+            'python-crfsuite',
+        ]
     },
 
     # If there are data files included in your packages that need to be
