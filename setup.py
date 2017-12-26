@@ -135,13 +135,15 @@ setup(
     # executes the function `main` from this package when invoked:
     entry_points={  # Optional
         'console_scripts': [
-            'meta=daba.meta:main',
             'metaprint=daba.metaprint:main',
-            'gparser=daba.gparser:main',
             'mparser=daba.mparser:main',
             'wordparser=daba.wordparser:main',
-            'gdisamb=daba.gdisamb:main',
             'dabased=daba.dabased:main',
+        ],
+        'gui_scripts': [
+            'meta=daba.meta:main',
+            'gparser=daba.gparser:main',
+            'gdisamb=daba.gdisamb:main',
         ],
         'daba.plugins': [
             'apostrophe = daba.plugins.apostrophe',
