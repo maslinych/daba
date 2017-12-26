@@ -45,18 +45,19 @@ setup(
         'Development Status :: 4 - Beta',
 
         # Indicate who your project is intended for
-        # FIXME: TOPICS
-        'Intended Audience :: Developers',
-        'Topic :: Software Development :: Build Tools',
+        'Intended Audience :: Science/Research',
+        'Topic :: Text Processing :: Linguistic',
+        'Natural Language :: Bambara',
 
         # Pick your license as you wish (should match "license" above)
         # FIXME: LICENSE
-        'License :: OSI Approved :: GPLv2+ License',
+        'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 2 :: Only'
         # FIXME: support for python3 not yet ready
         # 'Programming Language :: Python :: 3',
         # 'Programming Language :: Python :: 3.4',
