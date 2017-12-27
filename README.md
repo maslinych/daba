@@ -1,28 +1,35 @@
 ## Daba — Pattern-based morphemic analysis toolkit
 
-Daba is a rule-based morphological analysis package. It's idea of
-morphological processing is somewhat similar to the Porter stemmer
-algorithm. Although the result of the analysis is not a plain stem,
-but an annotated Gloss object that hold enough information for
-morpheme-by-morpheme glossing known in linguistic typology and
-anthropological linguistics as interlinear Glossed Text format.
+Daba is a rule-based morphological analysis package. Users familiar
+with [Linguists' Toolbox by SIL](https://software.sil.org/toolbox/)
+may regard Daba as a tool for the similar task of morpheme-by-morpheme
+glossing. This type of annotation is known in linguistic typology and
+anthropological linguistics as Interlinear Glossed Text (IGT) format.
+
+The difference from Toolbox is that daba performs parsing
+non-interactively, producing a list of all possible parses for each
+word. The parser uses the list of morphological pattern rules defined
+by the user in the [grammar file](./docs/grammar.rst). The user may
+later disambiguate the parsed text using GUI included in Daba.
 
 Daba provides a set of cross-platform GUI and CLI tools required to
 provide full cycle of corpus annotation followed by manual
 disambiguation:
 
-* morphological parser [GUI](./gparser.py) and [CLI](mparser.py)
+* morphological parser [GUI](./daba/gparser.py) and [CLI](./daba/mparser.py)
   version
-* [Metadata editor](./meta.py)
-* [Disambiguation interface](./gdisamb.py)
-* and some auxiliary scripts, see [ad hoc dir](./ad-hoc)
+* [Metadata editor](./daba/meta.py)
+* [Disambiguation interface](./daba/gdisamb.py)
+* and some auxiliary scripts, see [daba package](./daba/) and [ad hoc
+  dir](./daba/ad-hoc). 
 
 ### Dependencies
 
-* python 2.7
-* [wxPython version 2.8](http://www.wxpython.org/download.php)
-* [python module funcparserlib](https://pypi.python.org/pypi/funcparserlib/)
-* [python module pytrie](https://pypi.python.org/pypi/pytrie)
+Daba is written in Python (currently requires Python 2.7) and uses
+[wxPython](http://www.wxpython.org) (>= 4.0.0) cross-platform GUI library.
+
+Daba is available for Windows, MacOS and Linux. Python and pip are
+required for installation, see [instructions](./docs/INSTALL.md).
 
 
   

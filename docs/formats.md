@@ -25,7 +25,7 @@ For example:
 ```
 
 Allowed metadata fields depend on the corpus and are defined in the
-config file used by the [metadata editor utility](../meta.py).
+config file used by the [metadata editor utility](../daba/meta.py).
 
 A sample config file defining a list of metadata fields and allowed
 values for them can be found [in samples directory](./samples/meta.xml).
@@ -39,7 +39,7 @@ An empty line (`\n\n`) is treated as a paragraph separator. Each
 source paragraph corresponds to a `<p>` element in HTML body.
 
 Sentence splitting is done basing on the tokenization procedure
-(currently built into the [parser](../mparser.py), see `Tokenizer`
+(currently built into the [parser](../daba/mparser.py), see `Tokenizer`
 class). Sentences are split at the sentence punctuation `SentPunct`
 token.
 

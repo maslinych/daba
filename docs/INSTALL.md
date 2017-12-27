@@ -48,7 +48,7 @@ options:
 1. Reinstall Python and enable "Add python.exe to Path"
 2. Follow the instructions
    [here](https://stackoverflow.com/questions/6318156/adding-python-path-on-windows-7#6318188)
-   to add Python to Path. Make sure that you add `C:\Python27\;C:\Python27\Scripts`.
+   to add Python to Path. Make sure that you add `C:\Python27;C:\Python27\Scripts`.
    
 #### Step 2. Install daba
 
