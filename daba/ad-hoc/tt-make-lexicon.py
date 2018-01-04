@@ -84,7 +84,7 @@ def main():
                                     print_line(form, result)
                     elif token.type == 'c':
                         lastpunct = token
-                    elif token.type == 's':
+                    elif token.type == '</s>':
                         if lastpunct:
                             print_line(lastpunct.value, [' '.join(['SENT', lastpunct.value])])
                             lastpunct = None

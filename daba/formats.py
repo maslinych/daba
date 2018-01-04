@@ -114,11 +114,10 @@ class HtmlReader(BaseReader):
         self.isdummy = False
         self.tokens = []
         self.sentences = []
-        #self.glosses = []
         self.iterparse()
         if compatibility_mode:
             self.glosses = self.make_compatible_glosses(self.tokens)
-        for k,v in [ 
+        for k, v in [
                 ('_auto:words', self.numwords),
                 ('_auto:sentences', self.numsent),
                 ('_auto:paragraphs', self.numpar)
@@ -132,7 +131,16 @@ class HtmlReader(BaseReader):
     def iterparse(self):
         glosslist = []
         sentlist = []
-        for event, elem in e.iterparse(self.filename):
+        for event, elem in e.iterparse(self.filename, events=('start', 'end')):
+            if event == 'start':
+                if elem.tag == 'p':
+                    self.tokens.append(GlossToken(('<p>', None)))
+                    continue
+                elif elem.tag == 'span' and elem.get('class') == 'sent':
+                    self.tokens.append(GlossToken(('<s>', None)))
+                    continue
+                else:
+                    continue
             if elem.tag == 'meta':
                 name = elem.get('name')
                 if name is not None:
@@ -144,7 +152,7 @@ class HtmlReader(BaseReader):
                 else:
                     partext = u' '.join(sentlist)
                 self.para.append(partext)
-                self.tokens.append(GlossToken(('p', partext)))
+                self.tokens.append(GlossToken(('</p>', partext)))
                 self.numpar += 1
                 sentlist = []
             elif elem.tag in ['span', 'sub']:
@@ -152,7 +160,7 @@ class HtmlReader(BaseReader):
                 elemtext = normalizeText(elem.text) or ''
                 if spanclass == 'sent':
                     sentlist.append(elemtext)
-                    self.tokens.append(GlossToken(('s', elemtext)))
+                    self.tokens.append(GlossToken(('</s>', elemtext)))
                     self.numsent += 1
                 elif spanclass == 'c':
                     self.tokens.append(GlossToken(('c', elemtext)))
@@ -161,7 +169,9 @@ class HtmlReader(BaseReader):
                 elif spanclass == 'comment':
                     self.tokens.append(GlossToken(('Comment', elemtext)))
                 elif spanclass == 'w':
-                    self.tokens.append(GlossToken(('w', (elemtext, elem.get('stage'), glosslist))))
+                    self.tokens.append(
+                        GlossToken(('w', (elemtext, elem.get('stage'), glosslist)))
+                    )
                     glosslist = []
                     self.numwords += 1
                 elif spanclass in ['lemma var'] and not self.onlymeta:
@@ -176,10 +186,10 @@ class HtmlReader(BaseReader):
         par = []
         sentannot = []
         for gt in tokens:
-            if gt.type == 'p':
+            if gt.type == '</p>':
                 glosses.append(par)
                 par = []
-            elif gt.type == 's':
+            elif gt.type == '</s>':
                 par.append((gt.value, sentannot))
                 sentannot = []
             else:

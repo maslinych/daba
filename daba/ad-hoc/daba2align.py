@@ -5,7 +5,7 @@ import argparse
 import formats
 
 
-def token_iterator(infile, select_types=('s',)):
+def token_iterator(infile, select_types=('</s>',)):
     reader = formats.HtmlReader(infile)
     for token in reader:
         if token.type in select_types:

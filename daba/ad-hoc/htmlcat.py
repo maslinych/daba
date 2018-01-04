@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 
 # SYNOPSIS: <outfile> <infiles...>
-import formats
+import daba.formats
 import sys
 
 metadata = []
 para = []
 
 for i in range(2,len(sys.argv)):
-    infile = formats.HtmlReader(sys.argv[i])
+    infile = daba.formats.HtmlReader(sys.argv[i])
     metadata = infile.metadata
     para.extend(infile.glosses)
 
-outfile = formats.HtmlWriter((metadata, para), sys.argv[1])
+outfile = daba.formats.HtmlWriter((metadata, para), sys.argv[1])
 outfile.write()
 
