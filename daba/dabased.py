@@ -1,12 +1,11 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 
 import sys
 import re
 import argparse
 import formats
 import grammar
-from ntgloss import Gloss
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
 from collections import namedtuple
@@ -42,7 +41,9 @@ class ScriptParser(object):
         return grammar.fullgloss_parser().parse(grammar.tokenize(gloss_string))
 
     def parse_expr(self, expr):
-        glosslist = [i.strip() for i in re.split(r'\+\+', expr) if not i in ['++', '']]
+        glosslist = [i.strip()
+                     for i in re.split(r'\+\+', expr)
+                     if i not in ['++', '']]
         result = []
         for gexpr in glosslist:
             try:
@@ -55,7 +56,9 @@ class ScriptParser(object):
 
     def parse_command(self, command):
         try:
-            source, sep, target = u.normalize('NFKD', command.decode('utf8')).strip('\n').partition('>>')
+            source, sep, target = u.normalize(
+                'NFKD', command.decode('utf8')
+            ).strip('\n').partition('>>')
         except (ValueError):
             sys.stderr.write('Invalid command: {0}\n'.format(command))
             return
@@ -84,10 +87,16 @@ class StreamEditor(object):
                 window = []
 
     def match(self, glosslist, pattern, recursive=False):
-        return all(gloss.matches(ingloss, psstrict=True) for gloss, ingloss in zip(glosslist, pattern))
+        return all(
+            gloss.matches(ingloss, psstrict=True)
+            for gloss, ingloss in zip(glosslist, pattern)
+        )
 
     def replace(self, glosslist, target, recursive=False):
-        return tuple(gloss.union(outgloss, psoverride=True) for gloss, outgloss in zip(glosslist, target))
+        return tuple(
+            gloss.union(outgloss, psoverride=True)
+            for gloss, outgloss in zip(glosslist, target)
+        )
 
     def recursive_replace(self, gloss, pattern, target):
         if gloss.matches(pattern, psstrict=True):
@@ -95,19 +104,30 @@ class StreamEditor(object):
         else:
             out = gloss
         if gloss.morphemes:
-            out = out._replace(morphemes=tuple(self.recursive_replace(morph, pattern, target) for morph in gloss.morphemes))
+            out = out._replace(
+                morphemes=tuple(
+                    self.recursive_replace(morph, pattern, target)
+                    for morph in gloss.morphemes)
+            )
         return out
 
     def make_replace_func(self, rule):
         # FIXME special case for 1:1 replacement: allows deep matching
         if rule.symmetric and rule.winsize == 1:
-            replace_func = lambda tokens, rule: tuple(self.recursive_replace(gloss, pattern, target) for gloss, pattern, target in zip(tokens, rule.inlist, rule.outlist)) 
+            def replace_func(tokens, rule):
+                return tuple(
+                    self.recursive_replace(gloss, pattern, target)
+                    for gloss, pattern, target
+                    in zip(tokens, rule.inlist, rule.outlist)
+                )
             domatch = False
         elif not rule.symmetric:
-            replace_func = lambda tokens, rule: rule.outlist
+            def replace_func(tokens, rule):
+                return rule.outlist
             domatch = True
         else:
-            replace_func = lambda tokens, rule: self.replace(tokens, rule.outlist)
+            def replace_func(tokens, rule):
+                return self.replace(tokens, rule.outlist)
             domatch = True
         return (domatch, replace_func)
 
@@ -122,7 +142,10 @@ class StreamEditor(object):
                 token.glosslist[0] = gloss
                 out.append(token)
         else:
-            out = [formats.GlossToken(('w', (gloss.form, 'dabased', [gloss]))) for gloss in glosslist]
+            out = [
+                formats.GlossToken(('w', (gloss.form, 'dabased', [gloss])))
+                for gloss in glosslist
+            ]
         return out
 
     def apply_rule(self, rule, stream):
@@ -136,7 +159,9 @@ class StreamEditor(object):
                         self.dirty = True
                         tokens = self.insert_glosses(tokens, replacement)
                         if self.verbose:
-                            sys.stderr.write(u'{0} -> {1}\n'.format(self.getstr(glosslist), self.getstr(replacement)).encode('utf-8'))
+                            sys.stderr.write(
+                                u'{0} -> {1}\n'.format(self.getstr(glosslist), self.getstr(replacement)).encode('utf-8')
+                            )
             for token in tokens:
                 yield token
 
@@ -169,6 +194,7 @@ def main():
         out_handler.write()
         if args.verbose:
             sys.stderr.write(u'Written {0}\n'.format(args.outfile).encode('utf-8'))
+
 
 if __name__ == '__main__':
     main()
