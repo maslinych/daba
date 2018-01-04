@@ -146,6 +146,7 @@ class HtmlReader(BaseReader):
                 self.para.append(partext)
                 self.tokens.append(GlossToken(('p', partext)))
                 self.numpar += 1
+                sentlist = []
             elif elem.tag in ['span', 'sub']:
                 spanclass = elem.get('class')
                 elemtext = normalizeText(elem.text) or ''
