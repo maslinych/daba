@@ -195,35 +195,6 @@ class HtmlReader(BaseReader):
             else:
                 sentannot.append(gt)
         return glosses
-                           
-    def _iterparse(self):
-        par = []
-        partext = []
-        stext = []
-        for event, elem in e.iterparse(self.filename):
-            if elem.tag == 'meta':
-                name = elem.get('name')
-                if name is not None:
-                    self.metadata[name] = elem.get('content')
-            elif elem.tag == 'p':
-                self.numpar += 1
-                self.glosses.append(par)
-                self.para.append(' '.join(stext))
-                par = []
-                stext = []
-                partext.append(elem.text)
-                elem.clear()
-            elif elem.tag == 'span' and elem.get('class') == 'sent':
-                self.numsent += 1
-                if elem.text is not None:
-                    stext.append(elem.text)
-                senttext, annot = self.parse_sent(elem, onlymeta=self.onlymeta)
-                self.sentences.append(senttext)
-                par.append((senttext, annot))
-                elem.clear()
-        if not ''.join(self.para):
-            self.para = partext
-            self.isdummy = True
 
     def elem_to_gloss(self, xgloss):
         form = normalizeText(xgloss.text)
