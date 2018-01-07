@@ -72,12 +72,35 @@ class GlossToken(object):
             self.stage = ''
             self.gloss = Gloss(self.token, (), self.type, ())
             self.glosslist = [self.gloss]
-     
+
+    def w(self, gloss, stage=''):
+        """
+        Shortcut for creating GlossTokens from a single Gloss objects.
+        """
+        self.type = 'w'
+        self.gloss = gloss
+        self.glosslist = [gloss]
+        self.token = gloss.form
+        self.stage = stage
+        self.value = self.token, self.stage, self.glosslist
+
+    def __eq__(self, other):
+        if self.type == other.type:
+            if not self.gloss and not other.gloss:
+                return True
+            elif self.type == 'w':
+                return self.gloss == other.gloss
+            else:
+                return self.value == other.value
+        return False
+
     def __unicode__(self):
-        return u' '.join(self.type, self.token)
+        if self.type == 'w':
+            return u' '.join([self.type, self.stage, unicode(self.gloss)])
+        return u' '.join([self.type, self.value or ''])
 
     def __repr__(self):
-        return ' '.join([self.type, repr(self.token), repr(self.value)])
+        return ' '.join([self.type, repr(self.value)])
 
     def as_tuple(self):
         if self.type == 'w':
