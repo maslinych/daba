@@ -112,10 +112,35 @@ class GlossToken(object):
         self.glosslist = glosslist
         self.value = self.token, self.stage, self.glosslist
 
+    def matches(self, other, psstrict=True):
+        if self.type == other.type:
+            if self.type == 'w':
+                return self.gloss.matches(other.glosslist[0], psstrict)
+            else:
+                if other.value:
+                    return re.match(other.value, self.value)
+                else:
+                    return True
+        return False
+
+    def union(self, other):
+        if self.type == other.type:
+            if self.type == 'w':
+                newgloss = self.glosslist[0].union(other.gloss)
+                gt = GlossToken(('w', (self.token, other.stage, [newgloss])))
+            elif not other.value:
+                gt = GlossToken((other.type, self.value))
+            else:
+                gt = GlossToken((other.type, other.value))
+        else:
+            gt = GlossToken()
+        return gt
+
 
 class BaseReader(object):
     def data(self):
         return (self.metadata, self.para)
+
 
 class TxtReader(BaseReader):
     def __init__(self, filename, encoding="utf-8"):
