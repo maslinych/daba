@@ -9,6 +9,7 @@ import grammar
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
 from collections import namedtuple
+from itertools import islice, izip_longest
 import unicodedata as u
 
 
@@ -38,17 +39,34 @@ class ScriptParser(object):
             yield rule
 
     def parse_gloss(self, gloss_string):
-        return grammar.fullgloss_parser().parse(grammar.tokenize(gloss_string))
+        gloss = grammar.fullgloss_parser().parse(
+            grammar.tokenize(gloss_string)
+        )
+        gt = formats.GlossToken()
+        gt.w(gloss, 'dabased')
+        return gt
+
+    def parse_token(self, token_expression):
+        try:
+            toktype, tokvalue = token_expression[1:].split(':')
+            tokvalue = re.compile("^" + tokvalue + "\Z", re.UNICODE)
+        except (ValueError):
+            toktype = token_expression[1:]
+            tokvalue = ''
+        return formats.GlossToken((toktype, tokvalue))
 
     def parse_expr(self, expr):
         glosslist = [i.strip()
                      for i in re.split(r'\+\+', expr)
-                     if i not in ['++', '']]
+                     if i not in ['++', ''] and not i.isspace()]
         result = []
-        for gexpr in glosslist:
+        for gexpr in filter(None, glosslist):
             try:
-                result.append(self.parse_gloss(gexpr))
-            except (LexerError, NoParseError) as e:
+                if gexpr.startswith('@'):
+                    result.append(self.parse_token(gexpr))
+                else:
+                    result.append(self.parse_gloss(gexpr))
+            except (LexerError, NoParseError, ValueError) as e:
                 sys.stderr.write(u'In rule: {0}'.format(gexpr).encode('utf-8'))
                 sys.stderr.write(u'{}\n'.format(e).encode('utf-8'))
                 return []
@@ -73,30 +91,33 @@ class StreamEditor(object):
         self.verbose = verbose
 
     def getstr(self, tokens):
-        return u' ++ '.join([unicode(gloss) for gloss in tokens])
+        return u' ++ '.join([unicode(token) for token in tokens])
 
     def feed_tokens(self, winsize, stream=()):
-        window = []
-        for token in stream:
-            window.append(token)
-            if len(window) == winsize and all([t.type == 'w' for t in window]):
-                yield (True, tuple(window))
-                window = window[1:]
-            else:
-                yield (False, tuple(window))
-                window = []
+        pos = 0
+        it = iter(stream)
+        window = tuple(islice(it, winsize))
+        if len(window) == winsize:
+            yield pos, window
+        for token in it:
+            window = window[1:] + (token,)
+            pos += 1
+            yield pos, window
 
-    def match(self, glosslist, pattern, recursive=False):
+    def match(self, tokenlist, pattern):
         return all(
-            gloss.matches(ingloss, psstrict=True)
-            for gloss, ingloss in zip(glosslist, pattern)
+            token.matches(intoken, psstrict=True)
+            for token, intoken in zip(tokenlist, pattern)
         )
 
-    def replace(self, glosslist, target, recursive=False):
-        return tuple(
-            gloss.union(outgloss, psoverride=True)
-            for gloss, outgloss in zip(glosslist, target)
-        )
+    def replace(self, token, target):
+        if token.type == 'w':
+            gt = formats.GlossToken()
+            gt.w(target.gloss, 'dabased')
+            outgloss = token.union(gt)
+            return outgloss
+        else:
+            return target
 
     def recursive_replace(self, gloss, pattern, target):
         if gloss.matches(pattern, psstrict=True):
@@ -112,57 +133,62 @@ class StreamEditor(object):
         return out
 
     def make_replace_func(self, rule):
-        # FIXME special case for 1:1 replacement: allows deep matching
-        if rule.symmetric and rule.winsize == 1:
-            def replace_func(tokens, rule):
-                return tuple(
-                    self.recursive_replace(gloss, pattern, target)
-                    for gloss, pattern, target
-                    in zip(tokens, rule.inlist, rule.outlist)
-                )
-            domatch = False
-        elif not rule.symmetric:
+        if not rule.symmetric:
             def replace_func(tokens, rule):
                 return rule.outlist
             domatch = True
         else:
-            def replace_func(tokens, rule):
-                return self.replace(tokens, rule.outlist)
-            domatch = True
+            # FIXME special case for 1:1 replacement: allows deep matching
+            if rule.winsize == 1 and rule.inlist[0].type == 'w':
+                def replace_func(tokens, rule):
+                    token = tokens[0].gloss
+                    pattern = rule.inlist[0].gloss
+                    target = rule.outlist[0].gloss
+                    outgloss = self.recursive_replace(token, pattern, target)
+                    gt = formats.GlossToken()
+                    gt.w(outgloss, 'dabased')
+                    return [tokens[0].union(gt)]
+                domatch = False
+            else:
+                def replace_func(tokens, rule):
+                    return [self.replace(token, target)
+                            for token, target
+                            in zip(tokens, rule.outlist)]
+                domatch = True
         return (domatch, replace_func)
-
-    def extract_glosses(self, tokens):
-        # FIXME: only first gloss in variants list is checked, others ignored
-        return [gt.glosslist[0] for gt in tokens]
-
-    def insert_glosses(self, tokens, glosslist):
-        out = []
-        if len(tokens) == len(glosslist):
-            for token, gloss in zip(tokens, glosslist):
-                token.glosslist[0] = gloss
-                out.append(token)
-        else:
-            out = [
-                formats.GlossToken(('w', (gloss.form, 'dabased', [gloss])))
-                for gloss in glosslist
-            ]
-        return out
 
     def apply_rule(self, rule, stream):
         domatch, replace_func = self.make_replace_func(rule)
-        for tocheck, tokens in self.feed_tokens(rule.winsize, stream):
-            if tocheck:
-                glosslist = self.extract_glosses(tokens)
-                if (not domatch) or (domatch and self.match(glosslist, rule.inlist)):
-                    replacement = replace_func(glosslist, rule)
-                    if not all(g==r for g, r in zip(glosslist, replacement)):
-                        self.dirty = True
-                        tokens = self.insert_glosses(tokens, replacement)
-                        if self.verbose:
-                            sys.stderr.write(
-                                u'{0} -> {1}\n'.format(self.getstr(glosslist), self.getstr(replacement)).encode('utf-8')
+        success = 0
+        for pos, tokens in self.feed_tokens(rule.winsize, stream):
+            if pos < success + rule.winsize:
+                continue
+            if (
+                    (not domatch and tokens[0].type == 'w')
+                    or
+                    (domatch and self.match(tokens, rule.inlist))
+            ):
+                replacement = replace_func(tokens, rule)
+                if not all(g == r for g, r
+                           in izip_longest(
+                               tokens,
+                               replacement,
+                               fillvalue=formats.GlossToken())):
+                    self.dirty = True
+                    if self.verbose:
+                        sys.stderr.write(
+                            u'{0} -> {1}\n'.format(
+                                self.getstr(tokens),
+                                self.getstr(replacement)).encode('utf-8')
                             )
-            for token in tokens:
+                    tokens = replacement
+                    success = pos
+                    for token in tokens:
+                        yield token
+                    continue
+            yield tokens[0]
+        else:
+            for token in tokens[1:]:
                 yield token
 
     def apply_script(self, script, stream):
