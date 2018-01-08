@@ -1,6 +1,132 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+r"""Dabased is a stream editor (sed) for files with linguistic
+annotation in Daba format.
+
+Dabased performs batch replacements in daba annotation accorging to
+the rules defined in a script file. For each rule, dabased runs
+through the annotated tokens in daba file trying to apply the
+transformation defined by the rule as many times as possible. Text
+segnents where the rule is applied can not overlap.
+
+Script file syntax
+==================
+
+Rules
+-----
+
+Dabased script file is a simple text file with a list of replacement
+rules to apply to a file, one rule on a line. Empty lines and lines
+starting with # symbol are ignored.
+
+Each rule has a form::
+
+    pattern >> replacement
+
+where
+
+ * a pattern is an expression that defines a fragment of annotation
+   that the rule matches;
+ * a replacement is a list of tokens to insert.
+
+Expressions
+-----------
+
+Each expression is a list of tokens separated by '++'.
+Each token may be either:
+
+* a Gloss in a unicode notation::
+
+    words:n:gloss [word:n:gloss s:mrph:PL]
+
+A Gloss may be not fully specified. If such a partial expression
+appears in the left side of the rule (a pattern), the match is
+perfomed accorging to :method:`Gloss.matches()` logic. If a partial
+expression appears in the replacement part, the information in the
+source token and the replacement pattern is united according to
+:method:`Gloss.union()` logic.
+
+* a GlossToken, in the following syntax:
+
+    @type
+
+or
+
+    @type:regex
+
+where
+
+* type — is a string matching `GlossToken.type`;
+* regex — is a regular expression that is matched against the whole
+  `GlossToken.value`.
+
+The GlossToken expressions are not meant to be used for 'w' token type
+(regular words). Use Gloss expressions instead.
+
+Expression Examples
+-------------------
+
+* :n: — matches any noun
+
+* he:pers:3SG — matches personal pronoun 'he' with specified
+part of speech tag and gloss.
+
+* :pers: ++ :v: — matches personal pronoun followed by any verb
+
+* @<s> ++ @</s> — matches a sentence opening tag immediately followed
+  by a sentence closing tag (an empty sentence).
+
+* @</s>:\n+ — matches a sentence closing tag where sentence text
+  consists only of one or more newline symbols (no words in a
+  sentence).
+
+Types of Rules
+--------------
+
+There are three distinct types of rules with slightly different
+replacement logic.
+
+1. One-to-one Gloss replacement rule:
+
+    he:pers:HE >> he:pers:3SG
+
+This is the most common and historically the first use case for
+dabased. It is used to tweak glosses and other annotation fields for
+the text that has already been annotated.
+
+Note that the rule of this type is applyied recursively to all
+embedded glosses (morhemes at any level of annotation). This allows to
+make replacements in stems occurring in any compound and derivative
+forms.
+
+2. Many-to-many replacement rules:
+
+    @<s> ++ i:pers:1sg >> @<s> ++ i:pers:1sg
+
+This type of rules applies to a window of several sequential tokens,
+either word tokens (Glosses) or others. The replacement part should
+have an equal number of tokens. The replcement is perfomed using
+:method:`GlossToken.union()` in the given order. The union is done
+only for the root Glosses, morphemes are not processed recursively.
+
+3. Asymmetric replacement rules:
+
+    @<s> ++ @</s> >>
+
+Asymmetric rules are any rules that have different number of tokens on
+the left and right sides of the rule. The replacement part of these
+rules is simply substituted instead of a list of source tokens where
+the rule matches. No union is done wth the source tokens, so the
+replacement tokens should be fully specified (no partial Glosses are
+allowed).
+
+Asymmetric rules may be used for token splitting and merging. A
+special case of asymmetric rules are deletion rules, with an empty
+right side.
+"""
+
+
 import sys
 import re
 import argparse
