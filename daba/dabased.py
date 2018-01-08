@@ -8,7 +8,7 @@ Dabased performs batch replacements in daba annotation accorging to
 the rules defined in a script file. For each rule, dabased runs
 through the annotated tokens in daba file trying to apply the
 transformation defined by the rule as many times as possible. Text
-segnents where the rule is applied can not overlap.
+segments where the rule is applied can not overlap.
 
 Script file syntax
 ==================
