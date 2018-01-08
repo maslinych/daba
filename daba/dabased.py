@@ -159,7 +159,7 @@ class StreamEditor(object):
 
     def apply_rule(self, rule, stream):
         domatch, replace_func = self.make_replace_func(rule)
-        success = 0
+        success = -rule.winsize
         for pos, tokens in self.feed_tokens(rule.winsize, stream):
             if pos < success + rule.winsize:
                 continue
