@@ -25,39 +25,28 @@ import funcparserlib.lexer
 import formats
 from plugins import OrthographyConverter
 import pkg_resources
+import plugins.tokenizer
 
 class Tokenizer(object):
     def tokenize(self, string):
         'unicode -> Sequence(Token)'
-        specs = [
-                ('Comment', (r'<c>.*?</c>',re.DOTALL)),
-                ('Comment', (r'<sp>.*?</sp>',)),
-                ('SentPunct', (r'<st>',)),
-                ('Tag', (r'<.*?>',)),
-                ('Par', (r'(\r?\n){2,}',)),
-                ('NL', (r'[\r\n]',)),
-                ('Space', (r'\s+',re.UNICODE)),
-                ('Word', (ur'[nN]\u00b0', re.UNICODE)),
-                ('Word', (r'\d+nan', re.UNICODE)),
-                ('Cardinal', (r'(\d([-.,:]\d)?)+',re.UNICODE)),
-                #FIXME: hardcoded acute and grave accents plus round apostrophe (shoud not split words)
-                ('Word', (ur'(\w\.){2,}', re.UNICODE)),
-                ('Word', (ur"[\w\u0300\u0301\u0302\u030c\u0308\u07eb\u07ec\u07ed\u07ee\u07ef\u07f0\u07f1\u07f2\u07f3\u07f6\u07fa-]+['\u2019\u07f4\u07f5]",re.UNICODE)),
-                ('Word', (ur"(\w[\u0300\u0301\u0302\u030c\u0308\u07eb\u07ec\u07ed\u07ee\u07ef\u07f0\u07f1\u07f2\u07f3\u07f6\u07fa-]{0,2})+",re.UNICODE)),
-                ('SentPunct', (ur'([.!?\u061f\u07f9]+(?=[\s\n\u200f])|:(?=\s*\n))',re.UNICODE)),
-                ('Punct', (ur'([:;,\u061b\u060c\u07f8\u200f(){}"]+)',re.UNICODE)),
-                ('Nonword', (r'\W', re.UNICODE)),
-                ]
-        tok = funcparserlib.lexer.make_tokenizer(specs)
+        tok = funcparserlib.lexer.make_tokenizer(plugins.tokenizer.specs)
         return tok(string)
 
     def split_sentences(self, toklist):
         senttoks = []
-        for tok in toklist:
+        bordertypes = ['SentPunct', 'Par']
+        border = False
+        for n, tok in enumerate(toklist):
             senttoks.append(tok)
-            if tok.type == 'SentPunct':
-                yield senttoks
-                senttoks = []
+            if tok.type in bordertypes:
+                border = True
+            elif tok.type not in bordertypes and border:
+                border = False
+                yield senttoks[:-1]
+                senttoks = [tok]
+            else:
+                border = False
         else:
             yield senttoks
 
