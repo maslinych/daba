@@ -17,7 +17,6 @@ import newmorph
 import grammar
 from ntgloss import Gloss, emptyGloss
 import os
-import re
 import argparse
 import sys
 import cPickle
@@ -26,6 +25,7 @@ import formats
 from plugins import OrthographyConverter
 import pkg_resources
 import plugins.tokenizer
+
 
 class Tokenizer(object):
     def tokenize(self, string):
@@ -296,7 +296,7 @@ def parse_file(infile, outfile, pp, args):
     print 'Processing', infile
     io = formats.FileWrapper()
     io.read(infile)
-    io.write(outfile, pp.parse(io.para), parsed=True)
+    io.write(outfile, pp.parse(io.para), parsed=True, format=args.format)
     print 'Finished', outfile
 
 
@@ -314,6 +314,7 @@ def main():
     aparser.add_argument("-N", "--nolemmas", action='store_true', help="Do not lemmatize, only tokenize input")
     aparser.add_argument("-l", "--list", help="Read input filenames list from file")
     aparser.add_argument("-t", "--detone", action='store_true', help="Ignore tones in dictionary lookups")
+    aparser.add_argument("-f", "--format", action='store', choices=formats.FileWrapper().output_formats, default="html", help="Output file format")
     aparser.add_argument("-v", "--verbose", action='store_true', help="Print info messages on loaded dictionaries")
     args = aparser.parse_args()
 

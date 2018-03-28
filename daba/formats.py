@@ -302,6 +302,23 @@ class HtmlReader(BaseReader):
         self.glosses[pp][sp][1][tp][1][2][gp] = gloss
 
 
+class SentenceListWriter(object):
+    def __init__(self, (metadata, para), filename, encoding="utf-8"):
+        self.encoding = encoding
+        self.metadata = metadata
+        self.para = para
+        self.filename = filename
+
+    def write(self):
+        with open(self.filename, 'w') as outfile:
+            snum = 0
+            for p in self.para:
+                for (senttext, sentannot) in p:
+                    s = u"<s n={0}>{1}</s>\n".format(snum, senttext.strip())
+                    outfile.write(s.encode('utf-8'))
+                    snum += 1
+                outfile.write("\n")
+        
 
 class SimpleHtmlWriter(object):
     def __init__(self, (metadata, para), filename, encoding="utf-8"):
@@ -402,6 +419,7 @@ class HtmlWriter(object):
 class FileWrapper(object):
     def __init__(self, encoding='utf-8'):
         self.encoding = encoding
+        self.output_formats = ["html", "sentlist"]
 
     def read(self, filename):
         try:
@@ -424,17 +442,22 @@ class FileWrapper(object):
             self.parsed = True
             self.glosses = self._reader.glosses
 
-    def write(self, filename, result=None, metadata=None, parsed=None):
+    def write(self, filename, result=None, metadata=None, parsed=None, format="html"):
         if result is None:
             result = self.glosses
         if metadata is None:
             metadata = self.metadata
         if parsed is None:
             parsed = self.parsed
-        if parsed:
-            HtmlWriter((metadata, result), filename, self.encoding).write()
+        if format == "html":
+            if parsed:
+                HtmlWriter((metadata, result), filename, self.encoding).write()
+            else:
+                SimpleHtmlWriter((metadata, result), filename, self.encoding).write()
+        elif format == "sentlist":
+            SentenceListWriter((metadata, result), filename, self.encoding).write()
         else:
-            SimpleHtmlWriter((metadata, result), filename, self.encoding).write()
+            print "Unknown output format: {}".format(format)
 
 
 class DictWriter(object):
