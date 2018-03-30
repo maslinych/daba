@@ -99,6 +99,7 @@ class DanOldtoNew(OrthographyConverter):
         return case(word)
 
     def convert_tones(self, word):
+        out = []
         if word == u'din-':
             return u'di\u0304n\u0300'
         for tone in self.tones:
@@ -110,29 +111,33 @@ class DanOldtoNew(OrthographyConverter):
             word = ' ' + word
         word = re.sub(u"(.*?[auioeɛɔæœɯɤʌ])",
                       u"\\1{}".format(starttone),
-                      word[1:], count=1)
+                      word[1:], count=1, flags=re.I)
         for tone in self.tones:
             if word.endswith(tone):
                 word = word[:-1]
                 v = re.match(
                     u'^.*([auioeɛɔæœɯɤʌŋ][\u0300\u0301\u0304\u030b\u030f]?)',
-                    word)
+                    word, flags=re.I)
                 if v:
                     if v.group(1).endswith(u'\u0301') and tone == '-':
-                        word = ''.join([word[:v.end(1)-1],
-                                        u'\u0302',
-                                        word[v.end(1):]])
-                    elif word[v.end(1)-1] in '\u0300\u0304\u030b\u030f':
-                        word = ''.join([word[:v.end(1)],
-                                        word[v.start(1)],
-                                        self.tones[tone],
-                                        word[v.end(1):]])
+                        out = [u''.join([word[:v.end(1)-1],
+                                         u'\u0302',
+                                         word[v.end(1):]]),
+                               u''.join([word, "'"])]
+                    elif word[v.end(1)-1] in u'\u0300\u0304\u030b\u030f':
+                        if tone == '-':
+                            out = [u''.join([word, "'"])]
+                        else:
+                            out = [u''.join([word[:v.end(1)],
+                                            word[v.start(1)],
+                                            self.tones[tone],
+                                            word[v.end(1):]])]
                     else:
-                        word = ''.join([word[:v.end(1)],
+                        out = [u''.join([word[:v.end(1)],
                                         self.tones[tone],
-                                        word[v.end(1):]])
+                                        word[v.end(1):]])]
                 break
-        return word
+        return out or [word]
 
     def convert(self, token):
         """
@@ -142,5 +147,7 @@ class DanOldtoNew(OrthographyConverter):
         variants = [''.join(w) for w in self.multiply_list(graphemes)]
         if any(g in [[u'n'], [u'm']] for g in graphemes):
             variants = [self.convert_nasals(v) for v in variants]
-        variants = [self.convert_tones(v) for v in variants]
-        return variants
+        out = []
+        for v in variants:
+            out.extend(self.convert_tones(v))
+        return out
