@@ -24,13 +24,21 @@ import funcparserlib.lexer
 import formats
 from plugins import OrthographyConverter
 import pkg_resources
-import plugins.tokenizer
+from plugins.tokenizer import TokenizerData
 
 
 class Tokenizer(object):
+    def __init__(self):
+        self._data = TokenizerData()
+        self.methods = self._data.methods
+        self.specs = self._data.get("default")
+
+    def use_method(self, method):
+        self.specs = self._data.get(method)
+        
     def tokenize(self, string):
         'unicode -> Sequence(Token)'
-        tok = funcparserlib.lexer.make_tokenizer(plugins.tokenizer.specs)
+        tok = funcparserlib.lexer.make_tokenizer(self.specs)
         return tok(string)
 
     def split_sentences(self, toklist):
@@ -222,8 +230,9 @@ class GrammarLoader(object):
 
 
 class Processor(object):
-    def __init__(self, dictloader=None, grammarloader=None, converters=None, detone=False, nolemmas=False):
+    def __init__(self, dictloader=None, grammarloader=None, tokenizer=None, converters=None, detone=False, nolemmas=False):
         self.converters = converters
+        self.tokenizer = tokenizer
         self.detone = detone
         if nolemmas:
             class Noparser(object):
@@ -237,10 +246,9 @@ class Processor(object):
         
     def parse(self, txt):
         self.parsed = []
-        tkz = Tokenizer()
         for para in txt:
             par = []
-            for sent in tkz.split_sentences(tkz.tokenize(para)):
+            for sent in self.tokenizer.split_sentences(self.tokenizer.tokenize(para)):
                 st = (''.join(t.value for t in sent), [])
                 par.append(st)
                 annot = st[1]
@@ -303,6 +311,7 @@ def parse_file(infile, outfile, pp, args):
 def main():
     
     plugins = load_plugins()
+    tkz = Tokenizer()
 
     aparser = argparse.ArgumentParser(description='Daba suite. Command line morphological parser.')
     aparser.add_argument('-i', '--infile', help='Input file (.txt or .html)', default="sys.stdin")
@@ -314,12 +323,15 @@ def main():
     aparser.add_argument("-N", "--nolemmas", action='store_true', help="Do not lemmatize, only tokenize input")
     aparser.add_argument("-l", "--list", help="Read input filenames list from file")
     aparser.add_argument("-t", "--detone", action='store_true', help="Ignore tones in dictionary lookups")
+    aparser.add_argument("-z", "--tokenizer", action='store', choices=tkz.methods, default="default", help="Tokenizer to use")
     aparser.add_argument("-f", "--format", action='store', choices=formats.FileWrapper().output_formats, default="html", help="Output file format")
     aparser.add_argument("-v", "--verbose", action='store_true', help="Print info messages on loaded dictionaries")
     args = aparser.parse_args()
 
+    tkz.use_method(args.tokenizer)
+    
     if args.nolemmas:
-        pp = Processor(converters=args.script, detone=args.detone, nolemmas=True)
+        pp = Processor(tokenizer=tkz, converters=args.script, detone=args.detone, nolemmas=True)
     else:
         dl = DictLoader(verbose=args.verbose)
         gr = GrammarLoader()
@@ -330,7 +342,7 @@ def main():
             gr.load(args.grammar)
     if not args.noparse:
         if not args.nolemmas:
-            pp = Processor(dictloader=dl, grammarloader=gr, converters=args.script, detone=args.detone)
+            pp = Processor(dictloader=dl, grammarloader=gr, tokenizer=tkz, converters=args.script, detone=args.detone)
         if args.list:
             with open(args.list) as filelist:
                 for line in filelist:
