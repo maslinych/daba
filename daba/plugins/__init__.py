@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 import os,sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 from collections import defaultdict
