@@ -228,12 +228,13 @@ class GrammarLoader(object):
             cPickle.dump(self.grammar, o)
 
 
-
 class Processor(object):
-    def __init__(self, dictloader=None, grammarloader=None, tokenizer=None, converters=None, detone=False, nolemmas=False):
-        self.converters = converters
+    def __init__(self, dictloader=None, grammarloader=None, tokenizer=None, converters=None, detone=False, nolemmas=False, normalize_orthography=False):
+        orthplugins = OrthographyConverter.get_plugins()
+        self.converters = [orthplugins[c] for c in converters]
         self.tokenizer = tokenizer
         self.detone = detone
+        self.normalize_orthography = normalize_orthography
         if nolemmas:
             class Noparser(object):
                 def lemmatize(self, wform):
@@ -243,7 +244,19 @@ class Processor(object):
             self.dictloader = dictloader
             self.grammar = grammarloader.grammar
             self.parser = newmorph.Parser(self.dictloader.dictionary, self.grammar, detone=self.detone)
-        
+
+    def convert_orthography(self, word):
+        # print "GOT", word,
+        wlist = [word]
+        for plugin in self.converters:
+            converted = []
+            for w in wlist:
+                for result in plugin.convert(w):
+                    converted.append(result)
+            wlist = converted
+        # print "->", u'/'.join(wlist).encode('utf-8')
+        return wlist
+
     def parse(self, txt):
         self.parsed = []
         for para in txt:
@@ -263,13 +276,7 @@ class Processor(object):
                         annot.append(formats.GlossToken(('w', (token.value, 'tokenizer', [gloss]))))
                     elif token.type in ['Word']:
                         if self.converters:
-                            wlist = [token.value]
-                            for plugin in self.converters:
-                                converted = []
-                                for w in wlist:
-                                    for result in OrthographyConverter.get_plugins()[plugin].convert(w):
-                                        converted.append(result)
-                                wlist = converted
+                            wlist = self.convert_orthography(token.value)
                             converts = [self.parser.lemmatize(w.lower()) for w in wlist]
                             successfull = [x[1] for x in filter(lambda s:s[0]>=0, converts)] or [c[1] for c in converts]
                             stage = max([c[0] for c in converts])
@@ -284,7 +291,11 @@ class Processor(object):
                             propn = Gloss(token.value, ('n.prop',), token.value, ())
                             glosslist.append(propn)
 
-                        annot.append(formats.GlossToken(('w', (token.value, unicode(stage), glosslist))))
+                        if self.normalize_orthography and self.converters:
+                            normform = u'/'.join(wlist)
+                            annot.append(formats.GlossToken(('w', (normform, unicode(stage), glosslist))))
+                        else:
+                            annot.append(formats.GlossToken(('w', (token.value, unicode(stage), glosslist))))
                         prevtoken = True
 
             self.parsed.append(par)
@@ -317,6 +328,7 @@ def main():
     aparser.add_argument('-i', '--infile', help='Input file (.txt or .html)', default="sys.stdin")
     aparser.add_argument('-o', '--outfile', help='Output file', default="sys.stdout")
     aparser.add_argument('-s', '--script', action='append', choices=plugins.keys(), default=None, help='Perform orthographic conversion operations (defined in plugins). Conversions will be applied in the order they appear on command line.')
+    aparser.add_argument('-c', '--convert', action='store_true', help="Convert orthography")
     aparser.add_argument("-d", "--dictionary", action="append", help="Toolbox dictionary file (may be added multiple times)")
     aparser.add_argument("-g", "--grammar", help="Grammar specification file")
     aparser.add_argument("-n", "--noparse", action='store_true', help="Do not parse, only process resources")
@@ -331,7 +343,7 @@ def main():
     tkz.use_method(args.tokenizer)
     
     if args.nolemmas:
-        pp = Processor(tokenizer=tkz, converters=args.script, detone=args.detone, nolemmas=True)
+        pp = Processor(tokenizer=tkz, converters=args.script, detone=args.detone, nolemmas=True, normalize_orthography=args.convert)
     else:
         dl = DictLoader(verbose=args.verbose)
         gr = GrammarLoader()
@@ -342,7 +354,7 @@ def main():
             gr.load(args.grammar)
     if not args.noparse:
         if not args.nolemmas:
-            pp = Processor(dictloader=dl, grammarloader=gr, tokenizer=tkz, converters=args.script, detone=args.detone)
+            pp = Processor(dictloader=dl, grammarloader=gr, tokenizer=tkz, converters=args.script, detone=args.detone, normalize_orthography=args.convert)
         if args.list:
             with open(args.list) as filelist:
                 for line in filelist:
