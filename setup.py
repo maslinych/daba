@@ -20,7 +20,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='daba',  # Required
-    version='0.7.1',  # Required
+    version='0.7.2',  # Required
     description='Pattern-based morphemic analysis toolkit',  # Required
     long_description=long_description,  # Optional
     url='https://github.com/maslinych/daba',  # Optional
@@ -154,7 +154,8 @@ setup(
             'bamlatinold = daba.plugins.bamlatinold',
             'emklatinold = daba.plugins.emklatinold',
             'nko = daba.plugins.nko',
-            'vydrine = daba.plugins.vydrine'
+            'vydrine = daba.plugins.vydrine',
+            'danoldtonew = daba.plugins.danoldtonew'
         ]
     },
 )
