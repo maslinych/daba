@@ -635,11 +635,14 @@ class VariantsDict(MutableMapping):
 
 class DictReader(object):
     def __init__(self, filename, encoding='utf-8', store=True,
-                 variants=False, polisemy=False):
+                 variants=False, polisemy=False, keepmrph=False,
+                 normalize=True):
 
         self._dict = DabaDict()
         self._variants = VariantsDict()
         self._polisemy = defaultdict(ddlist)
+        self.keepmrph = keepmrph
+        self.normalize = normalize
         self.line = 0
         lemmalist = []
         key = None
@@ -661,7 +664,9 @@ class DictReader(object):
             return normalizeText(value.translate({ord(u'.'):None,ord(u'-'):None}).lower())
 
         def make_item(value):
-            return [normalize(value), Gloss(form=value,ps=(),gloss="",morphemes=())]
+            if self.normalize:
+                value = normalize(value)
+            return [value, Gloss(form=value, ps=(), gloss="", morphemes=())]
 
         def push_items(primarykey, lemmalist):
             for key, lx in lemmalist:
@@ -672,11 +677,12 @@ class DictReader(object):
 
         def process_record(lemmalist):
             lemmalist = [(key, item._replace(ps=ps,gloss=ge)) for key, item in lemmalist]
-            if lemmalist and not ps == ('mrph',):
-                if store:
-                    push_items(key, lemmalist)
-                if variants and len(lemmalist) > 1:
-                    self._variants.add(zip(*lemmalist)[1])
+            if lemmalist:
+                if not ps == ('mrph',) or self.keepmrph:
+                    if store:
+                        push_items(key, lemmalist)
+                    if variants and len(lemmalist) > 1:
+                        self._variants.add(zip(*lemmalist)[1])
 
         with codecs.open(filename, 'r', encoding=encoding) as dictfile:
             for line in dictfile:
@@ -690,13 +696,17 @@ class DictReader(object):
                     key = None
                     seengf = False
                     seenge = False
+                    seendff = False
                 elif line.startswith('\\'):
                     tag, space, value = line[1:].partition(' ')
                     value = value.strip()
                     if tag in ['lang', 'ver', 'name']:
                         self._dict.__setattr__(tag, value)
-                    elif tag in ['lx', 'le', 'va', 'vc']:
-                        key = normalize(value)
+                    elif tag in ['lx', 'le', 'va', 'vc', 'a']:
+                        if self.normalize:
+                            key = normalize(value)
+                        else:
+                            key = value
                         lemmalist.append(make_item(value))
                     elif tag in ['mm']:
                         lemmalist[-1][1] = lemmalist[-1][1]._replace(morphemes=lemmalist[-1][1].morphemes+(parsemm(value),))
@@ -705,6 +715,9 @@ class DictReader(object):
                             ps = tuple(value.split('/'))
                         else:
                             ps = ()
+                    elif tag in ['dff'] and not seendff:
+                        ge = value
+                        seendff = True
                     elif tag in ['gf'] and not seengf:
                         ge = value
                         seengf = True
