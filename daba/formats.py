@@ -302,6 +302,32 @@ class HtmlReader(BaseReader):
         self.glosses[pp][sp][1][tp][1][2][gp] = gloss
 
 
+class TxtWriter(object):
+    def __init__(self, (metadata, para), filename, encoding="utf-8"):
+        self.encoding = encoding
+        self.metadata = metadata
+        self.para = para
+        self.filename = filename
+
+    def write(self):
+        with open(self.filename, 'w') as outfile:
+            for p in self.para:
+                prevtype = None
+                for (senttext, sentannot) in p:
+                    for gt in sentannot:
+                        if prevtype:
+                            outfile.write(" ".encode('utf-8'))
+                        if gt.type == 'w':
+                            sourceform, stage, glosslist = gt.value
+                            outfile.write(u"{}".format(sourceform).encode('utf-8'))
+                        elif gt.type == 'c':
+                            outfile.write(gt.value.encode('utf-8'))
+                        else:
+                            outfile.write("{} ".format(gt.value).encode('utf-8'))
+                        prevtype = gt.type
+                outfile.write("\n\n".encode('utf-8'))
+
+
 class SentenceListWriter(object):
     def __init__(self, (metadata, para), filename, encoding="utf-8"):
         self.encoding = encoding
@@ -419,7 +445,7 @@ class HtmlWriter(object):
 class FileWrapper(object):
     def __init__(self, encoding='utf-8'):
         self.encoding = encoding
-        self.output_formats = ["html", "sentlist"]
+        self.output_formats = ["html", "txt", "sentlist"]
 
     def read(self, filename):
         try:
@@ -456,6 +482,8 @@ class FileWrapper(object):
                 SimpleHtmlWriter((metadata, result), filename, self.encoding).write()
         elif format == "sentlist":
             SentenceListWriter((metadata, result), filename, self.encoding).write()
+        elif format == "txt":
+            TxtWriter((metadata, result), filename, self.encoding).write()
         else:
             print "Unknown output format: {}".format(format)
 
