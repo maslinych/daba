@@ -4,6 +4,7 @@
 import sys
 import os
 import re
+import html
 import optparse
 import argparse
 import formats
@@ -192,6 +193,10 @@ def print_token(gt, args, vardict, polidict, get_lemma):
 
         print u"\t".join([gt.token, gt.type] + [gt.token]*(nfields-2)).encode('utf-8')
 
+def print_metafield(name, store):
+    value = html.escape(store.setdefault(name, 'UNDEF'))
+    print u'{0}="{1}"'.format(name.replace(':', '_'), value).encode('utf-8'),
+
 def main():
     oparser = argparse.ArgumentParser(description='Native Daba format to vertical format converter')
     oparser.add_argument('infile', help='Input file (.html)')
@@ -218,12 +223,8 @@ def main():
     print u'id="{0}"'.format(os.path.basename(args.infile.decode("utf-8"))).encode('utf-8'),
     
     metad = dict(reader.metadata)
-    print u'source_type="{0}"'.format(metad.setdefault('source:type', 'UNDEF')).encode('utf-8'),
-    print u'source_year="{0}"'.format(metad.setdefault('source:year', 'UNDEF')).encode('utf-8'),
-    print u'text_translation="{0}"'.format(metad.setdefault('text:translation', 'UNDEF')).encode('utf-8'),
-    print u'text_medium="{0}"'.format(metad.setdefault('text:medium', 'UNDEF')).encode('utf-8'),
-    print u'author_name="{0}"'.format(metad.setdefault('author:name', 'UNDEF')).encode('utf-8'),
-
+    for f in ['source:type', 'source:year', 'text:translation', 'text:medium', 'author:name']:
+        print_metafield(f, metad)
     try:
         genres = metad['text:genre'].split(';')
         hgenres = [g.split(' : ')[0] for g in genres] + genres
@@ -233,7 +234,7 @@ def main():
     except (KeyError):
         print 'text_genre="UNDEF"',
     try:
-        print u'text_title="{0}"'.format(metad['text:title']).encode('utf-8'),
+        print_metafield('text:title', metad)
     except (KeyError):
         print 'text_title="UNDEF"',
     print ">"
