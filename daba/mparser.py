@@ -229,9 +229,14 @@ class GrammarLoader(object):
 
 
 class Processor(object):
-    def __init__(self, dictloader=None, grammarloader=None, tokenizer=None, converters=None, detone=False, nolemmas=False, normalize_orthography=False):
-        orthplugins = OrthographyConverter.get_plugins()
-        self.converters = [orthplugins[c] for c in converters]
+    def __init__(self, dictloader=None, grammarloader=None,
+                 tokenizer=None, converters=None, detone=False, nolemmas=False,
+                 normalize_orthography=False):
+        if converters:
+            plugins = OrthographyConverter.get_plugins()
+            self.converters = [plugins[c] for c in converters]
+        else:
+            self.converters = ()
         self.tokenizer = tokenizer
         self.detone = detone
         self.normalize_orthography = normalize_orthography
@@ -243,7 +248,8 @@ class Processor(object):
         else:
             self.dictloader = dictloader
             self.grammar = grammarloader.grammar
-            self.parser = newmorph.Parser(self.dictloader.dictionary, self.grammar, detone=self.detone)
+            self.parser = newmorph.Parser(self.dictloader.dictionary,
+                                          self.grammar, detone=self.detone)
 
     def convert_orthography(self, word):
         # print "GOT", word,
