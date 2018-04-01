@@ -142,6 +142,7 @@ setup(
             'mparser=daba.mparser:main',
             'wordparser=daba.wordparser:main',
             'dabased=daba.dabased:main',
+            'daba2align=daba.daba2align:main'
         ],
         'gui_scripts': [
             'meta=daba.meta:main',

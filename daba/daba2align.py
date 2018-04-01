@@ -13,7 +13,7 @@ def token_iterator(infile, select_types=('</s>',)):
 
 
 def token_printer(token, number):
-    return u'<{0} n="{1}">{2}</{0}>\n'.format(token.type, number, token.value)
+    return u'<{0} n="{1}">{2}</{0}>\n'.format('s', number, token.value.strip())
 
 
 def main():
