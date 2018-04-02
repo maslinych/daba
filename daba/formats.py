@@ -636,7 +636,7 @@ class VariantsDict(MutableMapping):
 class DictReader(object):
     def __init__(self, filename, encoding='utf-8', store=True,
                  variants=False, polisemy=False, keepmrph=False,
-                 normalize=True):
+                 normalize=True, ignorelist=('i',)):
 
         self._dict = DabaDict()
         self._variants = VariantsDict()
@@ -644,6 +644,8 @@ class DictReader(object):
         self.keepmrph = keepmrph
         self.normalize = normalize
         self.line = 0
+        self.ignorelist = ignorelist
+        ignore = False
         lemmalist = []
         key = None
         ps = ()
@@ -689,7 +691,9 @@ class DictReader(object):
                 self.line = self.line + 1
                 # end of the artice/dictionary
                 if not line or line.isspace():
-                    process_record(lemmalist)
+                    if not ignore:
+                        process_record(lemmalist)
+                    ignore = False
                     lemmalist = []
                     ps = ()
                     ge = ''
@@ -702,6 +706,8 @@ class DictReader(object):
                     value = value.strip()
                     if tag in ['lang', 'ver', 'name']:
                         self._dict.__setattr__(tag, value)
+                    elif tag in self.ignorelist:
+                        ignore = True
                     elif tag in ['lx', 'le', 'va', 'vc', 'a']:
                         if self.normalize:
                             key = normalize(value)
