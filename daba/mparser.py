@@ -298,7 +298,7 @@ class Processor(object):
                             glosslist.append(propn)
 
                         if self.normalize_orthography and self.converters:
-                            normform = u'/'.join(wlist)
+                            normform = u'/'.join(set([g.form for g in glosslist]))
                             annot.append(formats.GlossToken(('w', (normform, unicode(stage), glosslist))))
                         else:
                             annot.append(formats.GlossToken(('w', (token.value, unicode(stage), glosslist))))
