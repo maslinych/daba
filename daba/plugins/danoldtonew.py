@@ -16,9 +16,11 @@ class DanOldtoNew(OrthographyConverter):
             u'ɛa': [u'ææ'],
             u'ü': [u'ɯ'],
             u'ʋ̈': [u'ɤ'],
+            u'ϋ': [u'ɤ'],
             u'ö': [u'ɤ'],
             u'ë': [u'ʌ'],
             u'ʋ': [u'o'],
+            u'υ': [u'o'],
             u'aɔ': [u'œœ'],
             u'ng': [u'ŋ', u'ng'],
             u'r': [u'l'],
@@ -57,10 +59,10 @@ class DanOldtoNew(OrthographyConverter):
         specs = [
                 ('EA', (u'ɛa', re.I | re.U)),
                 ('AO', (u'aɔ', re.I | re.U)),
-                ('NGG', (u'ng(?=[lauioeɛɔæœɯɤʌ])', re.I | re.U)),
-                ('NGN', (u'ng(?![blauioeɛɔæœɯɤʌ])', re.I | re.U)),
+                ('NGG', (u'ng(?=[lauioeɛɔæœɯɤʌʋυ])', re.I | re.U)),
+                ('NGN', (u'ng(?![blauioeɛɔæœɯɤʌʋυ])', re.I | re.U)),
                 ('NGB', (u'ng(?=b)', re.I | re.U)),
-                ('V', (u'[oeuʋ]\u0308', re.U)),
+                ('V', (u'[oeuʋυ]\u0308', re.U)),
                 ('ANY', (u'.', re.U)),
                 ]
         tok = funcparserlib.lexer.make_tokenizer(specs)
@@ -94,8 +96,8 @@ class DanOldtoNew(OrthographyConverter):
     def convert_nasals(self, word):
         # given a single word converts nasals in it
         case = self.get_case(word)
-        word = re.sub(u'(m)(l?[auioeɛɔæœɯɤʌ]+)', u'bh\\2n', word.lower())
-        word = re.sub(u'(n)(l?[auioeɛɔæœɯɤʌ]+)', u'dh\\2n', word.lower())
+        word = re.sub(u'(m)(l?[auioeɛɔæœɯɤʌʋυ]+)', u'bh\\2n', word.lower())
+        word = re.sub(u'(n)(l?[auioeɛɔæœɯɤʌʋυ]+)', u'dh\\2n', word.lower())
         return case(word)
 
     def convert_tones(self, word):
@@ -109,14 +111,14 @@ class DanOldtoNew(OrthographyConverter):
         else:
             starttone = u'\u0304'
             word = ' ' + word
-        word = re.sub(u"(.*?[auioeɛɔæœɯɤʌ])",
+        word = re.sub(u"(.*?[auioeɛɔæœɯɤʌʋυ])",
                       u"\\1{}".format(starttone),
                       word[1:], count=1, flags=re.I)
         for tone in self.tones:
             if word.endswith(tone):
                 word = word[:-1]
                 v = re.match(
-                    u'^.*([auioeɛɔæœɯɤʌŋ][\u0300\u0301\u0304\u030b\u030f]?)',
+                    u'^.*([auioeɛɔæœɯɤʌʋυŋ][\u0300\u0301\u0304\u030b\u030f]?)',
                     word, flags=re.I)
                 if v:
                     if v.group(1).endswith(u'\u0301') and tone == '-':
