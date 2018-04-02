@@ -292,11 +292,6 @@ class Processor(object):
                         else:
                             stage, glosslist = self.parser.lemmatize(token.value.lower())
 
-                        # suggest proper name variant for capitalized words (not in sentence-initial position)
-                        if token.value.istitle() and prevtoken and 'n.prop' not in set([]).union(*[g.ps for g in glosslist]):
-                            propn = Gloss(token.value, ('n.prop',), token.value, ())
-                            glosslist.append(propn)
-
                         if self.normalize_orthography and self.converters:
                             normform = u'/'.join(set([g.form for g in glosslist]))
                             annot.append(formats.GlossToken(('w', (normform, unicode(stage), glosslist))))
