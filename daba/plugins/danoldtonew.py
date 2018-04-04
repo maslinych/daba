@@ -34,6 +34,8 @@ class DanOldtoNew(OrthographyConverter):
         }
 
     def get_case(self, string):
+        if string[0] in [u"-=\"'‘"]:
+            string = string[1:]
         if string.isupper():
             case = unicode.upper
         elif string.istitle():

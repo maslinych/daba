@@ -251,6 +251,15 @@ class Processor(object):
             self.parser = newmorph.Parser(self.dictloader.dictionary,
                                           self.grammar, detone=self.detone)
 
+    def get_case(self, string):
+        if string.isupper():
+            case = unicode.upper
+        elif string.istitle():
+            case = unicode.title
+        else:
+            case = unicode.lower
+        return case
+
     def convert_orthography(self, word):
         # print "GOT", word,
         wlist = [word]
@@ -293,7 +302,10 @@ class Processor(object):
                             stage, glosslist = self.parser.lemmatize(token.value.lower())
 
                         if self.normalize_orthography and self.converters:
-                            normform = u'/'.join(set([g.form for g in glosslist]))
+                            case = self.get_case(wlist[0])
+                            normform = u'/'.join(set([case(g.form) for g in glosslist]))
+                            if '/' in normform:
+                                normform = u'*{}*'.format(normform)
                             annot.append(formats.GlossToken(('w', (normform, unicode(stage), glosslist))))
                         else:
                             annot.append(formats.GlossToken(('w', (token.value, unicode(stage), glosslist))))

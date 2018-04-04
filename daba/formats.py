@@ -315,15 +315,22 @@ class TxtWriter(object):
                 prevtype = None
                 for (senttext, sentannot) in p:
                     for gt in sentannot:
-                        if prevtype:
-                            outfile.write(" ".encode('utf-8'))
                         if gt.type == 'w':
                             sourceform, stage, glosslist = gt.value
-                            outfile.write(u"{}".format(sourceform).encode('utf-8'))
+                            if not prevtype == 'copen':
+                                outfile.write(u" ")
+                            outfile.write(sourceform.encode('utf-8'))
+                            prevtype = gt.type
                         elif gt.type == 'c':
-                            outfile.write(gt.value.encode('utf-8'))
+                            prevtype = gt.type
+                            if gt.value in u'.,:;!?»)]}':
+                                outfile.write(gt.value.encode('utf-8'))
+                            else:
+                                outfile.write(u' {}'.format(gt.value).encode('utf-8'))
+                                if gt.value in u'([{«':
+                                    prevtype = 'copen'
                         else:
-                            outfile.write("{} ".format(gt.value).encode('utf-8'))
+                            outfile.write(" {}".format(gt.value).encode('utf-8'))
                         prevtype = gt.type
                 outfile.write("\n\n".encode('utf-8'))
 
