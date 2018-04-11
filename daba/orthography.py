@@ -102,3 +102,19 @@ def detone(string):
     # remove all tonemarking from string
     return "".join([c for c in unicodedata.normalize('NFD', unicode(string)) if not unicodedata.category(c) == 'Mn'])
 
+
+def tones_match(source, tonalized):
+    source = unicodedata.normalize('NFD', source)
+    tonalized = unicodedata.normalize('NFD', tonalized)
+    for c in tonalized:
+        if source:
+            if unicodedata.category(c) == 'Mn':
+                if unicodedata.category(source[0]) == 'Mn':
+                    if not c == source[0]:
+                        return False
+                    else:
+                        source = source[1:]
+            else:
+                source = source[1:]
+    return True
+

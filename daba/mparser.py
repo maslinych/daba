@@ -25,6 +25,7 @@ import formats
 from plugins import OrthographyConverter
 import pkg_resources
 from plugins.tokenizer import TokenizerData
+from orthography import tones_match
 
 
 class Tokenizer(object):
@@ -271,6 +272,18 @@ class Processor(object):
             wlist = converted
         # print "->", u'/'.join(wlist).encode('utf-8')
         return wlist
+    
+    def filter_parsed(self, results, forms):
+        stage = max([c[0] for c in results])
+        filtered = []
+        for r in filter(lambda s: s[0] >= 0, results):
+            filtered.extend(r[1])
+        if not filtered:
+            filtered = [g for glosslist in zip(*results)[1] for g in glosslist]
+        filtered = filter(lambda g: any(tones_match(s, g.form) for s in forms), filtered)
+        if not filtered:
+            filtered = [emptyGloss._replace(form=w) for w in forms]
+        return stage, filtered
 
     def parse(self, txt):
         self.parsed = []
@@ -292,20 +305,28 @@ class Processor(object):
                     elif token.type in ['Word']:
                         if self.converters:
                             wlist = self.convert_orthography(token.value)
-                            converts = [self.parser.lemmatize(w.lower()) for w in wlist]
-                            successfull = [x[1] for x in filter(lambda s:s[0]>=0, converts)] or [c[1] for c in converts]
-                            stage = max([c[0] for c in converts])
-                            glosslist = []
-                            for gl in successfull:
-                                glosslist.extend(gl)
+                            converts = []
+                            for w in filter(None, wlist):
+                                converts.append(
+                                    self.parser.lemmatize(w.lower())
+                                )
+                            try:
+                                stage, glosslist = self.filter_parsed(converts, filter(None, wlist))
+                            except ValueError:
+                                print "WARNING: invalid orthographic conversion result, skippig token:", token.type, token.value
                         else:
                             stage, glosslist = self.parser.lemmatize(token.value.lower())
 
                         if self.normalize_orthography and self.converters:
-                            case = self.get_case(wlist[0])
-                            normform = u'/'.join(set([case(g.form) for g in glosslist]))
-                            if '/' in normform:
-                                normform = u'*{}*'.format(normform)
+                            if len(wlist) == 1:
+                                normform = wlist[0]
+                            else:
+                                case = self.get_case(wlist[0])
+                                normforms = list(set([case(g.form) for g in glosslist]))
+                                if len(normforms) == 1:
+                                    normform = normforms[0]
+                                else:
+                                    normform = u'*{}*'.format(u'/'.join(normforms))
                             annot.append(formats.GlossToken(('w', (normform, unicode(stage), glosslist))))
                         else:
                             annot.append(formats.GlossToken(('w', (token.value, unicode(stage), glosslist))))
