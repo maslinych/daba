@@ -317,7 +317,7 @@ class TxtWriter(object):
                     for gt in sentannot:
                         if gt.type == 'w':
                             sourceform, stage, glosslist = gt.value
-                            if not prevtype == 'copen':
+                            if not prevtype == 'copen' and not prevtype == None:
                                 outfile.write(u" ")
                             outfile.write(sourceform.encode('utf-8'))
                             prevtype = gt.type
@@ -331,7 +331,7 @@ class TxtWriter(object):
                                     prevtype = 'copen'
                         else:
                             outfile.write(" {}".format(gt.value).encode('utf-8'))
-                        prevtype = gt.type
+                            prevtype = gt.type
                 outfile.write("\n\n".encode('utf-8'))
 
 
