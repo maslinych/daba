@@ -3,7 +3,7 @@
 
 import re
 from ntgloss import Gloss, CompactGloss, emptyGloss, Pattern, Dictionary
-from orthography import detone
+from orthography import detone, tones_match
 
 
 def nullgloss(word):
@@ -163,11 +163,11 @@ class Parser(object):
                 if parts:
                     out = []
                     for dgloss in gdict[lookup_form]:
-                        if dgloss.matches(pattern) and len(dgloss.morphemes) == len(parts):
+                        if dgloss.matches(pattern) and len(dgloss.morphemes) == len(parts) and tones_match(gloss.form, dgloss.form):
                             out.append(dgloss)
                     return tuple(out)
                 else:
-                    return tuple([dgloss for dgloss in gdict[lookup_form] if dgloss.matches(pattern)])
+                    return tuple([dgloss for dgloss in gdict[lookup_form] if dgloss.matches(pattern) and tones_match(gloss.form, dgloss.form)])
             else:
                 return ()
         except (KeyError,AttributeError):
@@ -278,15 +278,16 @@ class Parser(object):
         seen_add = seen.add
         return [x for x in seq if not (x in seen or seen_add(x))]
 
-    def lemmatize(self,word, debug=False):
+    def lemmatize(self, word, debug=False):
         'word -> (stage, [Gloss])'
         stage = -1
         parsedword = [nullgloss(word)]
         for step, stageparser, stagestr in self.processing:
             if step == 'return':
                 filtered = stageparser(parsedword)
+                filtered = self.filter_duplicates(filtered)
                 if filtered:
-                    return (stage, self.filter_duplicates(filtered))
+                    return (stage, filtered)
             else:
                 newparsed = stageparser(parsedword)
                 #FIXME: debug statement
@@ -296,7 +297,8 @@ class Parser(object):
                 if debug:
                     print stagestr
                     print stage, '\n'.join(unicode(p) for p in newparsed)
-        return (stage, self.filter_duplicates(parsedword))
+        filtered = self.filter_duplicates(parsedword)
+        return (stage, filtered)
 
     def disambiguate(sent):
         # TODO: STUB
