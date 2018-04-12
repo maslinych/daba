@@ -25,7 +25,7 @@ import formats
 from plugins import OrthographyConverter
 import pkg_resources
 from plugins.tokenizer import TokenizerData
-from orthography import tones_match
+from orthography import tones_match, detone
 
 
 class Tokenizer(object):
@@ -40,7 +40,9 @@ class Tokenizer(object):
     def tokenize(self, string):
         'unicode -> Sequence(Token)'
         tok = funcparserlib.lexer.make_tokenizer(self.specs)
-        return tok(string)
+        r = tok(string)
+        # print "TKS", [t for t in r]
+        return r
 
     def split_sentences(self, toklist):
         senttoks = []
@@ -253,10 +255,11 @@ class Processor(object):
                                           self.grammar, detone=self.detone)
 
     def get_case(self, string):
+        string = detone(string)
         if string.isupper():
             case = unicode.upper
         elif string.istitle():
-            case = unicode.title
+            case = lambda s: u''.join([s[0].upper(), s[1:]])
         else:
             case = unicode.lower
         return case
@@ -271,7 +274,7 @@ class Processor(object):
                     converted.append(result)
             wlist = converted
         # print "->", u'/'.join(wlist).encode('utf-8')
-        return wlist
+        return wlist or [word]
     
     def filter_parsed(self, results, forms):
         stage = max([c[0] for c in results])
@@ -313,7 +316,7 @@ class Processor(object):
                             try:
                                 stage, glosslist = self.filter_parsed(converts, filter(None, wlist))
                             except ValueError:
-                                print "WARNING: invalid orthographic conversion result, skippig token:", token.type, token.value
+                                print "WARNING: invalid orthographic conversion result, skippig token:", token.type, token.value, converts
                         else:
                             stage, glosslist = self.parser.lemmatize(token.value.lower())
 
