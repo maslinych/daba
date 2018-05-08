@@ -114,7 +114,7 @@ def print_token(gt, args, vardict, polidict, get_lemma):
                 #HACK: if we have no gloss on the top, make up lemma from morphemes
                 # targeted at inflected forms analyzed by the parser
                 if [m for m in g.morphemes if 'mrph' not in m.ps]:
-                    lemmas.append(get_lemma(''.join([dedot(m.form) for m in g.morphemes if m.gloss not in INFLECTION])))
+                    lemmas.append(get_lemma(''.join([dedot(m.form) for m in g.morphemes if m.gloss not in args.flective.split(',')])))
                 else:
                     lemmas.append(get_lemma(g.form))
 
@@ -209,6 +209,7 @@ def main():
     oparser.add_argument("-k", "--keepsource", action="store_true", help="Keep source token at the head, to use with --convert")
     oparser.add_argument("-i", "--igt", action="store_true", help="Add morpheme-segmented form/gloss pair suited to copy as IGT examples")
     oparser.add_argument("-d", "--debugfields", action="store_true", help="Add debug fields for Jean-Jacques")
+    oparser.add_argument("-f", "--flective", action="store", help="A list of flective morphemes (glosses)", default=','.join(INFLECTION))
     args = oparser.parse_args()
 
     reader = formats.HtmlReader(args.infile.decode("utf-8"))
