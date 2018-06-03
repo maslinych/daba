@@ -250,8 +250,8 @@ def main():
         if num_phases > 1:
             myzip = zipfile.ZipFile(args.learn + '.zip', 'r')
         for phase in range(num_phases):
-            tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
-            trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
+            tagger = CRFTagger(verbose=args.verbose, training_opt={'feature.minfreq' : 10})
+            trainer = pycrfsuite.Trainer(verbose=tagger._verbose)
             trainer.set_params(tagger._training_options)
             if num_phases > 1:
                 model_name = args.learn + '.' + str(phase)
@@ -273,12 +273,14 @@ def main():
                     predicted_set[i] = list(zip(sent_acc, labels_acc))
             if num_phases > 1:
                 os.remove(model_name)
-        myzip.close()
+                myzip.close()
 
         # gold_tokens, predicted_tokens : list((str,str))
         predicted_tokens = list(itertools.chain(*predicted_set))
         if num_phases > 1:
-            predicted_tokens = [ tuple([pair[0], code_resort(pair[1].decode('utf-8')).encode('utf-8')]) for pair  in predicted_tokens]
+            predicted_tokens = [
+                tuple([pair[0], code_resort(pair[1].decode('utf-8')).encode('utf-8')])
+                for pair in predicted_tokens]
         gold_tokens = list(itertools.chain(*gold_set))
         # gold_tokens_eval, predicted_tokens_eval : list(str)
         if args.tone:
