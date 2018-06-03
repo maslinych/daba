@@ -104,15 +104,18 @@ def get_duration(t1_secs, t2_secs) :
     secondes = int(secs) % 60
     return '{:>02.0f}:{:>02.0f}:{:>02.0f}:{:>02d}'.format(days, hours, minutes, secondes)
 
-def main():
 
+def main():
     aparser = argparse.ArgumentParser(description='Daba disambiguator')
     aparser.add_argument('-v', '--verbose', help='Verbose output', default=False, action='store_true')
     aparser.add_argument('-l', '--learn', help='Learn model from data (and save as F if provided)', default=None)
     aparser.add_argument('-p', '--pos', help='Prediction for POS', default=False, action='store_true')
     aparser.add_argument('-t', '--tone', help='Prediction for tones', default=False, action='store_true')
+    aparser.add_argument('-r', '--root', help='Corpus root dir')
+    aparser.add_argument('-f', '--filelist', help='Path to a list of files to learn from')
     # aparser.add_argument('-g', '--gloss', help='Prediction for gloses', default=False, action='store_true')
-    aparser.add_argument('-e', '--evalsize', help='Percent of training data with respect to training and test one (default 10)', default=10)
+    aparser.add_argument('-e', '--evalsize', type=int, default=10,
+                         help='Percent of training data with respect to training and test one (default 10)')
     aparser.add_argument('-d', '--disambiguate', help='Use model F to disambiguate data, the gloss list will be ordered by the probability growth order', default=None)
     aparser.add_argument('--select', help = 'Option that will be taken into account only with the use of -d, which specifies the disambiguation modality is to select only the most likely gloss in each list.', action='store_true')
     aparser.add_argument('-i', '--infile' , help='Input file (.html)' , default=sys.stdin)
@@ -120,50 +123,49 @@ def main():
     aparser.add_argument('-s', '--store', help='Store tagged raw data in file (.csv) for further research purpose', default=None)
 
     args = aparser.parse_args()
-    if args.verbose :
+    if args.verbose:
         print args
 
     if args.learn and (args.pos or args.tone or args.gloss):
 
-        if not (args.pos or args.tone or args.gloss) :
+        if not (args.pos or args.tone or args.gloss):
             print 'Choose pos, tone, gloss or combination of them'
             exit(0)
 
         print 'Make list of files'
-        files1 = glob.iglob("../corbama/*/*.dis.html")
-        files2 = glob.iglob("../corbama/*.dis.html")
-
-        allfiles = ""
-        for file1, file2 in zip(files1, files2):
-            allfiles += file1+','+file2+','
+        allfiles = []
+        with codecs.open(args.filelist, 'r', encoding="utf-8") as filelist:
+            for line in filelist:
+                allfiles.append(line.strip())
         allsents = []
 
         # pour le débogage
-        allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
+        # allfiles = '../corbama/sisoko-daa_ka_kore.dis.html'
 
-        if args.tone :
-            try :
+        if args.tone:
+            try:
                 enc = encoder_tones()
-            except :
+            except:
                 enc = None
                 print ("Error : unable to initialize the tone encoder !")
 
         print 'Open files and find features / supervision tags'
-        for infile in allfiles.split(','):
-            if(len(infile)) :
+        for infile in allfiles:
+            if(infile):
                 print '-', infile
                 sent = []
 
                 html_parser = FileParser()
-                html_parser.read_file(infile)
+                html_parser.read_file(os.path.join(args.root, infile))
 
-                for snum, sentence in enumerate(html_parser.glosses) :
-                    for tnum, token in enumerate(sentence[2]) :
+                for snum, sentence in enumerate(html_parser.glosses):
+                    for tnum, token in enumerate(sentence[2]):
                         tag = ''
                         if token.type == 'w' or token.type == 'c':
                             tags = ''
                             if args.pos:
-                                for ps in token.gloss.ps : tags += ps.encode('utf-8')
+                                for ps in token.gloss.ps:
+                                    tags += ps.encode('utf-8')
                                 sent.append((token.token, tags))
                             elif args.tone:
                                 # Pourquoi ne pas apprendre la forme tonale contenant une barre veticale ?
