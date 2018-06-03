@@ -18,11 +18,15 @@
 # des RDV. prévus
 # mercredi 17 mai à 14 : 30
 
-import sys, re, codecs, glob, time, os
+import sys
+import codecs
+import time
+import os
 import argparse
-import formats,  grammar
+import daba.formats
+import daba.grammar
 import collections
-from ntgloss import Gloss
+from daba.ntgloss import Gloss
 from nltk.tag.crf import CRFTagger
 from gdisamb import FileParser
 from differential_tone_coding import encoder_tones, repr, token_seperator, _get_features_customised_for_tones, code_dispatcher, code_resort, mode_indicators
@@ -34,33 +38,34 @@ import itertools
 from nltk.metrics.scores import accuracy
 import zipfile
 
-import codecs, sys
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
-def unzip(input) :
+
+def unzip(input):
     return [list(li) for li in zip(*input)]
 
+
 # dataset : list((str,str))
-def getTag(dataset) :
+def getTag(dataset):
     ret = []
     buf = str()
-    for data in dataset :
-        if data[0] != token_seperator :
+    for data in dataset:
+        if data[0] != token_seperator:
             buf += data[1]
-        else :
+        else:
             ret.append(buf)
             buf = str()
-    if buf :
+    if buf:
         ret.append(buf)
     return ret
 
 def csv_export(enc, filename, gold_tokens, test_tokens):
 
-    try :
+    try:
         csvfile = codecs.open(filename, 'wb')
         writer = csv.writer(csvfile)
-        writer.writerow(["Token", "Golden Form", "Predicted Form","Golden code", "Predicted code", "Same"])
+        writer.writerow(["Token", "Golden Form", "Predicted Form", "Golden code", "Predicted code", "Same"])
         for g, t in zip(gold_tokens, test_tokens) :
             token          = g[0]
             golden_code    = g[-1]
@@ -72,21 +77,21 @@ def csv_export(enc, filename, gold_tokens, test_tokens):
 
             if not repr(token.encode('utf-8')) :
                 sameCodes = u''
-            row = [\
-                repr(token.encode('utf-8')), \
-                repr(golden_form.encode('utf-8')), \
-                repr(predicted_form.encode('utf-8')), \
-                repr(golden_code, spaces=True), \
-                repr(predicted_code, spaces=True), \
+            row = [
+                repr(token.encode('utf-8')),
+                repr(golden_form.encode('utf-8')),
+                repr(predicted_form.encode('utf-8')),
+                repr(golden_code, spaces=True),
+                repr(predicted_code, spaces=True),
                 sameCodes]
 
             writer.writerow(row)
         csvfile.close()
-    except :
+    except:
         raise
         print "unable to dump result in CSV file to create !"
 
-def sampling(allsents, p, ratio = 1) :
+def sampling(allsents, p, ratio = 1):
     train_set, eval_set = [], []
     for i, sent in enumerate(allsents[0 : : int(1/float(ratio))]) :
         p_approx = float(len(train_set) + 1) / float(len(eval_set) + len(train_set) + 1)
@@ -96,7 +101,7 @@ def sampling(allsents, p, ratio = 1) :
             eval_set.append(sent)
     return [train_set, eval_set]
 
-def get_duration(t1_secs, t2_secs) :
+def get_duration(t1_secs, t2_secs):
     secs = abs(t1_secs - t2_secs)
     days = secs // 86400
     hours = secs // 3600 - days * 24
@@ -189,7 +194,7 @@ def main():
                         allsents.append(sent)
                         sent = []
 
-        if args.verbose and args.tone :
+        if args.verbose and args.tone:
             enc.report()
 
         # Constitution des ensmebles d'entraînement de d'évaluation
@@ -200,18 +205,18 @@ def main():
         print 'Building classifier (CRF/NLTK)'
         # Initialization
         t1 = time.time()
-        if args.tone  :
+        if args.tone:
             num_phases = len([False, True]) * len(mode_indicators)
             myzip = zipfile.ZipFile(args.learn + '.zip', 'w')
-        else :
+        else:
             num_phases = 1
 
         # Training
-        for phase in range(num_phases) :
+        for phase in range(num_phases):
             tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
             trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
             trainer.set_params(tagger._training_options)
-            if num_phases > 1 :
+            if num_phases > 1:
                 model_name = args.learn + '.' + str(phase)
             else:
                 model_name = args.learn
@@ -220,20 +225,20 @@ def main():
             for sent in train_set:
                 tokens = unzip(sent)[0]
                 labels = unzip(sent)[1]
-                if num_phases > 1 :
-                    for lab in labels :
+                if num_phases > 1:
+                    for lab in labels:
                         pass
                     labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
                 features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
                 trainer.append(features, labels)
             trainer.train(model = model_name)
-            if num_phases > 1 :
+            if num_phases > 1:
                 myzip.write(model_name)
                 os.remove(model_name)
-        if num_phases > 1 :
+        if num_phases > 1:
             myzip.close()
 
-        print "... done in", get_duration(t1_secs = t1, t2_secs = time.time())
+        print "... done in", get_duration(t1_secs=t1, t2_secs=time.time())
 
         # Evaluation
         print 'Evaluating classifier'
@@ -242,104 +247,108 @@ def main():
         gold_set = eval_set
         input_set = [unzip(sent)[0] for sent in gold_set]
         predicted_set = [list() for sent in gold_set]
-        if num_phases > 1 :
+        if num_phases > 1:
             myzip = zipfile.ZipFile(args.learn + '.zip', 'r')
-        for phase in range(num_phases) :
+        for phase in range(num_phases):
             tagger = CRFTagger(verbose = args.verbose, training_opt = {'feature.minfreq' : 10})
             trainer = pycrfsuite.Trainer(verbose = tagger._verbose)
             trainer.set_params(tagger._training_options)
             if num_phases > 1:
                 model_name = args.learn + '.' + str(phase)
                 myzip.extract(model_name)
-            else :
+            else:
                 model_name = args.learn
             tagger.set_model_file(model_name)
-            for i, sent in enumerate(input_set) :
+            for i, sent in enumerate(input_set):
                 features = [_get_features_customised_for_tones(sent,j) for j in range(len(sent))]
                 labels = tagger._tagger.tag(features)
-                if num_phases > 1 :
+                if num_phases > 1:
                     labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
                 tagged_sent = list(zip(sent, labels))
-                if not predicted_set[i] :
+                if not predicted_set[i]:
                     predicted_set[i] = tagged_sent
-                else :
+                else:
                     sent_acc, labels_acc = unzip(predicted_set[i])
                     labels_acc = [label_acc + label for label_acc, label in zip(labels_acc, labels)]
                     predicted_set[i] = list(zip(sent_acc, labels_acc))
-            if num_phases > 1 :
+            if num_phases > 1:
                 os.remove(model_name)
         myzip.close()
 
         # gold_tokens, predicted_tokens : list((str,str))
         predicted_tokens = list(itertools.chain(*predicted_set))
-        if num_phases > 1 :
+        if num_phases > 1:
             predicted_tokens = [ tuple([pair[0], code_resort(pair[1].decode('utf-8')).encode('utf-8')]) for pair  in predicted_tokens]
         gold_tokens = list(itertools.chain(*gold_set))
         # gold_tokens_eval, predicted_tokens_eval : list(str)
-        if args.tone :
+        if args.tone:
             gold_tokens_eval = getTag(gold_tokens)
             predicted_tokens_eval = getTag(predicted_tokens)
-        else :
+        else:
             gold_tokens_eval = gold_tokens
             predicted_tokens_eval = predicted_tokens
 
-        if args.store and args.tone :
+        if args.store and args.tone:
             stored_filename = args.store
             csv_export(enc, stored_filename, gold_tokens, predicted_tokens)
 
-        print "Exactitude : {:>5.3f}".format(accuracy(gold_tokens_eval, predicted_tokens_eval))
+        print "Accuracy : {:>5.3f}".format(accuracy(gold_tokens_eval, predicted_tokens_eval))
 
-        if args.verbose and args.store :
+        if args.verbose and args.store:
             print ("Tagged result is exported in {}".format(args.store))
 
-    elif args.disambiguate and args.infile and args.outfile :
+    elif args.disambiguate and args.infile and args.outfile:
         # Lecture de texte en .HTML
         html_parser = FileParser()
         tagger = CRFTagger()
 
-        if args.pos :
-            try :
+        if args.pos:
+            try:
                 tagger.set_model_file(args.disambiguate)
             except IOError:
                 print "Error : unable to open the model {} !".format(args.infile)
                 exit(1)
-            try :
+            try:
                 html_parser.read_file(args.infile)
             except IOError:
                 print "Error : unable to open the input file {} !".format(args.infile)
                 exit(1)
 
             # Exportation du résultat de désambiguïsation en .HTML
-            for snum, sentence in enumerate(html_parser.glosses) :
+            for snum, sentence in enumerate(html_parser.glosses):
                 tokens = [token.token for token in sentence[2]]
                 features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
                 tagger._tagger.set(features)
-                for tnum, token in enumerate(sentence[2]) :
+                for tnum, token in enumerate(sentence[2]):
                     options = list()
                     if token.value and len(token.value) > 2:
-                        for nopt, option in enumerate(token.value[2]) :
-                            try: tag = option.ps[0]
-                            except IndexError : tag = ''
+                        for nopt, option in enumerate(token.value[2]):
+                            try:
+                                tag = option.ps[0]
+                            except IndexError:
+                                tag = ''
                             prob = tagger._tagger.marginal(tag, tnum)
                             options.append((prob, option))
                         reordered_probs, reordered_options = unzip(sorted(options, reverse = True))
-                        if args.select :
+                        if args.select:
                             prob_max = reordered_probs[0]
-                            reordered_options = tuple([reordered_options[i] for i, p in enumerate(reordered_probs) if p >= prob_max])
+                            reordered_options = tuple([
+                                reordered_options[i]
+                                for i, p in enumerate(reordered_probs)
+                                if p >= prob_max])
                         html_parser.glosses[snum][1][tnum] = reordered_options
 
-        elif args.tone :
+        elif args.tone:
             pass
 
-        try : html_parser.write(args.outfile)
+        try:
+            html_parser.write(args.outfile)
         except IOError: print "Error : unable to create the output file {}".format(args.outfile)
 
-    else :
+    else:
         aparser.print_help()
-
-
-
     exit(0)
+
 
 if __name__ == '__main__':
     main()
