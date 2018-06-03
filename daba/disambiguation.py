@@ -37,6 +37,7 @@ import nltk.tag.util
 import itertools
 from nltk.metrics.scores import accuracy
 import zipfile
+from orthography import detone
 
 sys.stdin = codecs.getreader('utf8')(sys.stdin)
 sys.stdout = codecs.getwriter('utf8')(sys.stdout)
@@ -169,9 +170,9 @@ def main():
                         if token.type == 'w' or token.type == 'c':
                             tags = ''
                             if args.pos:
-                                for ps in token.gloss.ps:
-                                    tags += ps.encode('utf-8')
-                                sent.append((token.token, tags))
+                                tags = '/'.join(token.gloss.ps).encode('utf-8')
+                                wordform = detone(token.gloss.form)
+                                sent.append((wordform, tags))
                             elif args.tone:
                                 # Pourquoi ne pas apprendre la forme tonale contenant une barre veticale ?
                                 # Parce que dans l'ensemble des corpus désambiguïsés, son occurrence est
