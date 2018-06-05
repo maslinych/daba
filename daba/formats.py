@@ -123,10 +123,10 @@ class GlossToken(object):
                     return True
         return False
 
-    def union(self, other):
+    def union(self, other, psoverride=False):
         if self.type == other.type:
             if self.type == 'w':
-                newgloss = self.glosslist[0].union(other.gloss)
+                newgloss = self.glosslist[0].union(other.gloss, psoverride=psoverride)
                 gt = GlossToken(('w', (self.token, other.stage, [newgloss])))
             elif not other.value:
                 gt = GlossToken((other.type, self.value))

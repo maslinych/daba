@@ -273,7 +273,10 @@ class StreamEditor(object):
                     outgloss = self.recursive_replace(token, pattern, target)
                     gt = formats.GlossToken()
                     gt.w(outgloss, 'dabased')
-                    return [tokens[0].union(gt)]
+                    if pattern.ps == target.ps:
+                        return [tokens[0].union(gt)]
+                    else:
+                        return [gt]
                 domatch = False
             else:
                 def replace_func(tokens, rule):
