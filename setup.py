@@ -157,6 +157,7 @@ setup(
             'nko = daba.plugins.nko',
             'vydrine = daba.plugins.vydrine',
             'danoldtonew = daba.plugins.danoldtonew'
+            'mwanipatopractical = daba.plugins.mwanipatopractical'
         ]
     },
 )
