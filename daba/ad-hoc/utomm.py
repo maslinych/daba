@@ -4,6 +4,7 @@
 import sys
 import re
 import codecs
+import argparse
 from daba.formats import DictReader
 from daba.ntgloss import Gloss
 
@@ -18,7 +19,10 @@ def print_field(tag, value):
 
 
 def strip_lemma(lemma):
-    u = unicode(lemma)
+    try:
+        u = unicode(lemma)
+    except TypeError:
+        print "ERR: {}".format(repr(lemma)).encode('utf8')
     if u.startswith('-'):
         return(u[1:])
     else:
@@ -47,31 +51,28 @@ def get_mm(part, dic):
                 print_field('mx', part)
 
 
-def make_gloss(record):
+def make_gloss(record, glossfields):
     le = None
     ps = None
     ge = None
-    seendff = False
-    seengf = False
-    seenge = False
+    glossdict = {}
     for tag, value in record:
-        if tag == 'le':
+        if tag in ['le', 'lx']:
             le = value
         elif tag in ['ps'] and not ps:
             if value:
                 ps = tuple(value.split('/'))
             else:
                 ps = ()
-        elif tag in ['dff'] and not seendff:
-            ge = value
-            seendff = True
-        elif tag in ['gf'] and not seengf:
-            ge = value
-            seengf = True
-        elif tag in ['ge'] and not seenge:
-            if not seengf:
-                ge = value
-                seenge = True
+        elif tag in glossfields:
+            glossdict[tag] = value
+    for f in glossfields:
+        try:
+            ge = glossdict[f]
+            break
+        except KeyError:
+            pass
+        ge = ''
     if le:
         return Gloss(le, ps, ge, ())
     else:
@@ -105,16 +106,23 @@ def make_mm(record, gloss, dic):
     
 
 def main():
-    dic = DictReader(sys.argv[1],
+    aparser = argparse.ArgumentParser(
+        description="Add \mm fields under \u for each morpheme")
+    aparser.add_argument('dictfile', help='Dictionary to process')
+    aparser.add_argument('-g', '--glossfields', action='append')
+    args = aparser.parse_args()
+    
+    dic = DictReader(args.dictfile,
                      variants=True,
                      keepmrph=True,
-                     normalize=False).get()
+                     normalize=False,
+                     glossfields=args.glossfields).get()
 
-    with codecs.open(sys.argv[1], 'r', encoding="utf-8") as dictfile:
+    with codecs.open(args.dictfile, 'r', encoding="utf-8") as dictfile:
         record = []
         for line in dictfile:
             if not line or line.isspace():
-                gloss = make_gloss(record)
+                gloss = make_gloss(record, args.glossfields)
                 make_mm(record, gloss, dic)
                 record = []
                 print ""
@@ -124,7 +132,7 @@ def main():
             else:
                 record.append((None, line.strip()))
         else:
-            gloss = make_gloss(record)
+            gloss = make_gloss(record, args.glossfields)
             make_mm(record, gloss, dic)
 
 

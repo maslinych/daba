@@ -144,8 +144,14 @@ def print_token(gt, args, vardict, polidict, get_lemma):
 
             if args.variants:
                 if g in vardict:
-                    for variant in vardict[g]:
-                        lemmas.append(get_lemma(variant))
+                    if args.canonical:
+                        try:
+                            lemmas = [get_lemma(vardict[g][0])]
+                        except IndexError:
+                            pass
+                    else:
+                        for variant in vardict[g]:
+                            lemmas.append(get_lemma(variant))
                 
             #HACK truncate extra long glosses lists
             if len(glosses)>10:
@@ -204,6 +210,7 @@ def main():
     oparser.add_argument("-u", "--unique", action="store_true", help="Print only unique lemmas and glosses")
     oparser.add_argument("-n", "--nullify", action="store_true", help="Transliterate all non-ascii characters")
     oparser.add_argument("-v", "--variants", help="Treat all variants in given dictionary as alternative lemmas")
+    oparser.add_argument('-N', '--canonical', action='store_true', help='Return canonical lemma (to be used with --variants)')
     oparser.add_argument("-p", "--polisemy", action="store_true", help="Show polisemy in a separate field (suggests -v)")
     oparser.add_argument("-c", "--convert", action="store_true", help="Normalize wordform field, move source to the end")
     oparser.add_argument("-k", "--keepsource", action="store_true", help="Keep source token at the head, to use with --convert")

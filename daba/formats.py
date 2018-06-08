@@ -590,8 +590,9 @@ class DabaDict(MutableMapping):
 
 
 class VariantsDict(MutableMapping):
-    def __init__(self):
+    def __init__(self, canonical=False):
         self._data = defaultdict(list)
+        self.canonical = canonical
 
     def __len__(self):
         return len(self._data)
@@ -617,7 +618,10 @@ class VariantsDict(MutableMapping):
                 variants = self._data[lkp]
                 for varlist in variants:
                     if f in varlist:
-                        return varlist
+                        if self.canonical:
+                            return varlist[0]
+                        else:
+                            return varlist
             except KeyError:
                 pass
         return []
@@ -643,20 +647,24 @@ class VariantsDict(MutableMapping):
 class DictReader(object):
     def __init__(self, filename, encoding='utf-8', store=True,
                  variants=False, polisemy=False, keepmrph=False,
-                 normalize=True, ignorelist=('i',)):
+                 normalize=True, ignorelist=('i',), inverse=False,
+                 lemmafields=('lx', 'le', 'va', 'vc', 'a'),
+                 glossfields=('dff', 'gf', 'ge'), canonical=False):
 
         self._dict = DabaDict()
-        self._variants = VariantsDict()
+        self._variants = VariantsDict(canonical=canonical)
         self._polisemy = defaultdict(ddlist)
         self.keepmrph = keepmrph
         self.normalize = normalize
         self.line = 0
         self.ignorelist = ignorelist
+        self.inverse = inverse
+        self.lemmafields = lemmafields
+        self.glossfields = glossfields
         ignore = False
         lemmalist = []
         key = None
         ps = ()
-        ge = ''
 
         def parsemm(v):
             try:
@@ -669,8 +677,8 @@ class DictReader(object):
             except (ValueError):
                 print "Error line:", str(self.line), unicode(v).encode('utf-8')
 
-        def normalize(value): 
-            return normalizeText(value.translate({ord(u'.'):None,ord(u'-'):None}).lower())
+        def normalize(value):
+            return normalizeText(value.translate({ord(u'.'): None, ord(u'-'):None}).lower())
 
         def make_item(value):
             if self.normalize:
@@ -684,14 +692,30 @@ class DictReader(object):
                 if not detonedkey == key:
                     self._dict[detonedkey] = lx
 
+        def select_gloss(glossdict):
+            ge = ''
+            for f in self.glossfields:
+                try:
+                    ge = glossdict[f]
+                    break
+                except KeyError:
+                    pass
+            return ge
+                    
         def process_record(lemmalist):
-            lemmalist = [(key, item._replace(ps=ps,gloss=ge)) for key, item in lemmalist]
             if lemmalist:
-                if not ps == ('mrph',) or self.keepmrph:
-                    if store:
-                        push_items(key, lemmalist)
-                    if variants and len(lemmalist) > 1:
-                        self._variants.add(zip(*lemmalist)[1])
+                ge = select_gloss(glossdict)
+                if self.inverse:
+                    key = u'_'.join(['/'.join(ps), ge])
+                    lemmalist = [(key, g._replace(ps=ps, gloss=ge)) for k, g in lemmalist]
+                    push_items(key, lemmalist)
+                else:
+                    lemmalist = [(key, item._replace(ps=ps, gloss=ge)) for key, item in lemmalist]
+                    if not ps == ('mrph',) or self.keepmrph:
+                        if store:
+                            push_items(key, lemmalist)
+                        if variants and len(lemmalist) > 1:
+                            self._variants.add(zip(*lemmalist)[1])
 
         with codecs.open(filename, 'r', encoding=encoding) as dictfile:
             for line in dictfile:
@@ -703,11 +727,8 @@ class DictReader(object):
                     ignore = False
                     lemmalist = []
                     ps = ()
-                    ge = ''
+                    glossdict = {}
                     key = None
-                    seengf = False
-                    seenge = False
-                    seendff = False
                 elif line.startswith('\\'):
                     tag, space, value = line[1:].partition(' ')
                     value = value.strip()
@@ -715,7 +736,7 @@ class DictReader(object):
                         self._dict.__setattr__(tag, value)
                     elif tag in self.ignorelist:
                         ignore = True
-                    elif tag in ['lx', 'le', 'va', 'vc', 'a']:
+                    elif tag in self.lemmafields:
                         if self.normalize:
                             key = normalize(value)
                         else:
@@ -728,22 +749,14 @@ class DictReader(object):
                             ps = tuple(value.split('/'))
                         else:
                             ps = ()
-                    elif tag in ['dff'] and not seendff:
-                        ge = value
-                        seendff = True
-                    elif tag in ['gf'] and not seengf:
-                        ge = value
-                        seengf = True
-                    elif tag in ['ge'] and not seenge:
-                        if not seengf:
-                            ge = value
-                            seenge = True
+                    elif tag in self.glossfields:
+                        glossdict[tag] = value
                     elif tag in ['gv']:
                         if polisemy:
-                            self._polisemy[key][ge].append(value)
+                            self._polisemy[key][select_gloss(glossdict)].append(value)
                             dk = detone(key)
                             if not dk == key:
-                                self._polisemy[dk][ge].append(value)
+                                self._polisemy[dk][select_gloss(glossdict)].append(value)
             else:
                 process_record(lemmalist)
 
