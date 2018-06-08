@@ -156,7 +156,7 @@ setup(
             'emklatinold = daba.plugins.emklatinold',
             'nko = daba.plugins.nko',
             'vydrine = daba.plugins.vydrine',
-            'danoldtonew = daba.plugins.danoldtonew'
+            'danoldtonew = daba.plugins.danoldtonew',
             'mwanipatopractical = daba.plugins.mwanipatopractical'
         ]
     },
