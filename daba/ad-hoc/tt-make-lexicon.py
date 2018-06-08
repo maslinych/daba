@@ -7,9 +7,9 @@ import fnmatch
 import argparse
 import locale
 from collections import defaultdict
-import mparser
-import formats
-from orthography import detone
+import daba.mparser
+import daba.formats
+from daba.orthography import detone
 from daba2vert import INFLECTION
 
 dedot = lambda s: u''.join([c for c in s if c not in '.'])
@@ -92,7 +92,7 @@ def main():
 
     if args.runtimedir:
         seenkeys = set()
-        dictionary = mparser.DictLoader(runtimedir=args.runtimedir).dictionary
+        dictionary = daba.mparser.DictLoader(runtimedir=args.runtimedir).dictionary
         for form in dictionary:
             if ' ' not in form:
                 if not args.tonal:
