@@ -330,7 +330,7 @@ class TxtWriter(object):
                                 if gt.value in u'([{«':
                                     prevtype = 'copen'
                         else:
-                            outfile.write(" {}".format(gt.value).encode('utf-8'))
+                            outfile.write(u" {}".format(gt.value).encode('utf-8'))
                             prevtype = gt.type
                 outfile.write("\n\n".encode('utf-8'))
 
