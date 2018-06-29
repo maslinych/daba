@@ -7,6 +7,7 @@ import html
 import argparse
 import daba.formats
 import cPickle
+import itertools
 from daba.orthography import detone
 
 INFLECTION = [
@@ -73,7 +74,7 @@ def make_tagstring(gloss):
     return u'/'.join(gloss.ps or '_') + mtags
 
 
-def print_token(gt, args, vardict, polidict, get_lemma):
+def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
     if gt.type == 'Comment':
         return
     if not gt.type == "w":
@@ -130,9 +131,10 @@ def print_token(gt, args, vardict, polidict, get_lemma):
                     else:
                         igtforms.append(dedot(g.form))
                 for m in g.morphemes:
-                    # add grammatical glosses to tags
-                    if m.gloss.isupper():
-                        tags.add(m.gloss)
+                    if not args.conll:
+                        # add grammatical glosses to tags
+                        if m.gloss.isupper():
+                            tags.add(m.gloss)
                     if 'mrph' not in m.ps:
                         deep.append(get_lemma(m.form))
                         #deep.append(m.gloss)
@@ -196,11 +198,21 @@ def print_token(gt, args, vardict, polidict, get_lemma):
         if args.debugfields:
             nfields += 1
 
-        print u"\t".join([gt.token, gt.type] + [gt.token]*(nfields-2)).encode('utf-8')
+        if sent and gt.type == 'c':
+            ctag = args.senttag
+        else:
+            ctag = gt.type
+        print u"\t".join([gt.token, ctag] + [gt.token]*(nfields-2)).encode('utf-8')
+
 
 def print_metafield(name, store):
     value = html.escape(store.setdefault(name, 'UNDEF'))
     print u'{0}="{1}"'.format(name.replace(':', '_'), value).encode('utf-8'),
+
+
+def reversedEnumerate(l):
+    return itertools.izip(xrange(len(l)-1, -1, -1), l)
+
 
 def main():
     oparser = argparse.ArgumentParser(description='Native Daba format to vertical format converter')
@@ -216,6 +228,8 @@ def main():
     oparser.add_argument("-i", "--igt", action="store_true", help="Add morpheme-segmented form/gloss pair suited to copy as IGT examples")
     oparser.add_argument("-d", "--debugfields", action="store_true", help="Add debug fields for Jean-Jacques")
     oparser.add_argument("-f", "--flective", action="store", help="A list of flective morphemes (glosses)", default=','.join(INFLECTION))
+    oparser.add_argument("-C", "--conll", action="store_true", help="Output CONLL-compatible format")
+    oparser.add_argument("-s", "--senttag", action="store", default="c", help="Tag to use for SentPunct tokens")
     args = oparser.parse_args()
 
     reader = daba.formats.HtmlReader(args.infile.decode("utf-8"))
@@ -248,10 +262,13 @@ def main():
 
     for par in reader.glosses:
         print "<p>"
-        for sent,annot in par:
+        for sent, annot in par:
             print "<s>"
-            for token in annot:
-                print_token(token, args, vardict, polidict, make_lemmafunc(args))
+            for i, token in reversedEnumerate(annot):
+                if i > 0:
+                    print_token(token, args, vardict, polidict, make_lemmafunc(args))
+                else:
+                    print_token(token, args, vardict, polidict, make_lemmafunc(args), sent=True)
             print "</s>"
         print "</p>"
 
