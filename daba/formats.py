@@ -730,6 +730,7 @@ class DictReader(object):
                     glossdict = {}
                     key = None
                 elif line.startswith('\\'):
+                    line = unicodedata.normalize('NFKD', line)
                     tag, space, value = line[1:].partition(' ')
                     value = value.strip()
                     if tag in ['lang', 'ver', 'name']:
