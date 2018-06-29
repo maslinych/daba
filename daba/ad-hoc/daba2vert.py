@@ -1,15 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 import os
 import re
 import html
-import optparse
 import argparse
-import formats
+import daba.formats
 import cPickle
-from orthography import detone
+from daba.orthography import detone
 
 INFLECTION = [
     'PROG',
@@ -27,6 +25,7 @@ INFLECTION = [
     'AOR.INTR'
     ]
 
+
 class VariantsLoader(object):
     def __init__(self, filename):
         cachefile = ''.join([filename, '.variants.cache'])
@@ -34,7 +33,7 @@ class VariantsLoader(object):
             with open(cachefile, 'rb') as cache:
                 self.vardict, self.polisemy = cPickle.load(cache)
         else:
-            reader = formats.DictReader(filename, store=False, variants=True, polisemy=True)
+            reader = daba.formats.DictReader(filename, store=False, variants=True, polisemy=True)
             self.vardict = reader.getVariants()
             self.polisemy = reader.getPolisemy()
             with open(cachefile, 'wb') as cache:
@@ -219,7 +218,7 @@ def main():
     oparser.add_argument("-f", "--flective", action="store", help="A list of flective morphemes (glosses)", default=','.join(INFLECTION))
     args = oparser.parse_args()
 
-    reader = formats.HtmlReader(args.infile.decode("utf-8"))
+    reader = daba.formats.HtmlReader(args.infile.decode("utf-8"))
 
     if args.variants:
         vardict, polidict = VariantsLoader(args.variants).get()
