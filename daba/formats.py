@@ -9,9 +9,9 @@ import codecs
 import unicodedata
 import hashlib
 import xml.etree.cElementTree as e
-import grammar
-from ntgloss import Gloss
-from orthography import detone
+import daba.grammar as grammar
+from daba.ntgloss import Gloss
+from daba.orthography import detone
 from pytrie import StringTrie as trie
 from collections import namedtuple, MutableMapping, defaultdict, OrderedDict
 
@@ -599,9 +599,8 @@ class VariantsDict(MutableMapping):
 
     def __iter__(self):
         for (ps, gs), formlist in self._data.iteritems():
-            psset = tuple(ps.split('/'))
             for form in formlist:
-                yield Gloss(form, psset, gs, ())
+                yield Gloss(form, ps, gs, ())
 
     def __getitem__(self, gloss):
         form, ps, gs, ms = gloss
