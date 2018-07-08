@@ -89,6 +89,8 @@ def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
             return
         if args.convert and not args.keepsource:
             token = get_lemma(normalized)
+            if args.tonal and args.conll:
+                token = detone(token)
         else:
             token = gt.token
         print u"{0}\t".format(token).encode('utf-8'),
