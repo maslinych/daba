@@ -81,6 +81,12 @@ def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
         print u"{0}\t".format(gt.token).encode('utf-8'),
     if gt.type == 'w':
         normalized = gt.glosslist[0].form
+        if ' ' in normalized:
+            words = normalized.split(' ')
+            for word in words:
+                gt.glosslist[0] = gt.glosslist[0]._replace(form=word)
+                print_token(gt, args, vardict, polidict, get_lemma, sent=sent)
+            return
         if args.convert and not args.keepsource:
             token = get_lemma(normalized)
         else:
