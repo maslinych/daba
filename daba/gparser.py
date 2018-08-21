@@ -23,6 +23,7 @@ import formats
 from contextlib import contextmanager
 from plugins import OrthographyConverter
 
+
 def get_outdir(fname):
     dirname = os.path.dirname(fname)
     basename = os.path.basename(fname)
@@ -160,6 +161,27 @@ class ConverterLister(wx.Panel):
     def OnSelection(self, evt):
         self.selection = self.converterlist.GetCheckedStrings()
 
+
+class TokenizerLister(wx.Panel):
+    def __init__(self, parent, *args, **kwargs):
+        wx.Panel.__init__(self, parent, *args, **kwargs)
+        self.selection = 'default'
+        self.tkz = mparser.Tokenizer()
+        self.tokenizers = self.tkz.methods
+        tokenizerbox = wx.StaticBox(self, wx.ID_ANY, "Available Tokenizers")
+        self.tsizer = wx.StaticBoxSizer(tokenizerbox, wx.VERTICAL)
+        self.tokenizerlist = wx.RadioBox(self, wx.ID_ANY, choices=self.tokenizers)
+        self.tokenizerlist.SetSelection(self.tokenizerlist.FindString(self.selection))
+        self.Bind(wx.EVT_RADIOBOX, self.OnSelection, self.tokenizerlist)
+        self.tsizer.Add(self.tokenizerlist, 0, wx.TOP|wx.LEFT, 10)
+        self.SetSizer(self.tsizer)
+        self.Layout()
+
+    def OnSelection(self, evt):
+        self.selection = self.tokenizerlist.GetString(self.tokenizerlist.GetSelection())
+        self.tkz.use_method(self.selection)
+
+
 class ResourcePanel(wx.Panel):
     def __init__(self, parent, dictloader, grammarloader, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
@@ -171,12 +193,16 @@ class ResourcePanel(wx.Panel):
         gramlist = GrammarLister(self, grammarloader)
         Sizer.Add(gramlist, 0, wx.EXPAND)
 
+        self.toklist = TokenizerLister(self)
+        Sizer.Add(self.toklist, 0, wx.EXPAND)
+
         self.convlist = ConverterLister(self)
         Sizer.Add(self.convlist, 1, wx.EXPAND)
 
         self.SetSizer(Sizer)
         self.SetAutoLayout(True)
-        
+
+
 class MainFrame(wx.Frame):
     'Main frame'
     def __init__(self, parent, *args, **kwargs):
@@ -220,7 +246,9 @@ class MainFrame(wx.Frame):
     def OnParse(self,e):
         @contextmanager
         def wait_for_parser():
-            self.processor = mparser.Processor(self.dl, self.gr, converters=self.resourcepanel.convlist.selection)
+            self.processor = mparser.Processor(self.dl, self.gr,
+                                               tokenizer=self.resourcepanel.toklist.tkz,
+                                               converters=self.resourcepanel.convlist.selection)
             yield self.processor.parse(self.io.para)
 
         dlg = wx.MessageDialog(self, 'Please wait: parsing in progress', 'Please wait', wx.OK)
