@@ -73,14 +73,17 @@ class GlossToken(object):
             self.gloss = Gloss(self.token, (), self.type, ())
             self.glosslist = [self.gloss]
 
-    def w(self, gloss, stage=''):
+    def w(self, gloss, stage='', token=None):
         """
         Shortcut for creating GlossTokens from a single Gloss objects.
         """
         self.type = 'w'
         self.gloss = gloss
         self.glosslist = [gloss]
-        self.token = gloss.form
+        if token:
+            self.token = token
+        else:
+            self.token = gloss.form
         self.stage = stage
         self.value = self.token, self.stage, self.glosslist
 
