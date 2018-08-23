@@ -231,6 +231,14 @@ class StreamEditor(object):
             yield pos, window
 
     def match(self, tokenlist, pattern):
+#        for token, intoken in zip(tokenlist, pattern):
+#            sys.stderr.write(
+#                u'{}\tIN: {} PAT: {}\n'.format(
+#                    token.matches(intoken, psstrict=True),
+#                    token,
+#                    intoken
+#                ).encode('utf-8')
+#            )
         return all(
             token.matches(intoken, psstrict=True)
             for token, intoken in zip(tokenlist, pattern)
@@ -266,18 +274,28 @@ class StreamEditor(object):
         else:
             # FIXME special case for 1:1 replacement: allows deep matching
             if rule.winsize == 1 and rule.inlist[0].type == 'w':
-                def replace_func(tokens, rule):
-                    token = tokens[0].gloss
-                    pattern = rule.inlist[0].gloss
-                    target = rule.outlist[0].gloss
-                    outgloss = self.recursive_replace(token, pattern, target)
-                    gt = formats.GlossToken()
-                    gt.w(outgloss, 'dabased')
-                    if pattern.ps == target.ps:
-                        return [tokens[0].union(gt)]
-                    else:
+                if rule.inlist[0].gloss.morphemes and rule.outlist[0].gloss.morphemes:
+                    def replace_func(tokens, rule):
+                        token = tokens[0]
+                        target = rule.outlist[0]
+                        gt = self.replace(token, target)
+                        outgloss = gt.gloss._replace(morphemes=target.gloss.morphemes)
+                        gt.w(outgloss, 'dabased', token=token.token)
                         return [gt]
-                domatch = False
+                    domatch = True
+                else:
+                    def replace_func(tokens, rule):
+                        token = tokens[0].gloss
+                        pattern = rule.inlist[0].gloss
+                        target = rule.outlist[0].gloss
+                        outgloss = self.recursive_replace(token, pattern, target)
+                        gt = formats.GlossToken()
+                        gt.w(outgloss, 'dabased', token=token.token)
+                        if pattern.ps == target.ps:
+                            return [tokens[0].union(gt)]
+                        else:
+                            return [gt]
+                    domatch = False
             else:
                 def replace_func(tokens, rule):
                     return [self.replace(token, target)
@@ -288,6 +306,7 @@ class StreamEditor(object):
 
     def apply_rule(self, rule, stream):
         domatch, replace_func = self.make_replace_func(rule)
+#        sys.stderr.write(u'Domatch {}\n'.format(str(domatch)))
         success = -rule.winsize
         for pos, tokens in self.feed_tokens(rule.winsize, stream):
             if pos < success + rule.winsize:
@@ -297,7 +316,13 @@ class StreamEditor(object):
                     or
                     (domatch and self.match(tokens, rule.inlist))
             ):
+#                sys.stderr.write(
+#                    u'match: {}\n'.format(self.getstr(tokens)).encode('utf-8')
+#                )
                 replacement = replace_func(tokens, rule)
+#                sys.stderr.write(
+#                    u'replacement: {}\n'.format(self.getstr(replacement)).encode('utf-8')
+#                )
                 if not all(g == r for g, r
                            in izip_longest(
                                tokens,
