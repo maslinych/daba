@@ -338,6 +338,31 @@ class TxtWriter(object):
                 outfile.write("\n\n".encode('utf-8'))
 
 
+class TokensWriter(object):
+    def __init__(self, (metadata, para), filename, encoding="utf-8"):
+        self.encoding = encoding
+        self.metadata = metadata
+        self.para = para
+        self.filename = filename
+
+    def write(self):
+        with open(self.filename, 'w') as outfile:
+            outfile.write(u'# <doc path={}'.format(self.filename).encode('utf-8'))
+            for (name, content) in self.metadata.items():
+                outfile.write(u' {}={}'.format(name, content).encode('utf-8'))
+            outfile.write(u'>\n'.encode('utf-8'))
+            for p in self.para:
+                for (senttext, sentannot) in p:
+                    for gt in sentannot:
+                        if gt.type == 'w':
+                            token = gt.gloss.form
+                        else:
+                            token = gt.value
+                        outfile.write(u'{}\n'.format(token).encode('utf-8'))
+                    outfile.write("\n".encode('utf-8'))
+                outfile.write("\n".encode('utf-8'))
+
+
 class SentenceListWriter(object):
     def __init__(self, (metadata, para), filename, encoding="utf-8"):
         self.encoding = encoding
@@ -455,7 +480,7 @@ class HtmlWriter(object):
 class FileWrapper(object):
     def __init__(self, encoding='utf-8'):
         self.encoding = encoding
-        self.output_formats = ["html", "txt", "sentlist"]
+        self.output_formats = ["html", "txt", "sentlist", "tokens"]
 
     def read(self, filename):
         try:
@@ -494,6 +519,8 @@ class FileWrapper(object):
             SentenceListWriter((metadata, result), filename, self.encoding).write()
         elif format == "txt":
             TxtWriter((metadata, result), filename, self.encoding).write()
+        elif format == "tokens":
+            TokensWriter((metadata, result), filename, self.encoding).write()
         else:
             print "Unknown output format: {}".format(format)
 
