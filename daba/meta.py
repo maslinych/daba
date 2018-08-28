@@ -471,7 +471,7 @@ class MetaPanel(wx.Panel):
             else:
                 dbentry = self.db.append(mdict)
                 panel.setPanelData(dbentry.items())
-                self.selector.SetChoices(self.db.getList())
+                self.selector.AutoComplete(choices=self.db.getList())
 
 
 class MetaNotebook(wx.Notebook):
