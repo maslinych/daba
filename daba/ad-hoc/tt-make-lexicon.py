@@ -9,9 +9,13 @@ import daba.mparser
 import daba.formats
 from daba.orthography import detone
 from daba2vert import INFLECTION
+import xml.etree.cElementTree as cElementTree
 
 
-dedot = lambda s: u''.join([c for c in s if c not in '.'])
+def dedot(s):
+    if '|' in s:
+        s = s.split("|")[0]
+    return u''.join([c for c in s if c not in '.'])
 
 
 def deduplicate_lemmas(result):
@@ -53,7 +57,8 @@ def make_taglist(glosses, formforlemma=False, tonal=False):
 def main():
     aparser = argparse.ArgumentParser(description='Lexicon printer for TreeTagger training')
     aparser.add_argument("-r", "--runtimedir", help="Runtime dir with binary saved dictionaries")
-    aparser.add_argument("-t", "--tonal", action="store_true", help="Preserve tones on word forms")
+    aparser.add_argument("-t", "--tonal", action="store_true", help="Preserve tones on lemmas")
+    aparser.add_argument("-w", "--tonalwords", action="store_true", help="Preserve tones on words")
     aparser.add_argument("-j", "--join", action="store_true", help="Join all sources")
     aparser.add_argument("-p", "--plain", action="store_true", help="Output plain lists of tokens")
     aparser.add_argument("-c", "--corpus", default=None, help="Corpus root")
@@ -74,44 +79,47 @@ def main():
                 filelist.append(line.decode('utf-8').strip())
         for filename in filelist:
             parsfile = os.path.join(args.corpus, filename)
-            reader = daba.formats.HtmlReader(parsfile)
-            lastpunct = None
-            for token in reader:
-                if token.type == 'w':
-                    if not args.nopunct and lastpunct:
-                        punct = [(lastpunct.type, lastpunct.value)]
-                        if args.join:
-                            globaldict[lastpunct.value.strip()].extend(punct)
-                        else:
-                            print_line(lastpunct.value.strip(), punct)
-                        lastpunct = None
-                    form = dedot(token.glosslist[0].form).lower()
-                    if not args.tonal:
-                        form = detone(form)
-                    else:
-                    # FIXME: unsupported tonal for corpus
-                        pass
-                    if args.plain:
-                        result = make_taglist(token.glosslist, tonal=args.tonal)
-                        print_line(form, result)
-                    else:
-                        if form not in seentokens:
-                            result = make_taglist(token.glosslist, tonal=args.tonal)
-                            seentokens.add(form)
+            try:
+                reader = daba.formats.HtmlReader(parsfile)
+                lastpunct = None
+                for token in reader:
+                    if token.type == 'w':
+                        if not args.nopunct and lastpunct:
+                            punct = [(lastpunct.type, lastpunct.value)]
                             if args.join:
-                                globaldict[form].extend(result)
+                                globaldict[lastpunct.value.strip()].extend(punct)
                             else:
-                                print_line(form, result)
-                elif token.type == 'c' and not args.nopunct:
-                    lastpunct = token
-                elif token.type == '</s>' and not args.nopunct:
-                    if lastpunct:
-                        punct = [('SENT', lastpunct.value)]
-                        if args.join:
-                            globaldict[lastpunct.value.strip()].extend(punct)
+                                print_line(lastpunct.value.strip(), punct)
+                            lastpunct = None
+                        form = dedot(token.glosslist[0].form).lower()
+                        if not args.tonalwords:
+                            form = detone(form)
                         else:
-                            print_line(lastpunct.value.strip(), punct)
-                        lastpunct = None
+                        # FIXME: unsupported tonal for corpus
+                            pass
+                        result = make_taglist(token.glosslist, tonal=args.tonal)
+                        if args.plain:
+                            print_line(form, result)
+                        else:
+                            if form not in seentokens:
+                                seentokens.add(form)
+                                print_line(form, result)
+                            if args.join:
+                                if result not in globaldict[form]:
+                                    globaldict[form].extend(result)
+                    elif token.type == 'c' and not args.nopunct:
+                        lastpunct = token
+                    elif token.type == '</s>' and not args.nopunct:
+                        if lastpunct:
+                            punct = [('SENT', lastpunct.value)]
+                            if args.join:
+                                globaldict[lastpunct.value.strip()].extend(punct)
+                            else:
+                                print_line(lastpunct.value.strip(), punct)
+                            lastpunct = None
+            except (cElementTree.ParseError) as e:
+                sys.stderr.write(u'File format error: {}\n'.format(filename).encode('utf-8'))
+                sys.stderr.write(u'ERR {}\n'.format(e).encode('utf-8'))
 
 
     if args.runtimedir:
