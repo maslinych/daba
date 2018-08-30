@@ -45,9 +45,12 @@ def gloss_to_html(gloss, spanclass='lemma', variant=False):
         ge = e.SubElement(w, 'sub', {'class':'gloss'})
         ge.text = gloss.gloss
 
-    for m in gloss.morphemes:
-        #NB: SIDE EFFECT!
-        w.append(gloss_to_html(m, spanclass='m'))
+    try:
+        for m in gloss.morphemes:
+            #NB: SIDE EFFECT!
+            w.append(gloss_to_html(m, spanclass='m'))
+    except AttributeError:
+        print "ERR GLOSS: {}\n".format(unicode(gloss)).encode('utf-8')
     return w
 
 def glosstext_to_html(glosstext, variant=False, **kwargs):
@@ -355,7 +358,11 @@ class TokensWriter(object):
                 for (senttext, sentannot) in p:
                     for gt in sentannot:
                         if gt.type == 'w':
-                            token = gt.gloss.form
+                            token = detone(gt.gloss.form)
+                            if gt.token.isupper():
+                                token = token.upper()
+                            elif gt.token.istitle():
+                                token = token[0].upper() + token[1:]
                         else:
                             token = gt.value
                         outfile.write(u'{}\n'.format(token).encode('utf-8'))
