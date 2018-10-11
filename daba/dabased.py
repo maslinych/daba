@@ -280,7 +280,7 @@ class StreamEditor(object):
                         target = rule.outlist[0]
                         gt = self.replace(token, target)
                         outgloss = gt.gloss._replace(morphemes=target.gloss.morphemes)
-                        gt.w(outgloss, 'dabased', token=token.token)
+                        gt.w(outgloss, 'dabased', token=tokens[0].token)
                         return [gt]
                     domatch = True
                 else:
@@ -290,7 +290,7 @@ class StreamEditor(object):
                         target = rule.outlist[0].gloss
                         outgloss = self.recursive_replace(token, pattern, target)
                         gt = formats.GlossToken()
-                        gt.w(outgloss, 'dabased', token=token.token)
+                        gt.w(outgloss, 'dabased', token=tokens[0].token)
                         if pattern.ps == target.ps:
                             return [tokens[0].union(gt)]
                         else:
