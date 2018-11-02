@@ -56,7 +56,7 @@ class TokenizerData(object):
                 ('SentPunct', (u'<st>',)),
                 ('SentPunct', (u'([.!?]+(?=[\s\n\u200f])|:(?=\s*\n))', re.UNICODE)),
                 ('SentPunct', (u'(?<=[.!?])\s*[»\u203a]+', re.UNICODE)),
-                ('Punct', (u'([:;,(){}‹›]+)', re.UNICODE)),
+                ('Punct', (u'([:;,(){}‹›]+|<\s*<|>\s*>)', re.UNICODE)),
                 ('Tag', (u'<.*?>',)),
                 ('Par', (u'(\r?\n){2,}',)),
                 ('NL', (u'[\r\n]',)),
