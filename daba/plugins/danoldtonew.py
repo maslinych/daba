@@ -35,11 +35,13 @@ class DanOldtoNew(OrthographyConverter):
             u"=": u'\u0300',
             u"-": u'\u030f',
             u"–": u'\u030f',
+            u"‑": u'\u030f',
+            u"‐": u'\u030f',
         }
 
     def get_case(self, string):
         string = detone(string)
-        if string[0] in [u"-–=\"'\u2018\u201c"]:
+        if string[0] in [u"-‑‐–=\"'\u2018\u201c"]:
             string = string[1:]
         if string.isupper():
             case = unicode.upper
@@ -156,13 +158,13 @@ class DanOldtoNew(OrthographyConverter):
                     u'^.*([auioeɛɔæœɯɤʌʋυŋ][\u0300\u0301\u0304\u030b\u030f]?)',
                     word, flags=re.I | re.U)
                 if v:
-                    if v.group(1).endswith(u'\u0301') and tone in [u'-', u'–']:
+                    if v.group(1).endswith(u'\u0301') and tone in [u'-', u'–', u'‑', u'‐']:
                         out = [u''.join([word[:v.end(1)-1],
                                          u'\u0302',
                                          word[v.end(1):]]),
                                u''.join([word, "'"])]
                     elif word[v.end(1)-1] in u'\u0300\u0304\u030b\u030f':
-                        if tone in [u'-', u'–']:
+                        if tone in [u'-', u'–', u'‑', u'‐']:
                             out = [u''.join([word, "'"])]
                         else:
                             out = [u''.join([word[:v.end(1)],

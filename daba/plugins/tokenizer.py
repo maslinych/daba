@@ -63,7 +63,7 @@ class TokenizerData(object):
                 ('Space', (u'\s+', re.UNICODE)),
                 ('Cardinal', (u'(\d([-.,:]\d)?)+', re.UNICODE)),
                 ('Word', (u'(\w\.){2,}', re.UNICODE)),
-                ('Word', (u"[=\"'\u2018\u201c–-]?[\w\u0300\u0301\u0302\u0304\u0308\u030b\u030f]+([=\"'\u201c\u201d\u2018-]|[\u2019]{1,2})?", re.UNICODE)),
+                ('Word', (u"[=\"'\u2018\u201c–‑‐-]?[\w\u0300\u0301\u0302\u0304\u0308\u030b\u030f]+([=\"'\u201c\u201d\u2018\u2010\u2011-]|[\u2019]{1,2})?", re.UNICODE)),
                 ('Nonword', (u'\W', re.UNICODE)),
         ]
 
