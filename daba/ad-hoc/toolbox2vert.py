@@ -5,6 +5,7 @@ import re
 import argparse
 import collections
 import codecs
+import json
 from itertools import izip_longest
 from nltk import toolbox
 from xml.sax.saxutils import quoteattr
@@ -127,38 +128,49 @@ class TokenConverter(object):
 
 class Config(object):
     def __init__(self, filename=None):
-        if not filename:
-            # default settings
-            self.tc = TokenConverter(self)
-            self.recstarters = ['id', 'ref']
-            self.tagfield = 'ps'
-            self.glossfield = 'ge'
-            self.annotlevels = {
-                    'document': ['id'],
-                    'sentence': ['ref', 'txor', 'ft', 'ftor', 'fte', 'ftf', 'ftr'],
-                    'token': ['tx'],
-                    'morpheme': ['mb', 'ps', 'ge', 'gf', 'gr'] 
-                    }
-            self.columns = [
-                    # word
-                    'tx',
-                    # lemma
-                    self.tc.lemmatizer,
-                    # tag
-                    self.tc.tagger,
-                    # form
-                    'mb',
-                    # gloss
-                    'ge',
-                    # rugloss
-                    'gr',
-                    # parts
-                    self.tc.derivator
-                    ]
-        else:
-            #FIXME parse config file
-            pass
-      
+        # default settings
+        self.tc = TokenConverter(self)
+        self.macro = {
+            'LEMMA': self.tc.lemmatizer,
+            'TAG': self.tc.tagger,
+            'PARTS': self.tc.derivator
+        }
+        defaults = u'''
+{
+    "recstarters": ["id", "ref"],
+    "tagfield": "ps",
+    "glossfield": "gf",
+    "annotlevels": {
+        "document": "id",
+        "sentence": ["ref", "ft", "fte"],
+        "token": "tx",
+        "morpheme": ["mb", "ps", "ge"]
+        },
+    "columns":[
+        "tx",
+        "LEMMA",
+        "TAG",
+        "mb",
+        "ge",
+        "PARTS"
+        ]
+}
+'''
+        self.set_options(json.loads(defaults))
+        # update from config file
+        if filename:
+            with codecs.open(filename, 'r', encoding='utf-8') as conffile:
+                conf = json.load(conffile)
+            self.set_options(conf)
+
+    def set_options(self, optdict):
+        for key in optdict:
+            if key == 'columns':
+                value = [self.macro.get(item, item) for item in optdict[key]]
+            else:
+                value = optdict[key]
+            setattr(self, key, value)
+
 
 class Record(object):
     def __init__(self, fields, config):
@@ -217,9 +229,9 @@ class Record(object):
 
 
 class ToolboxReader(object):
-    def __init__(self, infile, config=Config(), **kwargs):
+    def __init__(self, infile, conffile=None, **kwargs):
         self.infile = infile
-        self.config = config
+        self.config = Config(conffile)
         self.kwargs = kwargs
         self.metadata = collections.OrderedDict()
         self.f = toolbox.StandardFormat()
@@ -276,9 +288,10 @@ def main():
     aparser = argparse.ArgumentParser("Toolbox to vertical format converter.")
     aparser.add_argument('-i', '--infile', help='Input file (toolbox format).')
     aparser.add_argument('-o', '--outfile', help='Output file (vertical format).')
+    aparser.add_argument('-c', '--config', help='Configuration file')
     args = aparser.parse_args()
 
-    fileparser = ToolboxReader(args.infile)
+    fileparser = ToolboxReader(infile=args.infile, conffile=args.config)
     formatter = VertFormatter(fileparser, args.outfile)
     formatter.write()
 
