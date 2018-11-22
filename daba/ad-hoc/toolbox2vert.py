@@ -44,9 +44,6 @@ class ShGloss(collections.Mapping):
     def __unicode__(self):
         return unicode(self._dict)
 
-    def __len__(self):
-        return len(self._dict)
-
 
 class Layers(collections.Iterable):
     def __init__(self, tuples):
@@ -55,7 +52,7 @@ class Layers(collections.Iterable):
         for name, value in tuples:
             self.names.append(name)
             toks.append(value)
-        self.tokens = map(lambda v: ShGloss(zip(self.names,v)), izip_longest(*toks, fillvalue=''))
+        self.tokens = map(lambda v: ShGloss(zip(self.names, v)), izip_longest(*toks, fillvalue=''))
 
     def __iter__(self):
         return iter(self.tokens)
@@ -65,7 +62,6 @@ class Layers(collections.Iterable):
 
     def __len__(self):
         return len(self.tokens)
-
 
 
 class TokenConverter(object):
@@ -218,7 +214,6 @@ class Record(object):
                 while morphs and morphs[0].isaffix:
                         morphemes.append(morphs.popleft())
             yield ShToken(**{'type': toktype, 'word': tok, 'morphemes': morphemes})
-
 
 
 class ToolboxReader(object):
