@@ -26,7 +26,10 @@ class ShGloss(collections.Mapping):
             self._dict[k] = v
 
     def __getitem__(self, key):
-        return self._dict[key]
+        try:
+            return self._dict[key]
+        except KeyError:
+            return ''
 
     def __iter__(self):
         return iter(self._dict)
