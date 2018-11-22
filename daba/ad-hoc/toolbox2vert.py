@@ -2,14 +2,15 @@
 # -*- coding: utf-8 -*-
 
 import re
-import sys
 import argparse
 import collections
+import codecs
 from itertools import izip_longest
 from nltk import toolbox
 from xml.sax.saxutils import quoteattr
 
 ShToken = collections.namedtuple('ShToken', 'type, word, morphemes')
+
 
 class ShGloss(collections.Mapping):
     def __init__(self, tuples):
@@ -189,6 +190,9 @@ class Record(object):
     def _tokenize(self, string):
         return re.findall(u'[^ .,:;?!()"“”–‒«»]+|[.,:;?!()"“–‒”«»]+', string)
 
+    def __nonzero__(self):
+        return bool(self.metadata) or bool(self._tokens) or bool(self._morphemes)
+    
     def ispunct(self, string):
         return bool(re.match(u'[.,:;?!()"“”–‒«»]+$', string))
 
@@ -233,7 +237,7 @@ class ToolboxReader(object):
         recdict = collections.OrderedDict()
         self.fields = self.f.fields(**self.kwargs)
         for marker, value in self.fields:
-            if marker == self.config.recstarter:
+            if marker in self.config.recstarters:
                 out = recdict.items()
                 recdict = collections.OrderedDict([(marker, value)])
                 yield Record(out, self.config)
@@ -255,27 +259,25 @@ class VertFormatter(object):
         return self.parser.config.tc.convert(token)
 
     def write(self):
-        with open(self.outfile, 'wb') as out:
-            nrec = 0
-            out.write('<doc'.encode('utf-8'))
+        with codecs.open(self.outfile, 'wb', encoding='utf-8') as out:
+            inrec = 0
             for record in self.parser.irecords():
+                if not record:
+                    continue
                 if record.atdoclevel:
-                    if nrec == 0:
-                        out.write(u' {}>\n'.format(self.print_metadata(record)).encode('utf-8'))
-                        nrec = 1
+                    if inrec == 1:
+                        out.write('</doc>\n')
+                    out.write(u'<doc {}>\n'.format(self.print_metadata(record)))
+                    inrec = 1
                 else:
-                    if nrec == 0:
-                        out.write('>\n'.encode('utf-8'))
-                    else:
-                        out.write(u'<s {}>\n'.format(self.print_metadata(record)).encode('utf-8'))
-                        for token in record.itokens():
-                            out.write(u'{}\n'.format(self.print_token(token)).encode('utf-8'))
-                        out.write(u'</s>\n'.encode('utf-8'))
-            out.write('</doc>\n'.encode('utf-8'))
+                    out.write(u'<s {}>\n'.format(self.print_metadata(record)))
+                    for token in record.itokens():
+                        out.write(u'{}\n'.format(self.print_token(token)))
+                    out.write(u'</s>\n')
+            out.write('</doc>\n')        
 
 
 def main():
-    from pprint import pprint
     aparser = argparse.ArgumentParser("Toolbox to vertical format converter.")
     aparser.add_argument('-i', '--infile', help='Input file (toolbox format).')
     aparser.add_argument('-o', '--outfile', help='Output file (vertical format).')
