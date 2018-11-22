@@ -134,14 +134,14 @@ class Config(object):
         if not filename:
             # default settings
             self.tc = TokenConverter(self)
-            self.recstarter = 'ref'
+            self.recstarters = ['id', 'ref']
             self.tagfield = 'ps'
             self.glossfield = 'ge'
             self.annotlevels = {
                     'document': ['id'],
-                    'sentence': ['ref', 'txor', 'ft', 'ftor', 'fte'],
+                    'sentence': ['ref', 'txor', 'ft', 'ftor', 'fte', 'ftf', 'ftr'],
                     'token': ['tx'],
-                    'morpheme': ['mb', 'ps', 'ge', 'gr'] 
+                    'morpheme': ['mb', 'ps', 'ge', 'gf', 'gr'] 
                     }
             self.columns = [
                     # word
