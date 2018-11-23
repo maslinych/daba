@@ -252,12 +252,15 @@ class ToolboxReader(object):
                 if marker in recdict:
                     value = recdict[marker].strip() + ' ' + value
                 recdict[marker] = value
+        out = recdict.items()
+        yield Record(out, self.config)
 
 
 class VertFormatter(object):
-    def __init__(self, parser, outfile):
+    def __init__(self, parser, outfile=None, split=False):
         self.parser = parser
         self.outfile = outfile
+        self.split = split
 
     def print_metadata(self, record):
         return u' '.join([u'{0}={1}'.format(k,quoteattr(v)) for k,v in record.metadata])
@@ -265,35 +268,69 @@ class VertFormatter(object):
     def print_token(self, token):
         return self.parser.config.tc.convert(token)
 
+    def normalize_docpath(self, docid):
+        rdict = {' ': '_',
+                 '.': '-',
+                 '"': '',
+                 '&': '_and_'}
+        s = docid.strip(' .')
+        return reduce(lambda x, y: x.replace(y, rdict[y]), rdict, s)
+
     def write(self):
-        with codecs.open(self.outfile, 'wb', encoding='utf-8') as out:
-            inrec = 0
-            for record in self.parser.irecords():
-                if not record:
-                    continue
-                if record.atdoclevel:
-                    if inrec == 1:
-                        out.write('</doc>\n')
-                    out.write(u'<doc {}>\n'.format(self.print_metadata(record)))
-                    inrec = 1
-                else:
-                    out.write(u'<s {}>\n'.format(self.print_metadata(record)))
-                    for token in record.itokens():
-                        out.write(u'{}\n'.format(self.print_token(token)))
-                    out.write(u'</s>\n')
-            out.write('</doc>\n')        
+        docs = self.format_vert()
+        if self.split:
+            for docid in docs:
+                fname = u'.'.join([self.normalize_docpath(docid),
+                                   'vert'])
+                with codecs.open(fname, 'w', encoding='utf-8') as out:
+                    out.write(docs[docid])
+        else:
+            with codecs.open(self.outfile, 'wb', encoding='utf-8') as out:
+                for docid in docs:
+                    out.write(docs[docid])
+
+    def format_vert(self):
+        out = collections.OrderedDict()
+        rec = []
+        inrec = 0
+        docid = ''
+        for record in self.parser.irecords():
+            if not record:
+                continue
+            if record.atdoclevel:
+                if inrec == 1:
+                    rec.append('</doc>\n')
+                    out[docid] = u''.join(rec)
+                    rec = []
+                docid = dict(record.metadata)['id']
+                rec.append(u'<doc {}>\n'.format(self.print_metadata(record)))
+                inrec = 1
+            else:
+                rec.append(u'<s {}>\n'.format(self.print_metadata(record)))
+                for token in record.itokens():
+                    rec.append(u'{}\n'.format(self.print_token(token)))
+                rec.append(u'</s>\n')
+        rec.append('</doc>\n')
+        out[docid] = u''.join(rec)
+        return out
 
 
 def main():
     aparser = argparse.ArgumentParser("Toolbox to vertical format converter.")
-    aparser.add_argument('-i', '--infile', help='Input file (toolbox format).')
-    aparser.add_argument('-o', '--outfile', help='Output file (vertical format).')
-    aparser.add_argument('-c', '--config', help='Configuration file')
+    aparser.add_argument('-i', '--infile',
+                         help='Input file (toolbox format)')
+    aparser.add_argument('-o', '--outfile',
+                         help='Output file (vertical format)')
+    aparser.add_argument('-c', '--config',
+                         help='Configuration file to use')
+    aparser.add_argument('-s', '--split', action='store_true',
+                         help='Split output into separate files')
     args = aparser.parse_args()
 
     fileparser = ToolboxReader(infile=args.infile, conffile=args.config)
-    formatter = VertFormatter(fileparser, args.outfile)
+    formatter = VertFormatter(parser=fileparser, outfile=args.outfile, split=args.split)
     formatter.write()
+
 
 if __name__ == '__main__':
     main()
