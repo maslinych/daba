@@ -9,8 +9,38 @@ import json
 from itertools import izip_longest
 from nltk import toolbox
 from xml.sax.saxutils import quoteattr
+from daba.ntgloss import Gloss
+from daba.formats import GlossToken
 
-ShToken = collections.namedtuple('ShToken', 'type, word, morphemes')
+
+class ShToken(collections.namedtuple('ShToken', 'type, word, morphemes')):
+    __slots__ = ()
+
+    def as_glosstoken(self, config):
+        token = self.word[config.daba['token']]
+        if self.type == 'w':
+            gt = GlossToken()
+            form = self.word[config.daba['word']]
+            morphemes = []
+            for m in self.morphemes:
+                morphemes.append(self.morph2gloss(m, config.daba['morpheme']))
+            if len(morphemes) == 1:
+                gt.w(morphemes[0], token=token)
+            else:
+                ps = filter(lambda s: 'mrph' not in s.ps, morphemes)[0]
+                gloss = u'-'.join([m.gloss for m in morphemes])
+                g = Gloss(form, ps, gloss, morphemes)
+                gt.w(g, token=token)
+        elif self.type == 'c':
+            gt = GlossToken((self.type, token))
+        return gt
+
+    def morph2gloss(self, morph, keys):
+        u"convert OrderedDict into Gloss"
+        parts = [morph.get(k) for k in keys]
+        parts[1] = (parts[1],)
+        parts.append((),)
+        return Gloss(*parts)
 
 
 class ShGloss(collections.Mapping):
@@ -68,7 +98,7 @@ class Layers(collections.Iterable):
 class TokenConverter(object):
     def __init__(self, config):
         self.config = config
-        
+
     def isgrammar(self, gloss):
         return bool(re.match('[A-Z0-9.]+$', gloss[self.config.glossfield]))
 
@@ -153,7 +183,12 @@ class Config(object):
         "mb",
         "ge",
         "PARTS"
-        ]
+        ],
+    "daba": {
+        "token": "tx",
+        "word": "tx",
+        "morpheme": ["mb", "ps", "ge"]
+        }
 }
 '''
         self.set_options(json.loads(defaults))
