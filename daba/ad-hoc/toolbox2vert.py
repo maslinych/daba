@@ -318,19 +318,7 @@ class ToolboxReader(object):
         return out
 
 
-class VertFormatter(object):
-    def __init__(self, docs, parser, outfile=None, split=False):
-        self.docs = docs
-        self.parser = parser
-        self.outfile = outfile
-        self.split = split
-
-    def print_metadata(self, record):
-        return u' '.join([u'{0}={1}'.format(k, quoteattr(v)) for k, v in record.metadata])
-
-    def print_token(self, token):
-        return self.parser.config.tc.convert(token)
-
+class BaseFormatter(object):
     def normalize_docpath(self, docid):
         rdict = {' ': '_',
                  '.': '-',
@@ -340,32 +328,44 @@ class VertFormatter(object):
         return reduce(lambda x, y: x.replace(y, rdict[y]), rdict, s)
 
     def write(self):
-        docs = self.format_vert()
         if self.split:
-            for docid in docs:
+            for docid in self.docs:
                 fname = u'.'.join([self.normalize_docpath(docid),
-                                   'vert'])
+                                   self.extension])
                 with codecs.open(fname, 'w', encoding='utf-8') as out:
-                    out.write(docs[docid])
+                    formatted = self.format_doc(self.docs[docid])
+                    out.write(formatted)
         else:
             with codecs.open(self.outfile, 'wb', encoding='utf-8') as out:
-                for docid in docs:
-                    out.write(docs[docid])
+                for docid in self.docs:
+                    formatted = self.format_doc(self.docs[docid])
+                    out.write(formatted)
 
-    def format_vert(self):
-        out = collections.OrderedDict()
+
+class VertFormatter(BaseFormatter):
+    def __init__(self, docs, parser, outfile=None, split=False):
+        self.docs = docs
+        self.parser = parser
+        self.outfile = outfile
+        self.split = split
+        self.extension = 'vert'
+
+    def print_metadata(self, record):
+        return u' '.join([u'{0}={1}'.format(k, quoteattr(v)) for k, v in record.metadata])
+
+    def print_token(self, token):
+        return self.parser.config.tc.convert(token)
+
+    def format_doc(self, doc):
         vert = []
-        for docid, doc in self.docs.items():
-            vert.append(u'<doc {}>\n'.format(self.print_metadata(doc)))
-            for record in doc.records:
-                vert.append(u'<s {}>\n'.format(self.print_metadata(record)))
-                for token in record.itokens():
-                    vert.append(u'{}\n'.format(self.print_token(token)))
-                vert.append(u'</s>\n')
-            vert.append('</doc>\n')
-            out[docid] = u''.join(vert)
-            vert = []
-        return out
+        vert.append(u'<doc {}>\n'.format(self.print_metadata(doc)))
+        for record in doc.records:
+            vert.append(u'<s {}>\n'.format(self.print_metadata(record)))
+            for token in record.itokens():
+                vert.append(u'{}\n'.format(self.print_token(token)))
+            vert.append(u'</s>\n')
+        vert.append('</doc>\n')
+        return u''.join(vert)
 
 
 class DabaFormatter(object):
