@@ -412,7 +412,7 @@ class SimpleHtmlWriter(object):
 
 
 class HtmlWriter(object):
-    def __init__(self, (metadata, para), filename, encoding="utf-8"):
+    def __init__(self, (metadata, para), filename=None, encoding="utf-8"):
         self.encoding = encoding
         self.metadata = metadata
         self.para = para
@@ -481,7 +481,8 @@ class HtmlWriter(object):
         self.xml = root
 
     def write(self):
-        e.ElementTree(self.xml).write(self.filename, self.encoding)
+        if self.filename:
+            e.ElementTree(self.xml).write(self.filename, self.encoding)
 
 
 class FileWrapper(object):

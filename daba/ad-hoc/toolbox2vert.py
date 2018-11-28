@@ -10,7 +10,8 @@ from itertools import izip_longest
 from nltk import toolbox
 from xml.sax.saxutils import quoteattr
 from daba.ntgloss import Gloss
-from daba.formats import GlossToken
+from daba.formats import GlossToken, HtmlWriter
+import xml.etree.cElementTree as e
 
 
 class ShDoc(object):
@@ -33,7 +34,10 @@ class ShToken(collections.namedtuple('ShToken', 'type, word, morphemes')):
             if len(morphemes) == 1:
                 gt.w(morphemes[0], token=token)
             else:
-                ps = filter(lambda s: 'mrph' not in s.ps, morphemes)[0]
+                try:
+                    ps = filter(lambda s: 'mrph' not in s.ps, morphemes)[0].ps
+                except IndexError:
+                    ps = ''
                 gloss = u'-'.join([m.gloss for m in morphemes])
                 g = Gloss(form, ps, gloss, morphemes)
                 gt.w(g, token=token)
@@ -219,6 +223,7 @@ class Record(object):
         self._tokens = []
         self._morphemes = []
         self.atdoclevel = False
+        self.config = config
 
         for marker, value in fields:
             marker = marker.decode('utf-8')
@@ -241,9 +246,13 @@ class Record(object):
 
     def __nonzero__(self):
         return bool(self.metadata) or bool(self._tokens) or bool(self._morphemes)
-    
+
     def ispunct(self, string):
         return bool(re.match(u'[.,:;?!()"“”–‒«»]+$', string))
+
+    def get_senttext(self):
+        tdict = dict(self._tokens)
+        return u' '.join(tdict[self.config.daba['token']])
 
     def itokens(self):
         morphs = collections.deque(self.morphemes)
@@ -368,9 +377,24 @@ class VertFormatter(BaseFormatter):
         return u''.join(vert)
 
 
-class DabaFormatter(object):
-    def __init__(self):
-        pass
+class DabaFormatter(BaseFormatter):
+    def __init__(self, docs, parser, outfile=None, split=False):
+        self.docs = docs
+        self.parser = parser
+        self.outfile = outfile
+        self.split = split
+        self.extension = 'sh.html'
+
+    def format_doc(self, doc):
+        metadata = dict(doc.metadata)
+        para = []
+        for record in doc.records:
+            senttext = record.get_senttext()
+            sentannot = [t.as_glosstoken(self.parser.config) for t in record.itokens()]
+            para.append((senttext, sentannot))
+        ft = HtmlWriter((metadata, [para]))
+        return e.tostring(ft.xml)
+
 
 
 def main():
@@ -383,10 +407,15 @@ def main():
                          help='Configuration file to use')
     aparser.add_argument('-s', '--split', action='store_true',
                          help='Split output into separate files')
+    aparser.add_argument('-f', '--format', choices=['vert', 'daba'], default='vert',
+                         help='Output format')
     args = aparser.parse_args()
 
     fileparser = ToolboxReader(infile=args.infile, conffile=args.config)
-    formatter = VertFormatter(docs=fileparser.get_docs(), parser=fileparser, outfile=args.outfile, split=args.split)
+    if args.format == 'vert':
+        formatter = VertFormatter(docs=fileparser.get_docs(), parser=fileparser, outfile=args.outfile, split=args.split)
+    elif args.format == 'daba':
+        formatter = DabaFormatter(docs=fileparser.get_docs(), parser=fileparser, outfile=args.outfile, split=args.split)
     formatter.write()
 
 
