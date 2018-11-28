@@ -13,6 +13,12 @@ from daba.ntgloss import Gloss
 from daba.formats import GlossToken
 
 
+class ShDoc(object):
+    def __init__(self):
+        self.metadata = []
+        self.records = []
+
+
 class ShToken(collections.namedtuple('ShToken', 'type, word, morphemes')):
     __slots__ = ()
 
@@ -290,15 +296,37 @@ class ToolboxReader(object):
         out = recdict.items()
         yield Record(out, self.config)
 
+    def get_docs(self):
+        out = collections.OrderedDict()
+        records = []
+        inrec = 0
+        docid = ''
+        for record in self.irecords():
+            if not record:
+                continue
+            if record.atdoclevel:
+                if inrec == 1:
+                    out[docid].records = records
+                    records = []
+                docid = dict(record.metadata)['id']
+                out[docid] = ShDoc()
+                out[docid].metadata = record.metadata
+                inrec = 1
+            else:
+                records.append(record)
+        out[docid].records = records
+        return out
+
 
 class VertFormatter(object):
-    def __init__(self, parser, outfile=None, split=False):
+    def __init__(self, docs, parser, outfile=None, split=False):
+        self.docs = docs
         self.parser = parser
         self.outfile = outfile
         self.split = split
 
     def print_metadata(self, record):
-        return u' '.join([u'{0}={1}'.format(k,quoteattr(v)) for k,v in record.metadata])
+        return u' '.join([u'{0}={1}'.format(k, quoteattr(v)) for k, v in record.metadata])
 
     def print_token(self, token):
         return self.parser.config.tc.convert(token)
@@ -326,28 +354,23 @@ class VertFormatter(object):
 
     def format_vert(self):
         out = collections.OrderedDict()
-        rec = []
-        inrec = 0
-        docid = ''
-        for record in self.parser.irecords():
-            if not record:
-                continue
-            if record.atdoclevel:
-                if inrec == 1:
-                    rec.append('</doc>\n')
-                    out[docid] = u''.join(rec)
-                    rec = []
-                docid = dict(record.metadata)['id']
-                rec.append(u'<doc {}>\n'.format(self.print_metadata(record)))
-                inrec = 1
-            else:
-                rec.append(u'<s {}>\n'.format(self.print_metadata(record)))
+        vert = []
+        for docid, doc in self.docs.items():
+            vert.append(u'<doc {}>\n'.format(self.print_metadata(doc)))
+            for record in doc.records:
+                vert.append(u'<s {}>\n'.format(self.print_metadata(record)))
                 for token in record.itokens():
-                    rec.append(u'{}\n'.format(self.print_token(token)))
-                rec.append(u'</s>\n')
-        rec.append('</doc>\n')
-        out[docid] = u''.join(rec)
+                    vert.append(u'{}\n'.format(self.print_token(token)))
+                vert.append(u'</s>\n')
+            vert.append('</doc>\n')
+            out[docid] = u''.join(vert)
+            vert = []
         return out
+
+
+class DabaFormatter(object):
+    def __init__(self):
+        pass
 
 
 def main():
@@ -363,7 +386,7 @@ def main():
     args = aparser.parse_args()
 
     fileparser = ToolboxReader(infile=args.infile, conffile=args.config)
-    formatter = VertFormatter(parser=fileparser, outfile=args.outfile, split=args.split)
+    formatter = VertFormatter(docs=fileparser.get_docs(), parser=fileparser, outfile=args.outfile, split=args.split)
     formatter.write()
 
 
