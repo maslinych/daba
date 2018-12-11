@@ -6,6 +6,8 @@ import argparse
 import collections
 import codecs
 import json
+import sys
+import os
 from itertools import izip_longest
 from nltk import toolbox
 from xml.sax.saxutils import quoteattr
@@ -332,7 +334,8 @@ class BaseFormatter(object):
         rdict = {' ': '_',
                  '.': '-',
                  '"': '',
-                 '&': '_and_'}
+                 '&': '_and_',
+                 ':': '-'}
         s = docid.strip(' .')
         return reduce(lambda x, y: x.replace(y, rdict[y]), rdict, s)
 
@@ -341,6 +344,8 @@ class BaseFormatter(object):
             for docid in self.docs:
                 fname = u'.'.join([self.normalize_docpath(docid),
                                    self.extension])
+                if self.outdir:
+                    fname = os.path.join(self.outdir, fname)
                 with codecs.open(fname, 'w', encoding='utf-8') as out:
                     formatted = self.format_doc(self.docs[docid])
                     out.write(formatted)
@@ -352,12 +357,13 @@ class BaseFormatter(object):
 
 
 class VertFormatter(BaseFormatter):
-    def __init__(self, docs, parser, outfile=None, split=False):
+    def __init__(self, docs, parser, outfile=None, split=False, outdir=None):
         self.docs = docs
         self.parser = parser
         self.outfile = outfile
         self.split = split
         self.extension = 'vert'
+        self.outdir = outdir
 
     def print_metadata(self, record):
         return u' '.join([u'{0}={1}'.format(k, quoteattr(v)) for k, v in record.metadata])
@@ -378,12 +384,13 @@ class VertFormatter(BaseFormatter):
 
 
 class DabaFormatter(BaseFormatter):
-    def __init__(self, docs, parser, outfile=None, split=False):
+    def __init__(self, docs, parser, outfile=None, split=False, outdir=None):
         self.docs = docs
         self.parser = parser
         self.outfile = outfile
         self.split = split
         self.extension = 'sh.html'
+        self.outdir = outdir
 
     def format_doc(self, doc):
         metadata = dict(doc.metadata)
@@ -396,6 +403,17 @@ class DabaFormatter(BaseFormatter):
         return e.tostring(ft.xml)
 
 
+class FilelistFormatter(BaseFormatter):
+    def __init__(self, docs):
+        self.docs = docs
+
+    def write(self):
+        out = []
+        for docid in self.docs:
+            out.append(self.normalize_docpath(docid))
+        sys.stdout.write(u' '.join(out).encode('utf-8'))
+        sys.stdout.write('\n')
+
 
 def main():
     aparser = argparse.ArgumentParser("Toolbox to vertical format converter.")
@@ -403,19 +421,25 @@ def main():
                          help='Input file (toolbox format)')
     aparser.add_argument('-o', '--outfile',
                          help='Output file (vertical format)')
+    aparser.add_argument('-d', '--outdir', default=None,
+                         help='Output directory')
     aparser.add_argument('-c', '--config',
                          help='Configuration file to use')
     aparser.add_argument('-s', '--split', action='store_true',
                          help='Split output into separate files')
-    aparser.add_argument('-f', '--format', choices=['vert', 'daba'], default='vert',
-                         help='Output format')
+    aparser.add_argument('-f', '--format', choices=['vert', 'daba', 'list'],
+                         default='vert', help='Output format')
     args = aparser.parse_args()
 
     fileparser = ToolboxReader(infile=args.infile, conffile=args.config)
     if args.format == 'vert':
-        formatter = VertFormatter(docs=fileparser.get_docs(), parser=fileparser, outfile=args.outfile, split=args.split)
+        formatter = VertFormatter(docs=fileparser.get_docs(),
+                                  parser=fileparser, outfile=args.outfile, split=args.split, outdir=args.outdir)
     elif args.format == 'daba':
-        formatter = DabaFormatter(docs=fileparser.get_docs(), parser=fileparser, outfile=args.outfile, split=args.split)
+        formatter = DabaFormatter(docs=fileparser.get_docs(),
+                                  parser=fileparser, outfile=args.outfile, split=args.split, outdir=args.outdir)
+    elif args.format == 'list':
+        formatter = FilelistFormatter(docs=fileparser.get_docs())
     formatter.write()
 
 
