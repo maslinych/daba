@@ -66,11 +66,30 @@ class TokenizerData(object):
                 ('Word', (u"([=\"'\u2018\u201c–‑‐-]|[’]{1,2}|‘’)?[\w\u0300\u0301\u0302\u0304\u0308\u030b\u030f]+([=\"'\u201c\u201d\u2018\u2010\u2011-]|[\u2019]{1,2})?", re.UNICODE)),
                 ('Nonword', (u'\W', re.UNICODE)),
         ]
+        
+        self.kpelle = [
+                ('Comment', (u'<c>.*?</c>', re.DOTALL)),
+                ('Comment', (u'<sp>.*?</sp>',)),
+                ('SentPunct', (u'<st>',)),
+                ('SentPunct', (u'((?<![0-9])[.!?]+(?=[\s\n\u200f])|:(?=\s*\n))', re.UNICODE)),
+                ('SentPunct', (u'(?<=[.!?])\s*[»\u203a]+', re.UNICODE)),
+                ('Punct', (u'([:;,(){}‹›]+|<\s*<|>\s*>)', re.UNICODE)),
+                ('Tag', (u'<.*?>',)),
+                ('Par', (u'(\r?\n){2,}',)),
+                ('NL', (u'[\r\n]',)),
+                ('Space', (u'\s+', re.UNICODE)),
+                ('Cardinal', (u'(\d([-.,:]\d)?)+[.]?', re.UNICODE)),
+                ('Word', (u'(\w\.){2,}', re.UNICODE)),
+                ('Word', (u"['’‘]?[\w\u0300\u0301\u0302\u0308=-]+", re.UNICODE)),
+                ('Nonword', (u'\W', re.UNICODE)),
+        ]
+
 
         self._methods = {
             "bamana": self.bamana,
             "nko": self.nko,
             "dan": self.dan,
+            "kpelle": self.kpelle,
             "default": self.bamana
         }
         self.methods = self._methods.keys()
