@@ -43,14 +43,21 @@ class VariantsLoader(object):
     def get(self):
         return self.vardict, self.polisemy
 
+
 def dedot(s, repl=''):
+    if '|' in s:
+        s = s.split("|")[0]
+    if ' ' in s:
+        s = s.replace(" ", "_")
     return s.replace('.', repl)
+
 
 def print_fields(fields, unique=True):
     if unique:
         print u"\t".join([u'|'.join(filter(None, set(s))) for s in fields]).encode('utf-8')
     else:
         print u"\t".join([u'|'.join(filter(None, s)) for s in fields]).encode('utf-8')
+
 
 def make_lemmafunc(args):
     if args.tonal:
@@ -65,6 +72,7 @@ def make_lemmafunc(args):
     else:
         get_lemma = lambda x: detone(dedot(x))
     return get_lemma
+
 
 def make_tagstring(gloss):
     if gloss.morphemes:
