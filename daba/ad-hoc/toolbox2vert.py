@@ -180,6 +180,8 @@ class Config(object):
         defaults = u'''
 {
     "recstarters": ["id", "ref"],
+    "reclabel": "ref",
+    "docid": "id",
     "tagfield": "ps",
     "glossfield": "gf",
     "annotlevels": {
@@ -273,7 +275,11 @@ class Record(object):
                     try:
                         morphemes.append(morphs.popleft())
                     except IndexError:
-                        print dict(self.metadata)['ref'], "tokens:", len(self.tokens), "punct:", npunct, "morphemes:", len(self.morphemes)
+                        try:
+                            print dict(self.metadata)[self.config.docid],
+                        except KeyError:
+                            print "UNK",
+                        print "tokens:", len(self.tokens), "punct:", npunct, "morphemes:", len(self.morphemes)
 
                 while morphs and morphs[0].isaffix:
                         morphemes.append(morphs.popleft())
@@ -319,7 +325,7 @@ class ToolboxReader(object):
                 if inrec == 1:
                     out[docid].records = records
                     records = []
-                docid = dict(record.metadata)['id']
+                docid = dict(record.metadata)[self.config.docid]
                 out[docid] = ShDoc()
                 out[docid].metadata = record.metadata
                 inrec = 1
