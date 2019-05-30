@@ -641,8 +641,8 @@ class GlossSelector(wx.Panel):
             self.stage = 'gdisamb.-1'
         self.UpdateState(self.statecode, self.gloss)
 
-    def GetToken(self):
-        return formats.GlossToken((self.toktype, (self.form, self.stage, self.glosslist)))
+    def GetWordToken(self):
+        return formats.WordToken(self.glosslist, self.form, self.stage)
 
     def OnContextMenu(self, evt):
         if not hasattr(self, "joinfwID"):
@@ -1325,7 +1325,7 @@ class MainFrame(wx.Frame):
         selector = e.GetEventObject()
         if selector.selectlist:
             self.processor.dirty = True
-        token = selector.GetToken()
+        token = selector.GetWordToken()
         snum, toknum = selector.index
         self.processor.glosses[snum][1][toknum] = selector.selectlist
         self.processor.glosses[snum][2][toknum] = token
@@ -1346,7 +1346,7 @@ class MainFrame(wx.Frame):
         shift = 0
         for token in evt.result:
             self.processor.glosses[snum][1].insert(toknum+shift, [])
-            self.processor.glosses[snum][2].insert(toknum+shift, formats.GlossToken(('w', (token, '-1', [Gloss(token, (), '', ())]))))
+            self.processor.glosses[snum][2].insert(toknum+shift, formats.WordToken([Gloss(token, (), '', ())], token, '-1'))
             shift = shift+1
         self.processor.dirty = True
         wx.CallAfter(self.ShowSent, snum)
@@ -1362,7 +1362,7 @@ class MainFrame(wx.Frame):
         nexttoken = self.processor.glosses[snum][2][second]
         #FIXME: will break on non-word tokens
         newform = firsttoken.token + nexttoken.token
-        newtoken = formats.GlossToken(('w', (newform, '-1', [Gloss(newform, (),'',())])))
+        newtoken = formats.WordToken([Gloss(newform, (),'',())], newform, '-1')
         self.processor.glosses[snum][1][first] = []
         del self.processor.glosses[snum][1][second]
         self.processor.glosses[snum][2][first] = newtoken
@@ -1378,9 +1378,9 @@ class MainFrame(wx.Frame):
                 newtoken = savedtoken
                 newtoken.token = evt.token
             else:
-                newtoken = formats.GlossToken(('w', (evt.token, '-1', [Gloss(evt.token, (), '', ())])))
+                newtoken = formats.WordToken([Gloss(evt.token, (), '', ())], evt.token, '-1')
         else:
-            newtoken = formats.GlossToken((evt.toktype, evt.token))
+            newtoken = formats.PlainToken((evt.toktype, evt.token))
         self.processor.glosses[snum][2][toknum] = newtoken
         self.processor.dirty = True
         wx.CallAfter(self.ShowSent, snum)

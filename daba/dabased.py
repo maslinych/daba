@@ -47,7 +47,7 @@ expression appears in the replacement part, the information in the
 source token and the replacement pattern is united according to
 :method:`Gloss.union()` logic.
 
-* a GlossToken, in the following syntax:
+* a PlainToken, in the following syntax:
 
     @type
 
@@ -57,12 +57,12 @@ or
 
 where
 
-* type — is a string matching `GlossToken.type`;
+* type — is a string matching `PlainToken.type`;
 * regex — is a regular expression that is matched against the whole
-  `GlossToken.value`.
+  `PlainToken.value`.
 
-The GlossToken expressions are not meant to be used for 'w' token type
-(regular words). Use Gloss expressions instead.
+The PlainToken expressions are not meant to be used for 'w' token type
+(WordToken, regular words). Use Gloss expressions instead.
 
 Expression Examples
 -------------------
@@ -107,7 +107,7 @@ forms.
 This type of rules applies to a window of several sequential tokens,
 either word tokens (Glosses) or others. The replacement part should
 have an equal number of tokens. The replcement is perfomed using
-:method:`GlossToken.union()` in the given order. The union is done
+:method:`WordToken/PlainToken.union()` in the given order. The union is done
 only for the root Glosses, morphemes are not processed recursively.
 
 3. Asymmetric replacement rules:
@@ -117,7 +117,7 @@ only for the root Glosses, morphemes are not processed recursively.
 Asymmetric rules are any rules that have different number of tokens on
 the left and right sides of the rule. The replacement part of these
 rules is simply substituted instead of a list of source tokens where
-the rule matches. No union is done wth the source tokens, so the
+the rule matches. No union is done with the source tokens, so the
 replacement tokens should be fully specified (no partial Glosses are
 allowed).
 
@@ -168,8 +168,7 @@ class ScriptParser(object):
         gloss = grammar.fullgloss_parser().parse(
             grammar.tokenize(gloss_string)
         )
-        gt = formats.GlossToken()
-        gt.w(gloss, 'dabased')
+        gt = formats.WordToken([gloss], stage='dabased')
         return gt
 
     def parse_token(self, token_expression):
@@ -179,7 +178,7 @@ class ScriptParser(object):
         except (ValueError):
             toktype = token_expression[1:]
             tokvalue = ''
-        return formats.GlossToken((toktype, tokvalue))
+        return formats.PlainToken((toktype, tokvalue))
 
     def parse_expr(self, expr):
         glosslist = [i.strip()
@@ -240,14 +239,13 @@ class StreamEditor(object):
 #                ).encode('utf-8')
 #            )
         return all(
-            token.matches(intoken, psstrict=True)
+            token.matches(intoken)
             for token, intoken in zip(tokenlist, pattern)
         )
 
     def replace(self, token, target):
         if token.type == 'w':
-            gt = formats.GlossToken()
-            gt.w(target.gloss, 'dabased')
+            gt = formats.WordToken([target.gloss], stage='dabased')
             outgloss = token.union(gt)
             return outgloss
         else:
@@ -280,7 +278,7 @@ class StreamEditor(object):
                         target = rule.outlist[0]
                         gt = self.replace(token, target)
                         outgloss = gt.gloss._replace(morphemes=target.gloss.morphemes)
-                        gt.w(outgloss, 'dabased', token=tokens[0].token)
+                        gt = formats.WordToken([outgloss], token=tokens[0].token, stage='dabased')
                         return [gt]
                     domatch = True
                 else:
@@ -289,8 +287,7 @@ class StreamEditor(object):
                         pattern = rule.inlist[0].gloss
                         target = rule.outlist[0].gloss
                         outgloss = self.recursive_replace(token, pattern, target)
-                        gt = formats.GlossToken()
-                        gt.w(outgloss, 'dabased', token=tokens[0].token)
+                        gt = formats.WordToken([outgloss], token=tokens[0].token, stage='dabased')
                         if pattern.ps == target.ps:
                             return [tokens[0].union(gt)]
                         else:
@@ -327,7 +324,7 @@ class StreamEditor(object):
                            in izip_longest(
                                tokens,
                                replacement,
-                               fillvalue=formats.GlossToken())):
+                               fillvalue=formats.PlainToken())):
                     self.dirty = True
                     if self.verbose:
                         sys.stderr.write(

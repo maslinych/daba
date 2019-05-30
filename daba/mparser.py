@@ -296,15 +296,14 @@ class Processor(object):
                 st = (''.join(t.value for t in sent), [])
                 par.append(st)
                 annot = st[1]
-                prevtoken = False
                 for token in sent:
                     if token.type in ['Comment', 'Tag']:
-                        annot.append(formats.GlossToken((token.type, token.value)))
+                        annot.append(formats.PlainToken((token.type, token.value)))
                     elif token.type in ['Punct', 'SentPunct', 'Nonword']:
-                        annot.append(formats.GlossToken(('c', token.value)))
+                        annot.append(formats.PlainToken(('c', token.value)))
                     elif token.type in ['Cardinal']:
                         gloss = Gloss(token.value, ('num',), 'CARDINAL', ())
-                        annot.append(formats.GlossToken(('w', (token.value, 'tokenizer', [gloss]))))
+                        annot.append(formats.WordToken([gloss], token.value, 'tokenizer'))
                     elif token.type in ['Word']:
                         if self.converters:
                             wlist = self.convert_orthography(token.value)
@@ -330,10 +329,9 @@ class Processor(object):
                                     normform = normforms[0]
                                 else:
                                     normform = u'*{}*'.format(u'/'.join(normforms))
-                            annot.append(formats.GlossToken(('w', (normform, unicode(stage), glosslist))))
+                            annot.append(formats.WordToken(glosslist, normform, unicode(stage)))
                         else:
-                            annot.append(formats.GlossToken(('w', (token.value, unicode(stage), glosslist))))
-                        prevtoken = True
+                            annot.append(formats.WordToken(glosslist, token.value, unicode(stage)))
 
             self.parsed.append(par)
         return self.parsed

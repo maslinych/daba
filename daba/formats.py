@@ -13,7 +13,8 @@ import daba.grammar as grammar
 from daba.ntgloss import Gloss
 from daba.orthography import detone
 from pytrie import StringTrie as trie
-from collections import namedtuple, MutableMapping, defaultdict, OrderedDict
+from collections import MutableMapping, defaultdict, OrderedDict
+from abc import abstractmethod
 
 # Data structure for internal bare text representation:
 # ({metadata}, [para+])
@@ -53,6 +54,7 @@ def gloss_to_html(gloss, spanclass='lemma', variant=False):
         print "ERR GLOSS: {}\n".format(unicode(gloss)).encode('utf-8')
     return w
 
+
 def glosstext_to_html(glosstext, variant=False, **kwargs):
     """Serialize text representation of a gloss into HTML string"""
     toks = grammar.str_tokenize(glosstext)
@@ -61,86 +63,116 @@ def glosstext_to_html(glosstext, variant=False, **kwargs):
     return e.tostring(html, **kwargs)
 
 
-class GlossToken(object):
-    def __init__(self, toktuple=None):
-        if toktuple:
-            self.type, self.value = toktuple
-        else:
-            self.type, self.value = '', ''
-        if self.type == 'w':
-            self.token, self.stage, self.glosslist = self.value
-            self.gloss = self.glosslist[0]
-        else:
-            self.token = self.value
-            self.stage = ''
-            self.gloss = Gloss(self.token, (), self.type, ())
-            self.glosslist = [self.gloss]
-
-    def w(self, gloss, stage='', token=None):
-        """
-        Shortcut for creating GlossTokens from a single Gloss objects.
-        """
-        self.type = 'w'
-        self.gloss = gloss
-        self.glosslist = [gloss]
-        if token:
-            self.token = token
-        else:
-            self.token = gloss.form
-        self.stage = stage
-        self.value = self.token, self.stage, self.glosslist
-
-    def __eq__(self, other):
-        if self.type == other.type:
-            if not self.gloss and not other.gloss:
-                return True
-            elif self.type == 'w':
-                return self.gloss == other.gloss
-            else:
-                return self.value == other.value
-        return False
+class BaseToken(object):
+    def __init__(self, toktype, tokvalue):
+        self.type = toktype
+        self.value = tokvalue
 
     def __unicode__(self):
-        if self.type == 'w':
-            return u' '.join([self.type, self.stage, unicode(self.gloss)])
         return u' '.join([self.type, self.value or ''])
 
     def __repr__(self):
         return ' '.join([self.type, repr(self.value)])
 
     def as_tuple(self):
-        if self.type == 'w':
-            return (self.type, (self.token, self.stage, self.glosslist))
+        return (self.type, self.value)
+
+    @abstractmethod
+    def __eq__(self, other):
+        pass
+
+    @abstractmethod
+    def matches(self, other):
+        pass
+
+    @abstractmethod
+    def union(self, other):
+        pass
+
+
+class PlainToken(BaseToken):
+    def __init__(self, toktuple=None, attrs=None):
+        if toktuple:
+            self.type, self.value = toktuple
         else:
-            return (self.type, self.value)
+            self.type, self.value = '', ''
+        self.token = self.value
+        self.stage = ''
+        self.gloss = Gloss(self.token, (), self.type, ())
+        self.glosslist = [self.gloss]
+        if attrs:
+            for key in attrs:
+                setattr(self, key, attrs[key])
+        
+    def __eq__(self, other):
+        if self.type == other.type:
+            if not self.gloss and not other.gloss:
+                return True
+            else:
+                return self.value == other.value
+        return False
+
+    def matches(self, other):
+        if self.type == other.type:
+            if other.value:
+                try:
+                    return re.match(other.value, self.value)
+                except TypeError:
+                    print("Failed MATCH: {} ~ /{}/".format(repr(self.value), repr(other.value)))
+            else:
+                return True
+        return False
+
+    def union(self, other):
+        gt = self
+        if self.type == other.type:
+            if other.value:
+                gt = PlainToken((other.type, other.value))                
+            else:
+                gt = PlainToken((other.type, self.value))
+        return gt
+
+
+class WordToken(BaseToken):
+    def __init__(self, glosslist, token=None, stage=''):
+        self.type = 'w'
+        self.glosslist = glosslist
+        self.gloss = glosslist[0]
+        if token:
+            self.token = token
+        else:
+            self.token = self.gloss.form
+        self.stage = stage
+        self.value = self.token, self.stage, self.glosslist
+
+    def __eq__(self, other):
+        if other.type == 'w':
+            return self.glosslist == other.glosslist
+        return False
+
+    def __unicode__(self):
+        return u' '.join([self.type, self.stage, unicode(self.gloss)])
+
+    def as_tuple(self):
+        # SUSPECT! to remove?
+        return (self.type, (self.token, self.stage, self.glosslist))
+
+    def matches(self, other):
+        if other.type == 'w':
+            return self.gloss.matches(other.glosslist[0], psstrict=True)
+        return False
+
+    def union(self, other):
+        gt = self
+        if other.type == 'w':
+            if other.gloss:
+                newgloss = self.glosslist[0].union(other.gloss, psoverride=False)
+                gt = WordToken([newgloss], self.token, other.stage)
+        return gt
 
     def setGlosslist(self, glosslist):
         self.glosslist = glosslist
         self.value = self.token, self.stage, self.glosslist
-
-    def matches(self, other, psstrict=True):
-        if self.type == other.type:
-            if self.type == 'w':
-                return self.gloss.matches(other.glosslist[0], psstrict)
-            else:
-                if other.value:
-                    return re.match(other.value, self.value)
-                else:
-                    return True
-        return False
-
-    def union(self, other, psoverride=False):
-        if self.type == other.type:
-            if self.type == 'w':
-                newgloss = self.glosslist[0].union(other.gloss, psoverride=psoverride)
-                gt = GlossToken(('w', (self.token, other.stage, [newgloss])))
-            elif not other.value:
-                gt = GlossToken((other.type, self.value))
-            else:
-                gt = GlossToken((other.type, other.value))
-        else:
-            gt = GlossToken()
-        return gt
 
 
 class BaseReader(object):
@@ -188,10 +220,10 @@ class HtmlReader(BaseReader):
         for event, elem in e.iterparse(self.filename, events=('start', 'end')):
             if event == 'start':
                 if elem.tag == 'p':
-                    self.tokens.append(GlossToken(('<p>', None)))
+                    self.tokens.append(PlainToken(('<p>', None)))
                     continue
                 elif elem.tag == 'span' and elem.get('class') == 'sent':
-                    self.tokens.append(GlossToken(('<s>', None)))
+                    self.tokens.append(PlainToken(('<s>', None)))
                     continue
                 else:
                     continue
@@ -206,7 +238,7 @@ class HtmlReader(BaseReader):
                 else:
                     partext = u' '.join(sentlist)
                 self.para.append(partext)
-                self.tokens.append(GlossToken(('</p>', partext)))
+                self.tokens.append(PlainToken(('</p>', partext)))
                 self.numpar += 1
                 sentlist = []
             elif elem.tag in ['span', 'sub']:
@@ -214,17 +246,17 @@ class HtmlReader(BaseReader):
                 elemtext = normalizeText(elem.text) or ''
                 if spanclass == 'sent':
                     sentlist.append(elemtext)
-                    self.tokens.append(GlossToken(('</s>', elemtext)))
+                    self.tokens.append(PlainToken(('</s>', elemtext)))
                     self.numsent += 1
                 elif spanclass == 'c':
-                    self.tokens.append(GlossToken(('c', elemtext)))
+                    self.tokens.append(PlainToken(('c', elemtext)))
                 elif spanclass == 't':
-                    self.tokens.append(GlossToken(('Tag', elemtext)))
+                    self.tokens.append(PlainToken(('Tag', elemtext)))
                 elif spanclass == 'comment':
-                    self.tokens.append(GlossToken(('Comment', elemtext)))
+                    self.tokens.append(PlainToken(('Comment', elemtext)))
                 elif spanclass == 'w':
                     self.tokens.append(
-                        GlossToken(('w', (elemtext, elem.get('stage'), glosslist)))
+                        WordToken(glosslist, token=elemtext, stage=elem.get('stage'))
                     )
                     glosslist = []
                     self.numwords += 1
@@ -294,15 +326,7 @@ class HtmlReader(BaseReader):
                         annot.append(('Comment', normalizeText(w.text) or ''))
         return (text, annot)
 
-    def itergloss(self):
-        for pp, par in enumerate(self.glosses):
-            for sp, sent in enumerate(par):
-                for tp, tok in enumerate(sent[1]):
-                    token = GlossToken(tok)
-                    if token.type == 'w':
-                        for gp, gloss in enumerate(token.glosslist):
-                            yield (gloss, (pp, sp, tp, gp))
-
+    # DEPRECATED, should be removed soon
     def setgloss(self, gloss, index):
         pp, sp, tp, gp = index
         self.glosses[pp][sp][1][tp][1][2][gp] = gloss

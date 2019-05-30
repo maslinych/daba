@@ -12,7 +12,7 @@ from itertools import izip_longest
 from nltk import toolbox
 from xml.sax.saxutils import quoteattr
 from daba.ntgloss import Gloss
-from daba.formats import GlossToken, HtmlWriter
+from daba.formats import WordToken, PlainToken, HtmlWriter
 import xml.etree.cElementTree as e
 
 
@@ -28,13 +28,12 @@ class ShToken(collections.namedtuple('ShToken', 'type, word, morphemes')):
     def as_glosstoken(self, config):
         token = self.word[config.daba['token']]
         if self.type == 'w':
-            gt = GlossToken()
             form = self.word[config.daba['word']]
             morphemes = []
             for m in self.morphemes:
                 morphemes.append(self.morph2gloss(m, config.daba['morpheme']))
             if len(morphemes) == 1:
-                gt.w(morphemes[0], token=token)
+                gt = WordToken(morphemes[0], token=token)
             else:
                 try:
                     ps = filter(lambda s: 'mrph' not in s.ps, morphemes)[0].ps
@@ -42,9 +41,9 @@ class ShToken(collections.namedtuple('ShToken', 'type, word, morphemes')):
                     ps = ''
                 gloss = u'-'.join([m.gloss for m in morphemes])
                 g = Gloss(form, ps, gloss, morphemes)
-                gt.w(g, token=token)
+                gt = WordToken(g, token=token)
         elif self.type == 'c':
-            gt = GlossToken((self.type, token))
+            gt = PlainToken((self.type, token))
         return gt
 
     def morph2gloss(self, morph, keys):
