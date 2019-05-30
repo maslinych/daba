@@ -95,7 +95,7 @@ This is the most common and historically the first use case for
 dabased. It is used to tweak glosses and other annotation fields for
 the text that has already been annotated.
 
-Note that the rule of this type is applyied recursively to all
+Note that the rule of this type is applied recursively to all
 embedded glosses (morhemes at any level of annotation). This allows to
 make replacements in stems occurring in any compound and derivative
 forms.
@@ -107,8 +107,9 @@ forms.
 This type of rules applies to a window of several sequential tokens,
 either word tokens (Glosses) or others. The replacement part should
 have an equal number of tokens. The replcement is perfomed using
-:method:`WordToken/PlainToken.union()` in the given order. The union is done
-only for the root Glosses, morphemes are not processed recursively.
+:method:`WordToken.union()` or :method:`PlainToken.union()` in the
+given order. The union is done only for the root Glosses, morphemes
+are not processed recursively.
 
 3. Asymmetric replacement rules:
 
@@ -124,6 +125,7 @@ allowed).
 Asymmetric rules may be used for token splitting and merging. A
 special case of asymmetric rules are deletion rules, with an empty
 right side.
+
 """
 
 
@@ -198,12 +200,14 @@ class ScriptParser(object):
         return result
 
     def parse_command(self, command):
+        command = u.normalize(
+            'NFKD', command.decode('utf8')
+        ).strip('\n')
+        m = re.match(r'\s*(.+?)\s*>>\s*(.+?)\s*$', command, re.U)
         try:
-            source, sep, target = u.normalize(
-                'NFKD', command.decode('utf8')
-            ).strip('\n').partition('>>')
-        except (ValueError):
-            sys.stderr.write('Invalid command: {0}\n'.format(command))
+            source, target = m.groups()
+        except (AttributeError):
+            sys.stderr.write(u'Malformed rule: {0}\n'.format(command).encode('utf-8'))
             return
         sourcelist = self.parse_expr(source)
         targetlist = self.parse_expr(target)
