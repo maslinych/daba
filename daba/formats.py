@@ -100,9 +100,7 @@ class PlainToken(BaseToken):
         self.stage = ''
         self.gloss = Gloss(self.token, (), self.type, ())
         self.glosslist = [self.gloss]
-        if attrs:
-            for key in attrs:
-                setattr(self, key, attrs[key])
+        self.attrs = attrs
         
     def __eq__(self, other):
         if self.type == other.type:
@@ -436,12 +434,20 @@ class SimpleHtmlWriter(object):
 
 
 class HtmlWriter(object):
-    def __init__(self, (metadata, para), filename=None, encoding="utf-8"):
+    def __init__(self, (metadata, para), filename=None, encoding="utf-8",
+                 compatibility_mode=True):
         self.encoding = encoding
         self.metadata = metadata
         self.para = para
         self.filename = filename
 
+        root = self._make_header()
+        if compatibility_mode:
+            self._make_xml_compat(root)
+        else:
+            self._make_xml(root)
+
+    def _make_header(self):
         self.stylesheet = """
       body { font-size: 120%; }
       span.w, span.c { color: #444; font-size: 14px; display: inline-block; float: none; vertical-align: top; padding: 3px 10px 10px 0; }
@@ -455,52 +461,100 @@ class HtmlWriter(object):
       p { vertical-align: top; }
 
         """
-
         root = e.Element('html')
         head = e.SubElement(root, 'head')
         meta = e.SubElement(head, 'meta', {'http-equiv': 'Content-Type', 'content': 'text/html; charset={0}'.format(self.encoding)})
-        for (name, content) in metadata.items():
+        for (name, content) in self.metadata.items():
             md = e.SubElement(head, 'meta', {'name': name, 'content': content})
-        body = e.SubElement(root, 'body')
         style = e.SubElement(head, 'style', {'type': 'text/css'})
         style.text = self.stylesheet
+        return root
 
+    def _make_plain_token(self, annot, gt):
+        tmap = {'Comment': 'comment',
+                'Tag': 't',
+                'c': 'c',
+                '</s>': 'sent'}
+        try:
+            a = {'class': tmap[gt.type]}
+        except KeyError:
+            a = {'class': gt.type}
+        if gt.attrs:
+            a.update(gt.attrs)
+        tok = e.SubElement(annot, 'span', a)
+        tok.text = gt.value
+        tok.tail = '\n'
+        return tok
+
+    def _make_sent_elem(self, par, senttext):
+        st = e.SubElement(par, 'span', {'class': 'sent'})
+        st.text = senttext
+        st.tail = '\n'
+        return st
+    
+    def _make_word_token(self, annot, gt):
+        sourceform, stage, glosslist = gt.value
+        w = e.SubElement(annot, 'span', {'class': 'w',
+                                         'stage': unicode(stage)})
+        w.text = gt.token
+        variant = False
+        for gloss in glosslist:
+            if not variant:
+                lem = gloss_to_html(gloss)
+                lem.tail = '\n'
+                variant = True
+            else:
+                #NB: SIDE EFFECT!
+                lem.append(gloss_to_html(gloss, variant=True))
+                lem.tail = '\n'
+        w.append(lem)
+        return w
+
+    def _make_xml_compat(self, root):
+        body = e.SubElement(root, 'body')
         for para in self.para:
             par = e.Element('p')
             for (senttext, sentannot) in para:
-                st = e.SubElement(par, 'span', {'class': 'sent'})
-                st.text = senttext
-                st.tail = '\n'
-                annot = e.SubElement(st, 'span', {'class':'annot'})
+                st = self._make_sent_elem(par, senttext)
+                annot = e.SubElement(st, 'span', {'class': 'annot'})
                 annot.tail = '\n'
                 for gt in sentannot:
-                    if gt.type in ['Comment']:
-                        c = e.SubElement(annot, 'span', {'class': 'comment'})
-                        c.text = gt.value
-                        c.tail = '\n'
-                    elif gt.type in ['Tag']:
-                        t = e.SubElement(annot, 'span', {'class': 't'})
-                        t.text = gt.value
-                        t.tail = '\n'
-                    elif gt.type in ['c']:
-                        c = e.SubElement(annot, 'span', {'class':'c'})
-                        c.text = gt.value
-                        c.tail = '\n'
-                    elif gt.type in ['w']:
-                        sourceform, stage, glosslist = gt.value
-                        w = e.SubElement(annot, 'span', {'class':'w', 'stage':unicode(stage)})
-                        w.text = sourceform
-                        variant = False
-                        for gloss in glosslist:
-                            if not variant:
-                                l = gloss_to_html(gloss)
-                                l.tail = '\n'
-                                variant=True
-                            else:
-                                #NB: SIDE EFFECT!
-                                l.append(gloss_to_html(gloss, variant=True))
-                                l.tail = '\n'
-                        w.append(l)
+                    if gt.type == 'w':
+                        w = self._make_word_token(annot, gt)
+                    else:
+                        tok = self._make_plain_token(annot, gt)
+            body.append(par)
+        self.xml = root
+
+    def _make_xml(self, root):
+        body = e.SubElement(root, 'body')
+        par = e.Element('p')
+        sentannot = []
+        parlist = []
+        for gt in self.para:
+            if gt.type == '</p>':
+                for sent in parlist:
+                    par.append(sent)
+                parlist = []
+                body.append(par)
+                par = e.Element('p')
+            elif gt.type == '</s>':
+                sent = self._make_plain_token(par, gt)
+                annot = e.SubElement(sent, 'span', {'class': 'annot'})
+                for gt in sentannot:
+                    if gt.type == 'w':
+                        w = self._make_word_token(annot, gt)
+                    else:
+                        tok = self._make_plain_token(annot, gt)
+                sentannot = []
+                parlist.append(sent)
+            elif gt.type in ['<s>', '<p>']:
+                continue
+            else:
+                sentannot.append(gt)
+        if parlist:
+            for sent in parlist:
+                par.append(sent)
             body.append(par)
         self.xml = root
 
