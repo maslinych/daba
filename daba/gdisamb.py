@@ -104,7 +104,7 @@ class FileParser(object):
         self.glosses = []
         for pnum, par in enumerate(freader.glosses):
             for snum, sent in enumerate(par):
-                # tuple(sent_text, selectlist, glosslist, index)
+                # tuple(senttoken, selectlist, glosslist, index)
                 self.glosses.append((sent[0], [[] for i in sent[1]], sent[1], (pnum, snum)))
                 self.numsent = freader.numsent
                 self.numwords = freader.numwords
@@ -183,7 +183,7 @@ class SearchTool(object):
                     except (AttributeError):
                         print word
             elif searchtype == 'sentence part':
-                for matchobj in re.finditer(self.searchstr, sent[0]):
+                for matchobj in re.finditer(self.searchstr, sent[0].value):
                     self.matches.append((snum, matchobj))
         return self.matches
         
@@ -901,8 +901,9 @@ class SentenceText(wx.stc.StyledTextCtrl):
         except (IndexError):
             return self.getButtonHere(pos-1)
 
-    def SetSentence(self, text, tokenbuttons):
-        self.text = text
+    def SetSentence(self, senttoken, tokenbuttons):
+        self.token = senttoken
+        self.text = senttoken.value
         self.calcCharSpans(tokenbuttons)
         self.SetText(self.text)
         self.SetReadOnly(True)
@@ -978,7 +979,8 @@ class SentenceText(wx.stc.StyledTextCtrl):
 
     def UpdateText(self, start, end, newtext, snum):
         self.text = ''.join([self.text[:start], newtext, self.text[end:]])
-        sentevent = SentenceEditEvent(self.GetId(), snum=snum, sent=self.text)
+        self.token.value = self.text
+        sentevent = SentenceEditEvent(self.GetId(), snum=snum, sent=self.token)
         wx.PostEvent(self.GetEventHandler(), sentevent)
 
     def Highlight(self, start, end):
@@ -996,9 +998,9 @@ class FilePanel(wx.ScrolledWindow):
 
     def ShowFile(self, sentlist):
         Sizer = wx.BoxSizer(wx.VERTICAL)
-        for n, sent in enumerate(sentlist):
+        for n, senttoken in enumerate(sentlist):
             st = SentText(self, -1, num=n, style=wx.ST_NO_AUTORESIZE)
-            st.SetLabel(sent)
+            st.SetLabel(senttoken.value)
             st.Wrap(self.GetClientSize().GetWidth()-20)
             st.Bind(wx.EVT_LEFT_DOWN, st.onMouseEvent)
             Sizer.Add(st, 1, wx.EXPAND)
@@ -1082,8 +1084,8 @@ class SentPanel(wx.Panel):
         return tokenbuttons
 
     def ShowSent(self, senttuple, snum):
-        self.senttext, self.selectlist, self.tokenlist, self.sentindex = senttuple
-        self.senttext = self.senttext.strip()
+        self.senttoken, self.selectlist, self.tokenlist, self.sentindex = senttuple
+        self.senttext = self.senttoken.value.strip()
         if self.isshown:
             self.sentsource.ClearSentence()
             self.Sizer.Remove(self.annotlist.GetSizer())
@@ -1091,7 +1093,7 @@ class SentPanel(wx.Panel):
         self.snum = snum
         self.sentnumbutton.SetValue(snum+1)
         tokenbuttons = self.CreateGlossButtons()
-        self.sentsource.SetSentence(self.senttext, tokenbuttons)
+        self.sentsource.SetSentence(self.senttoken, tokenbuttons)
         self.Sizer.Add(self.annotlist, 1, wx.EXPAND)
         self.Layout()
         self.isshown = True
@@ -1166,7 +1168,7 @@ class MainFrame(wx.Frame):
         recent = wx.Menu()
         menuOpen = filemenu.Append(wx.ID_OPEN,"O&pen"," Open text file")
         self.Bind(wx.EVT_MENU, self.OnMenuOpen, menuOpen)
-        filemenu.AppendMenu(wx.ID_ANY, "Open &recent", recent)
+        filemenu.Append(wx.ID_ANY, "Open &recent", recent)
         self.filehistory = wx.FileHistory(maxFiles=9, idBase=wx.ID_FILE1)
         self.filehistory.Load(self.config)
         self.filehistory.UseMenu(recent)

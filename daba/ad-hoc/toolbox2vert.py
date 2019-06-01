@@ -33,7 +33,7 @@ class ShToken(collections.namedtuple('ShToken', 'type, word, morphemes')):
             for m in self.morphemes:
                 morphemes.append(self.morph2gloss(m, config.daba['morpheme']))
             if len(morphemes) == 1:
-                gt = WordToken(morphemes[0], token=token)
+                gt = WordToken([morphemes[0]], token=token)
             else:
                 try:
                     ps = filter(lambda s: 'mrph' not in s.ps, morphemes)[0].ps
@@ -41,7 +41,7 @@ class ShToken(collections.namedtuple('ShToken', 'type, word, morphemes')):
                     ps = ''
                 gloss = u'-'.join([m.gloss for m in morphemes])
                 g = Gloss(form, ps, gloss, morphemes)
-                gt = WordToken(g, token=token)
+                gt = WordToken([g], token=token)
         elif self.type == 'c':
             gt = PlainToken((self.type, token))
         return gt
@@ -257,6 +257,9 @@ class Record(object):
         tdict = dict(self._tokens)
         return u' '.join(tdict[self.config.daba['token']])
 
+    def get_senttoken(self):
+        return PlainToken(('</s>', self.get_senttext()), attrs=dict(self.metadata))
+
     def itokens(self):
         morphs = collections.deque(self.morphemes)
         npunct = 0
@@ -281,7 +284,7 @@ class Record(object):
                         print "tokens:", len(self.tokens), "punct:", npunct, "morphemes:", len(self.morphemes)
 
                 while morphs and morphs[0].isaffix:
-                        morphemes.append(morphs.popleft())
+                    morphemes.append(morphs.popleft())
             yield ShToken(**{'type': toktype, 'word': tok, 'morphemes': morphemes})
 
 
@@ -401,11 +404,11 @@ class DabaFormatter(BaseFormatter):
         metadata = dict(doc.metadata)
         para = []
         for record in doc.records:
-            senttext = record.get_senttext()
+            senttoken = record.get_senttoken()
             sentannot = [t.as_glosstoken(self.parser.config) for t in record.itokens()]
-            para.append((senttext, sentannot))
+            para.append((senttoken, sentannot))
         ft = HtmlWriter((metadata, [para]))
-        return e.tostring(ft.xml)
+        return e.tostring(ft.xml, encoding='utf8').decode('utf8')
 
 
 class FilelistFormatter(BaseFormatter):

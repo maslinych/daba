@@ -26,6 +26,7 @@ from abc import abstractmethod
 # t: (start|end|tag, name)
 # comment: (text,)
 
+
 #FIXME: duplicate, move to common util
 normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
 
@@ -37,8 +38,11 @@ def gloss_to_html(gloss, spanclass='lemma', variant=False):
     if variant:
         spanclass = 'lemma var'
     w = e.Element('span', {'class': spanclass})
-    
-    w.text = gloss.form
+    try:
+        w.text = gloss.form
+    except AttributeError:
+        print u"ERR: {}".format(gloss).encode('utf-8')
+        exit(1)
     if gloss.ps:
         ps = e.SubElement(w, 'sub', {'class': 'ps'})
         ps.text = '/'.join(gloss.ps)
@@ -64,15 +68,11 @@ def glosstext_to_html(glosstext, variant=False, **kwargs):
 
 
 class BaseToken(object):
-    def __init__(self, toktype, tokvalue):
-        self.type = toktype
-        self.value = tokvalue
-
     def __unicode__(self):
-        return u' '.join([self.type, self.value or ''])
+        return u' '.join([self.type, self.value or '', unicode(self.attrs)])
 
     def __repr__(self):
-        return ' '.join([self.type, repr(self.value)])
+        return ' '.join([self.type, repr(self.value), str(self.attrs)])
 
     def as_tuple(self):
         return (self.type, self.value)
@@ -186,6 +186,27 @@ class TxtReader(BaseReader):
             self.para = re.split(os.linesep + '{2,}', normalizeText(f.read().decode(encoding).strip()))
 
 
+class HtmlCommons(object):
+    def __init__(self):
+        self.tmap = {'Comment': 'comment',
+        'Tag': 't',
+        'c': 'c',
+        '</s>': 'sent'}
+        self.invmap = {v: k for k, v in self.tmap.items()}
+
+    def token_type_to_html_class(self, tstring):
+        try:
+            return self.tmap[tstring]
+        except KeyError:
+            return tstring
+
+    def html_class_to_token_type(self, tstring):
+        try:
+            return self.invmap[tstring]
+        except KeyError:
+            return tstring
+
+
 class HtmlReader(BaseReader):
     def __init__(self, filename, onlymeta=False, compatibility_mode=True):
         self.filename = filename
@@ -239,20 +260,10 @@ class HtmlReader(BaseReader):
                 self.tokens.append(PlainToken(('</p>', partext)))
                 self.numpar += 1
                 sentlist = []
-            elif elem.tag in ['span', 'sub']:
+            elif elem.tag in ['span']:
                 spanclass = elem.get('class')
                 elemtext = normalizeText(elem.text) or ''
-                if spanclass == 'sent':
-                    sentlist.append(elemtext)
-                    self.tokens.append(PlainToken(('</s>', elemtext)))
-                    self.numsent += 1
-                elif spanclass == 'c':
-                    self.tokens.append(PlainToken(('c', elemtext)))
-                elif spanclass == 't':
-                    self.tokens.append(PlainToken(('Tag', elemtext)))
-                elif spanclass == 'comment':
-                    self.tokens.append(PlainToken(('Comment', elemtext)))
-                elif spanclass == 'w':
+                if spanclass == 'w':
                     self.tokens.append(
                         WordToken(glosslist, token=elemtext, stage=elem.get('stage'))
                     )
@@ -262,8 +273,20 @@ class HtmlReader(BaseReader):
                     glosslist.append(self.elem_to_gloss(elem))
                 elif spanclass in ['lemma'] and not self.onlymeta:
                     glosslist.insert(0, self.elem_to_gloss(elem))
+                else:
+                    self.tokens.append(
+                        self._make_plain_token(elem.attrib, elemtext)
+                    )
+                    if spanclass == 'sent':
+                        sentlist.append(elemtext)
+                        self.numsent += 1
                 if spanclass not in ['m', 'gloss', 'ps', 'lemma', 'lemma var']:
                     elem.clear()
+
+    def _make_plain_token(self, attrs, elemtext):
+        elemclass = attrs.pop('class', '')
+        toktype = HtmlCommons().html_class_to_token_type(elemclass)
+        return PlainToken((toktype, elemtext), attrs=attrs)        
 
     def make_compatible_glosses(self, tokens):
         glosses = []
@@ -274,7 +297,7 @@ class HtmlReader(BaseReader):
                 glosses.append(par)
                 par = []
             elif gt.type == '</s>':
-                par.append((gt.value, sentannot))
+                par.append((gt, sentannot))
                 sentannot = []
             elif gt.type in ['<s>', '<p>']:
                 continue
@@ -341,11 +364,11 @@ class TxtWriter(object):
         with open(self.filename, 'w') as outfile:
             for p in self.para:
                 prevtype = None
-                for (senttext, sentannot) in p:
+                for (senttoken, sentannot) in p:
                     for gt in sentannot:
                         if gt.type == 'w':
                             sourceform, stage, glosslist = gt.value
-                            if not prevtype == 'copen' and not prevtype == None:
+                            if not prevtype == 'copen' and prevtype is not None:
                                 outfile.write(u" ")
                             outfile.write(sourceform.encode('utf-8'))
                             prevtype = gt.type
@@ -377,7 +400,7 @@ class TokensWriter(object):
                 outfile.write(u' {}={}'.format(name, content).encode('utf-8'))
             outfile.write(u'>\n'.encode('utf-8'))
             for p in self.para:
-                for (senttext, sentannot) in p:
+                for (senttoken, sentannot) in p:
                     for gt in sentannot:
                         if gt.type == 'w':
                             token = detone(gt.gloss.form)
@@ -403,8 +426,8 @@ class SentenceListWriter(object):
         with open(self.filename, 'w') as outfile:
             snum = 0
             for p in self.para:
-                for (senttext, sentannot) in p:
-                    s = u"<s n={0}>{1}</s>\n".format(snum, senttext.strip())
+                for (senttoken, sentannot) in p:
+                    s = u"<s n={0}>{1}</s>\n".format(snum, senttoken.value.strip())
                     outfile.write(s.encode('utf-8'))
                     snum += 1
                 outfile.write("\n")
@@ -470,29 +493,17 @@ class HtmlWriter(object):
         style.text = self.stylesheet
         return root
 
-    def _make_plain_token(self, annot, gt):
-        tmap = {'Comment': 'comment',
-                'Tag': 't',
-                'c': 'c',
-                '</s>': 'sent'}
-        try:
-            a = {'class': tmap[gt.type]}
-        except KeyError:
-            a = {'class': gt.type}
+    def _format_plain_token(self, annot, gt):
+        gtclass = HtmlCommons().token_type_to_html_class(gt.type)
+        attrs = {'class': gtclass}
         if gt.attrs:
-            a.update(gt.attrs)
-        tok = e.SubElement(annot, 'span', a)
+            attrs.update(gt.attrs)
+        tok = e.SubElement(annot, 'span', attrs)
         tok.text = gt.value
         tok.tail = '\n'
         return tok
 
-    def _make_sent_elem(self, par, senttext):
-        st = e.SubElement(par, 'span', {'class': 'sent'})
-        st.text = senttext
-        st.tail = '\n'
-        return st
-    
-    def _make_word_token(self, annot, gt):
+    def _format_word_token(self, annot, gt):
         sourceform, stage, glosslist = gt.value
         w = e.SubElement(annot, 'span', {'class': 'w',
                                          'stage': unicode(stage)})
@@ -514,15 +525,15 @@ class HtmlWriter(object):
         body = e.SubElement(root, 'body')
         for para in self.para:
             par = e.Element('p')
-            for (senttext, sentannot) in para:
-                st = self._make_sent_elem(par, senttext)
+            for (senttoken, sentannot) in para:
+                st = self._format_plain_token(par, senttoken)
                 annot = e.SubElement(st, 'span', {'class': 'annot'})
                 annot.tail = '\n'
                 for gt in sentannot:
                     if gt.type == 'w':
-                        w = self._make_word_token(annot, gt)
+                        w = self._format_word_token(annot, gt)
                     else:
-                        tok = self._make_plain_token(annot, gt)
+                        tok = self._format_plain_token(annot, gt)
             body.append(par)
         self.xml = root
 
@@ -539,13 +550,13 @@ class HtmlWriter(object):
                 body.append(par)
                 par = e.Element('p')
             elif gt.type == '</s>':
-                sent = self._make_plain_token(par, gt)
+                sent = self._format_plain_token(par, gt)
                 annot = e.SubElement(sent, 'span', {'class': 'annot'})
                 for gt in sentannot:
                     if gt.type == 'w':
-                        w = self._make_word_token(annot, gt)
+                        w = self._format_word_token(annot, gt)
                     else:
-                        tok = self._make_plain_token(annot, gt)
+                        tok = self._format_plain_token(annot, gt)
                 sentannot = []
                 parlist.append(sent)
             elif gt.type in ['<s>', '<p>']:

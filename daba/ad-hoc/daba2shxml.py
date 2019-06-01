@@ -70,7 +70,7 @@ class SHXmlWriter(object):
         for (pn, para) in enumerate(self.para):
             par = e.SubElement(body, 'paragraph')
             par.tail = '\n'
-            for (sn, (senttext, sentannot)) in enumerate(para):
+            for (sn, (senttoken, sentannot)) in enumerate(para):
                 ph = e.SubElement(par, 'phrases')
                 ph.tail = '\n'
                 st = e.SubElement(ph, 'phrase')
@@ -79,7 +79,7 @@ class SHXmlWriter(object):
                 ref.text = u'-'.join([title.text, unicode(pn), unicode(sn)])
                 ref.tail = '\n'
                 nt = e.SubElement(st,'item', {'type': 'nt', 'lang': 'bam'})
-                nt.text = senttext
+                nt.text = senttoken.value
                 nt.tail = '\n'
 
                 def morph_to_xml(ms, morph):
@@ -93,7 +93,6 @@ class SHXmlWriter(object):
                     ge = e.SubElement(m, 'item', {'type': 'ge', 'lang': 'en'})
                     ge.text = morph.gloss
                     ge.tail = '\n'
-                    
 
                 annot = e.SubElement(st, 'words')
                 annot.tail = '\n'
@@ -125,5 +124,5 @@ class SHXmlWriter(object):
 infile = sys.argv[1]
 outfile = sys.argv[2]
 
-reader = formats.HtmlReader(infile) 
+reader = formats.HtmlReader(infile)
 SHXmlWriter((reader.metadata, reader.glosses), outfile).write()
