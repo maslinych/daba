@@ -234,14 +234,14 @@ class StreamEditor(object):
             yield pos, window
 
     def match(self, tokenlist, pattern):
-#        for token, intoken in zip(tokenlist, pattern):
-#            sys.stderr.write(
-#                u'{}\tIN: {} PAT: {}\n'.format(
-#                    token.matches(intoken, psstrict=True),
-#                    token,
-#                    intoken
-#                ).encode('utf-8')
-#            )
+        # for token, intoken in zip(tokenlist, pattern):
+        #     sys.stderr.write(
+        #         u'{}\tIN: {} PAT: {}\n'.format(
+        #             token.matches(intoken),
+        #             token,
+        #             intoken
+        #         ).encode('utf-8')
+        #     )
         return all(
             token.matches(intoken)
             for token, intoken in zip(tokenlist, pattern)
@@ -249,11 +249,10 @@ class StreamEditor(object):
 
     def replace(self, token, target):
         if token.type == 'w':
-            gt = formats.WordToken([target.gloss], stage='dabased')
-            outgloss = token.union(gt)
-            return outgloss
-        else:
-            return target
+            outgloss = token.union(target)
+            if outgloss.gloss is not None:
+                target = outgloss
+        return target
 
     def recursive_replace(self, gloss, pattern, target):
         if gloss.matches(pattern, psstrict=True):
@@ -307,7 +306,7 @@ class StreamEditor(object):
 
     def apply_rule(self, rule, stream):
         domatch, replace_func = self.make_replace_func(rule)
-#        sys.stderr.write(u'Domatch {}\n'.format(str(domatch)))
+        # sys.stderr.write(u'Domatch {}\n'.format(str(domatch)))
         success = -rule.winsize
         for pos, tokens in self.feed_tokens(rule.winsize, stream):
             if pos < success + rule.winsize:
@@ -317,13 +316,13 @@ class StreamEditor(object):
                     or
                     (domatch and self.match(tokens, rule.inlist))
             ):
-#                sys.stderr.write(
-#                    u'match: {}\n'.format(self.getstr(tokens)).encode('utf-8')
-#                )
+                # sys.stderr.write(
+                #     u'match: {}\n'.format(self.getstr(tokens)).encode('utf-8')
+                # )
                 replacement = replace_func(tokens, rule)
-#                sys.stderr.write(
-#                    u'replacement: {}\n'.format(self.getstr(replacement)).encode('utf-8')
-#                )
+                # sys.stderr.write(
+                #     u'replacement: {}\n'.format(self.getstr(replacement)).encode('utf-8')
+                # )
                 if not all(g == r for g, r
                            in izip_longest(
                                tokens,
