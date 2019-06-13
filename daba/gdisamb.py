@@ -1003,17 +1003,17 @@ class SentAttributes(wx.Panel):
         if senttoken.attrs:
             alist = senttoken.attrs.items()
             alist.sort()
-            attribSizer = wx.FlexGridSizer(2, 1, 1)
-            attribSizer.AddGrowableCol(1)
+            self.attribSizer = wx.FlexGridSizer(2, 1, 1)
+            self.attribSizer.AddGrowableCol(1)
             for key, value in alist:
                 field = wx.TextCtrl(self, wx.ID_ANY, value)
                 field.Bind(wx.EVT_TEXT, self.OnEditValue)
                 self.fields[key] = field
-                attribSizer.AddMany([
+                self.attribSizer.AddMany([
                     (wx.StaticText(self, wx.ID_ANY, key), 1, wx.EXPAND),
                     (field, 10, wx.EXPAND)
                 ])
-            self.sizer.Add(attribSizer, 1, wx.EXPAND)
+            self.sizer.Add(self.attribSizer, 1, wx.EXPAND)
             self.Layout()
             self.Fit()
 
@@ -1029,8 +1029,8 @@ class SentAttributes(wx.Panel):
         self.attrs = {}
         self.fields = {}
         self.snum = None
-        self.ClearAll()
-
+        self.sizer.Remove(self.attribSizer)
+1
 ## PANELS
 
 class FilePanel(wx.ScrolledWindow):
