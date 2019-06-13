@@ -3,7 +3,7 @@
 #
 # Manual disambiguation editor
 #
-# Copyright (C) 2010—2013  Kirill Maslinsky <kirill@altlinux.org>
+# Copyright (C) 2010—2019  Kirill Maslinsky <kirill@altlinux.org>
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -45,6 +45,7 @@ TokenSplitEvent, EVT_TOKEN_SPLIT = wx.lib.newevent.NewCommandEvent()
 TokenJoinEvent, EVT_TOKEN_JOIN = wx.lib.newevent.NewCommandEvent()
 TokenEditEvent, EVT_TOKEN_EDIT = wx.lib.newevent.NewCommandEvent()
 SentenceEditEvent, EVT_SENT_EDIT = wx.lib.newevent.NewCommandEvent()
+SentAttrsEditEvent, EVT_SATTRS_EDIT = wx.lib.newevent.NewCommandEvent()
 ShowSelectorEvent, EVT_SHOW_SELECTOR = wx.lib.newevent.NewCommandEvent()
 SaveResultsEvent, EVT_SAVE_RESULTS = wx.lib.newevent.NewCommandEvent()
 LocaldictLookupEvent, EVT_LOCALDICT_LOOKUP = wx.lib.newevent.NewCommandEvent()
@@ -987,6 +988,49 @@ class SentenceText(wx.stc.StyledTextCtrl):
         pass
 
 
+class SentAttributes(wx.Panel):
+    def __init__(self, parent, *args, **kwargs):
+        wx.Panel.__init__(self, parent, *args, **kwargs)
+        self.attrs = {}
+        self.fields = {}
+        self.snum = None
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(self.sizer)
+        self.Layout()
+
+    def SetSentence(self, senttoken, snum):
+        self.snum = snum
+        if senttoken.attrs:
+            alist = senttoken.attrs.items()
+            alist.sort()
+            attribSizer = wx.FlexGridSizer(2, 1, 1)
+            attribSizer.AddGrowableCol(1)
+            for key, value in alist:
+                field = wx.TextCtrl(self, wx.ID_ANY, value)
+                field.Bind(wx.EVT_TEXT, self.OnEditValue)
+                self.fields[key] = field
+                attribSizer.AddMany([
+                    (wx.StaticText(self, wx.ID_ANY, key), 1, wx.EXPAND),
+                    (field, 10, wx.EXPAND)
+                ])
+            self.sizer.Add(attribSizer, 1, wx.EXPAND)
+            self.Layout()
+            self.Fit()
+
+    def OnEditValue(self, evt):
+        attrs = {}
+        for key, field in self.fields.items():
+            attrs[key] = field.GetValue()
+        self.attrs = attrs
+        sattrsevent = SentAttrsEditEvent(self.GetId(), snum=self.snum, attrs=self.attrs)
+        wx.PostEvent(self.GetEventHandler(), sattrsevent)
+
+    def ClearSentence(self):
+        self.attrs = {}
+        self.fields = {}
+        self.snum = None
+        self.ClearAll()
+
 ## PANELS
 
 class FilePanel(wx.ScrolledWindow):
@@ -1055,8 +1099,10 @@ class SentPanel(wx.Panel):
         copybutton.Bind(wx.EVT_BUTTON, self.OnCopyToClipboard)
         self.navsizer.Add(copybutton)
         self.sentsource = SentenceText(self)
+        self.sentattrs = SentAttributes(self)
         self.Sizer.Add(self.navsizer)
         self.Sizer.Add(self.sentsource, 0, wx.EXPAND)
+        self.Sizer.Add(self.sentattrs, 0, wx.EXPAND)
         self.SetSizer(self.Sizer)
         self.Layout()
 
@@ -1088,12 +1134,14 @@ class SentPanel(wx.Panel):
         self.senttext = self.senttoken.value.strip()
         if self.isshown:
             self.sentsource.ClearSentence()
+            self.sentattrs.ClearSentence()
             self.Sizer.Remove(self.annotlist.GetSizer())
             self.annotlist.Destroy()
         self.snum = snum
         self.sentnumbutton.SetValue(snum+1)
         tokenbuttons = self.CreateGlossButtons()
         self.sentsource.SetSentence(self.senttoken, tokenbuttons)
+        self.sentattrs.SetSentence(self.senttoken, self.snum)
         self.Sizer.Add(self.annotlist, 1, wx.EXPAND)
         self.Layout()
         self.isshown = True
@@ -1224,6 +1272,7 @@ class MainFrame(wx.Frame):
         self.Bind(EVT_TOKEN_JOIN, self.OnTokenJoin)
         self.Bind(EVT_TOKEN_EDIT, self.OnTokenEdit)
         self.Bind(EVT_SENT_EDIT, self.OnSentenceEdit)
+        self.Bind(EVT_SATTRS_EDIT, self.OnSentAttrsEdit)
         self.Bind(EVT_LOCALDICT_LOOKUP, self.OnLocaldictLookup)
         self.Bind(EVT_LOCALDICT_SAVE, self.OnLocaldictSave)
         self.Bind(EVT_GLOSS_EDITED, self.OnGlossEdited)
@@ -1390,6 +1439,11 @@ class MainFrame(wx.Frame):
     def OnSentenceEdit(self, evt):
         savedsent = self.processor.glosses[evt.snum]
         self.processor.glosses[evt.snum] = (evt.sent,) + savedsent[1:]
+        self.processor.dirty = True
+
+    def OnSentAttrsEdit(self, evt):
+        savedsent = self.processor.glosses[evt.snum]
+        savedsent[0].attrs = evt.attrs
         self.processor.dirty = True
 
     def OnGlossEdited(self, evt):
