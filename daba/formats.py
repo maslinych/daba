@@ -132,7 +132,7 @@ class PlainToken(BaseToken):
 
 
 class WordToken(BaseToken):
-    def __init__(self, glosslist, token=None, stage=''):
+    def __init__(self, glosslist, token=None, stage='', attrs=None):
         self.type = 'w'
         self.glosslist = glosslist
         self.gloss = glosslist[0]
@@ -142,6 +142,7 @@ class WordToken(BaseToken):
             self.token = self.gloss.form
         self.stage = stage
         self.value = self.token, self.stage, self.glosslist
+        self.attrs = attrs
 
     def __eq__(self, other):
         if other.type == 'w':
