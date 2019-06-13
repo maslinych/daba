@@ -274,7 +274,7 @@ class HtmlReader(BaseReader):
                     glosslist.append(self.elem_to_gloss(elem))
                 elif spanclass in ['lemma'] and not self.onlymeta:
                     glosslist.insert(0, self.elem_to_gloss(elem))
-                elif spanclass == 'm':
+                elif spanclass in ['m', 'annot']:
                     continue
                 else:
                     self.tokens.append(

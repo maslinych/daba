@@ -83,7 +83,7 @@ def make_tagstring(gloss):
 
 
 def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
-    if gt.type == 'Comment':
+    if gt.type in ['Comment', '<s>', '<p>']:
         return
     if not gt.type == "w":
         print u"{0}\t".format(gt.token).encode('utf-8'),
