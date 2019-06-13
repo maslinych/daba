@@ -266,7 +266,7 @@ class HtmlReader(BaseReader):
                 elemtext = normalizeText(elem.text) or ''
                 if spanclass == 'w':
                     self.tokens.append(
-                        WordToken(glosslist, token=elemtext, stage=elem.get('stage'))
+                        WordToken(glosslist, token=elemtext, stage=elem.get('stage'), attrs=elem.attrib)
                     )
                     glosslist = []
                     self.numwords += 1
@@ -283,8 +283,6 @@ class HtmlReader(BaseReader):
                     if spanclass == 'sent':
                         sentlist.append(elemtext)
                         self.numsent += 1
-                if spanclass not in ['m', 'gloss', 'ps', 'lemma', 'lemma var']:
-                    elem.clear()
 
     def _make_plain_token(self, attrs, elemtext):
         elemclass = attrs.pop('class', '')
@@ -542,34 +540,20 @@ class HtmlWriter(object):
 
     def _make_xml(self, root):
         body = e.SubElement(root, 'body')
-        par = e.Element('p')
-        sentannot = []
-        parlist = []
         for gt in self.para:
-            if gt.type == '</p>':
-                for sent in parlist:
-                    par.append(sent)
-                parlist = []
-                body.append(par)
-                par = e.Element('p')
+            if gt.type == '<p>':
+                par = e.SubElement(body, 'p')
+            elif gt.type == '<s>':
+                annot = e.Element('span', {'class': 'annot'})
             elif gt.type == '</s>':
                 sent = self._format_plain_token(par, gt)
-                annot = e.SubElement(sent, 'span', {'class': 'annot'})
-                for gt in sentannot:
-                    if gt.type == 'w':
-                        w = self._format_word_token(annot, gt)
-                    else:
-                        tok = self._format_plain_token(annot, gt)
-                sentannot = []
-                parlist.append(sent)
-            elif gt.type in ['<s>', '<p>']:
+                sent.append(annot)
+            elif gt.type == '</p>':
                 continue
+            elif gt.type == 'w':
+                w = self._format_word_token(annot, gt)
             else:
-                sentannot.append(gt)
-        if parlist:
-            for sent in parlist:
-                par.append(sent)
-            body.append(par)
+                tok = self._format_plain_token(annot, gt)
         self.xml = root
 
     def write(self):
