@@ -8,7 +8,7 @@ import re
 import codecs
 import unicodedata
 import hashlib
-import xml.etree.cElementTree as e
+import xml.etree.ElementTree as e
 import daba.grammar as grammar
 from daba.ntgloss import Gloss
 from daba.orthography import detone
@@ -236,7 +236,7 @@ class HtmlReader(BaseReader):
     def iterparse(self):
         glosslist = []
         sentlist = []
-        for event, elem in e.iterparse(self.filename, events=('start', 'end')):
+        for event, elem in e.iterparse(self.filename, events=('start', 'end'), parser=e.XMLParser(encoding="utf-8")):
             if event == 'start':
                 if elem.tag == 'p':
                     self.tokens.append(PlainToken(('<p>', None)))
