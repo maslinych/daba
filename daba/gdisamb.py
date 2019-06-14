@@ -993,8 +993,20 @@ class SentAttributes(wx.Panel):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.attrs = {}
         self.fields = {}
+        self.delbuttons = {}
         self.snum = None
         self.sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        self.newkey = wx.TextCtrl(self, wx.ID_ANY, '')
+        self.addbutton = wx.Button(self, wx.ID_ANY, 'Add attribute', style=wx.NO_BORDER)
+        self.addbutton.Bind(wx.EVT_BUTTON, self.OnAddAttribute)
+        hbox.Add(self.newkey, 0)
+        hbox.Add(self.addbutton, 0)
+        self.sizer.Add(hbox)
+        self.attribSizer = wx.FlexGridSizer(3, 1, 1)
+        self.attribSizer.AddGrowableCol(1)
+        self.sizer.Add(self.attribSizer, 1, wx.EXPAND)
         self.SetSizer(self.sizer)
         self.Layout()
 
@@ -1003,17 +1015,22 @@ class SentAttributes(wx.Panel):
         if senttoken.attrs:
             alist = senttoken.attrs.items()
             alist.sort()
-            self.attribSizer = wx.FlexGridSizer(2, 1, 1)
-            self.attribSizer.AddGrowableCol(1)
-            for key, value in alist:
+            for keytext, value in alist:
+                key = wx.StaticText(self, wx.ID_ANY, keytext)
                 field = wx.TextCtrl(self, wx.ID_ANY, value)
                 field.Bind(wx.EVT_TEXT, self.OnEditValue)
-                self.fields[key] = field
+                delbutton = wx.Button(self, wx.ID_ANY, style=wx.BU_EXACTFIT | wx.BU_NOTEXT)
+                delbutton.SetBitmapLabel(wx.ArtProvider.GetBitmap(wx.ART_DELETE, wx.ART_MENU))
+                delbutton.Bind(wx.EVT_BUTTON, self.OnDeleteAttribute)
+                self.fields[keytext] = field
+                self.attrs[keytext] = value
+                self.delbuttons[delbutton.GetId()] = (keytext, key, field, delbutton)
                 self.attribSizer.AddMany([
-                    (wx.StaticText(self, wx.ID_ANY, key), 1, wx.EXPAND),
-                    (field, 10, wx.EXPAND)
+                    (key, 1, wx.EXPAND),
+                    (field, 10, wx.EXPAND),
+                    (delbutton, 0)
                 ])
-            self.sizer.Add(self.attribSizer, 1, wx.EXPAND)
+            self.attribSizer.Layout()
             self.Layout()
             self.Fit()
 
@@ -1025,12 +1042,42 @@ class SentAttributes(wx.Panel):
         sattrsevent = SentAttrsEditEvent(self.GetId(), snum=self.snum, attrs=self.attrs)
         wx.PostEvent(self.GetEventHandler(), sattrsevent)
 
+    def OnAddAttribute(self, evt):
+        keytext = self.newkey.GetValue()
+        key = wx.StaticText(self, wx.ID_ANY, keytext)
+        value = wx.TextCtrl(self, wx.ID_ANY, '')
+        delbutton = wx.Button(self, wx.ID_ANY, style=wx.BU_EXACTFIT | wx.BU_NOTEXT)
+        delbutton.SetBitmapLabel(wx.ArtProvider.GetBitmap(wx.ART_DELETE, wx.ART_MENU))
+        self.fields[keytext] = value
+        self.delbuttons[delbutton.GetId()] = (keytext, key, value, delbutton)
+        value.Bind(wx.EVT_TEXT, self.OnEditValue)
+        delbutton.Bind(wx.EVT_BUTTON, self.OnDeleteAttribute)
+        self.attribSizer.AddMany([
+            (key, 1, wx.EXPAND),
+            (value, 10, wx.EXPAND),
+            (delbutton, 0, wx.EXPAND)
+        ])
+        self.attribSizer.Layout()
+        self.GetParent().Layout()
+
+    def OnDeleteAttribute(self, evt):
+        btn_id = evt.GetId()
+        keytext, key, value, delbutton  = self.delbuttons[btn_id]
+        for w in (key, value, delbutton):
+            item = self.attribSizer.GetItem(w)
+            item.DeleteWindows()
+        self.attribSizer.Layout()
+        del self.attrs[keytext]
+        del self.fields[keytext]
+        del self.delbuttons[btn_id]
+
     def ClearSentence(self):
         self.attrs = {}
         self.fields = {}
+        self.delbuttons = {}
         self.snum = None
-        self.sizer.Remove(self.attribSizer)
-1
+        self.attribSizer.Clear(delete_windows=True)
+
 ## PANELS
 
 class FilePanel(wx.ScrolledWindow):
