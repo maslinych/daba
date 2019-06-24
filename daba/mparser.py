@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2010  Kirill Maslinsky <kirill@altlinux.org>
+# Copyright (C) 2010—2019  Kirill Maslinsky <kirill@altlinux.org>
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -293,7 +293,8 @@ class Processor(object):
         for para in txt:
             par = []
             for sent in self.tokenizer.split_sentences(self.tokenizer.tokenize(para)):
-                st = (''.join(t.value for t in sent), [])
+                sttoken = formats.PlainToken(('</s>', ''.join(t.value for t in sent)))
+                st = (sttoken, [])
                 par.append(st)
                 annot = st[1]
                 for token in sent:
