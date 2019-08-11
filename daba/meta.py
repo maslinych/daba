@@ -44,7 +44,7 @@ class MetaData(object):
             try:
                 section, name = mkey.split(self.namesep)
             except (ValueError):
-                print "Malformed meta field:", name, content
+                print u"Malformed meta field: {} {}".format(name, mvalue).encode('utf-8')
             values = mvalue.split(self.valuesep)
             self._data[section][name] = values
 
@@ -77,6 +77,7 @@ class MetaConfig(object):
         self.confdir = os.path.dirname(conffile)
         tree = e.ElementTree()
         config = tree.parse(conffile)
+
         def parse_field_xml(elem):
             if 'list' in elem.attrib['type']:
                 elem.attrib['default'] = [i.attrib['name'] for i in elem.findall('list/item')]
@@ -166,7 +167,7 @@ class GUIBuilder(object):
             self.wvalues[wtype].set(widget, value)
         except (AssertionError):
             if value:
-                print u"Incorrect value '{0}' for field '{1}' will be ignored".format(field, value)
+                print u"Incorrect value '{0}' for field '{1}' will be ignored".format(widget, value)
                 return False
         return True
 
@@ -560,6 +561,7 @@ class MainFrame(wx.Frame):
     def clear_metapanels(self):
         self.metapanels = {}
         self.notebook.DeleteAllPages()
+        self.notebook.Layout()
 
     def parse_file(self, ifile):
         self.io = formats.FileWrapper()
@@ -623,6 +625,8 @@ class MainFrame(wx.Frame):
             infile = os.path.join(self.dirname, self.filename)
             self.parse_file(infile)
             if self.cleanup:
+                self.clear_metapanels()
+                self.draw_metapanels()
                 self.update_interface()
             self.filepanel.control.SetValue(self.txt)
         dlg.Destroy()
@@ -630,6 +634,7 @@ class MainFrame(wx.Frame):
     def OnSave(self,e):
         if not self.filename:
             self.NoFileError(e)
+            return
         if os.path.splitext(self.filename)[1] in ['.html', '.xhtml', '.xml']:
             self.write_xmldata()
         else:
@@ -656,7 +661,7 @@ class MainFrame(wx.Frame):
         self.OnSave(e)
         self.init_values()
         if self.cleanup:
-            self.notebook.DeleteAllPages()
+            self.clear_metapanels()
             self.draw_metapanels()
         self.filepanel.control.SetValue('')
 
