@@ -508,19 +508,19 @@ class MainFrame(wx.Frame):
         self.metapanels = {}
         self.encoding = encoding
 
-        filemenu= wx.Menu()
-        menuOpen = filemenu.Append(wx.ID_OPEN,"O&pen"," Open text file")
+        filemenu = wx.Menu()
+        menuOpen = filemenu.Append(wx.ID_OPEN, "O&pen", " Open text file")
         self.Bind(wx.EVT_MENU, self.OnOpen, menuOpen)
-        menuSave = filemenu.Append(wx.ID_SAVE,"S&ave"," Save an xhtml file")
+        menuSave = filemenu.Append(wx.ID_SAVE, "S&ave", " Save an xhtml file")
         self.Bind(wx.EVT_MENU, self.OnSave, menuSave)
-        menuSaveAs = filemenu.Append(wx.ID_SAVEAS,"S&ave as"," Save an xhtml file")
+        menuSaveAs = filemenu.Append(wx.ID_SAVEAS, "S&ave as", " Save an xhtml file")
         self.Bind(wx.EVT_MENU, self.OnSaveAs, menuSaveAs)
-        menuClose = filemenu.Append(wx.ID_CLOSE, "C&lose","Close current file")
+        menuClose = filemenu.Append(wx.ID_CLOSE, "C&lose", "Close current file")
         self.Bind(wx.EVT_MENU, self.OnClose, menuClose)
-        menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
+        menuExit = filemenu.Append(wx.ID_EXIT, "E&xit"," Terminate the program")
         self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
         menuBar = wx.MenuBar()
-        menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
+        menuBar.Append(filemenu, "&File") # Adding the "filemenu" to the MenuBar
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 
         splitter = wx.SplitterWindow(self, wx.ID_ANY, style=wx.SP_LIVE_UPDATE)
@@ -560,7 +560,7 @@ class MainFrame(wx.Frame):
 
     def clear_metapanels(self):
         self.metapanels = {}
-        self.notebook.DeleteAllPages()
+        self.notebook.DestroyChildren()
         self.notebook.Layout()
 
     def parse_file(self, ifile):
