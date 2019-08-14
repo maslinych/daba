@@ -523,14 +523,9 @@ class MainFrame(wx.Frame):
         menuBar.Append(filemenu, "&File") # Adding the "filemenu" to the MenuBar
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 
-        splitter = wx.SplitterWindow(self, wx.ID_ANY, style=wx.SP_LIVE_UPDATE)
-        splitter.SetMinimumPaneSize(100)
-        self.filepanel = FilePanel(splitter)
-        self.notebook = MetaNotebook(splitter)
+        splitter = self.make_splitter()
         if self.config:
             self.draw_metapanels()
-
-        splitter.SplitVertically(self.filepanel, self.notebook)
 
         configbutton = wx.FilePickerCtrl(self, -1, wildcard="*.xml", style=wx.FLP_USE_TEXTCTRL | wx.FLP_OPEN | wx.FLP_FILE_MUST_EXIST)
         configbutton.Bind(wx.EVT_FILEPICKER_CHANGED, self.OnConfigSelected)
@@ -545,6 +540,14 @@ class MainFrame(wx.Frame):
         self.SetSizer(self.Sizer)
         self.Layout()
 
+    def make_splitter(self):
+        splitter = wx.SplitterWindow(self, wx.ID_ANY, style=wx.SP_LIVE_UPDATE)
+        splitter.SetMinimumPaneSize(100)
+        self.filepanel = FilePanel(splitter)
+        self.notebook = MetaNotebook(splitter)
+        splitter.SplitVertically(self.filepanel, self.notebook)
+        return splitter
+        
     def init_values(self):
         self.filename = None
         if self.cleanup:
@@ -556,12 +559,15 @@ class MainFrame(wx.Frame):
             metapanel = MetaPanel(self.notebook, config=self.config, section=secname)
             self.metapanels[secname] = metapanel
             self.notebook.AddPage(metapanel, self.config.getSectionTitle(secname))
-        self.notebook.Layout()
+        self.Layout()
 
     def clear_metapanels(self):
         self.metapanels = {}
-        self.notebook.DestroyChildren()
-        self.notebook.Layout()
+        splitter = self.Sizer.GetChildren()[-1].GetWindow()
+        splitter.Destroy()
+        splitter = self.make_splitter()
+        self.Sizer.Add(splitter, 1, wx.EXPAND)
+        self.Layout()
 
     def parse_file(self, ifile):
         self.io = formats.FileWrapper()
@@ -596,7 +602,8 @@ class MainFrame(wx.Frame):
         else:
             confpath = e.GetPath()
             self.config = MetaConfig(confpath)
-            self.clear_metapanels()
+            if len(self.metapanels) > 0:
+                self.clear_metapanels()
             self.draw_metapanels()
 
     def FileOpenedError(self,e):
