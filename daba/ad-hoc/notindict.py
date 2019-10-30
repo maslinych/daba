@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 from bamana import test
 from orthography import *
 from morphology import *

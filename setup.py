@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 """Daba — Pattern-based morphemic analysis toolkit
 """
@@ -65,7 +65,7 @@ setup(
         # 'Programming Language :: Python :: 3.6',
     ],
     # supprted python versions
-    python_requires='>=2.6, <3',
+    python_requires='>=3.6',
     # This field adds keywords for your project which will appear on the
     # project page. What does your project relate to?
     #

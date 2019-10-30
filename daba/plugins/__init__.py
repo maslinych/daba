@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os,sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))

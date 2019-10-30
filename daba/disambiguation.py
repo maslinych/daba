@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Auteur : Elvis Mboning, Stagiaire 2016, INALCO

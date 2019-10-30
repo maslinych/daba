@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 from bamana import lexicon, normalize_bailleul
 from orthograph import detone

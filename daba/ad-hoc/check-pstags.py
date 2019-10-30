@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 from bamana import bailleul
 from xml.etree.ElementTree import ElementTree
 

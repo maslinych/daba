@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf8 -*-
 
 # fix older parser bug with long ps lists for inflected forms
