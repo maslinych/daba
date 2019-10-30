@@ -15,5 +15,5 @@ for entry in bamana.lexicon.findall('record'):
 
 for gloss, lemmas in c.iteritems():
     if len(lemmas) > 1:
-        print u'{0}: {1}'.format(gloss, u', '.join(lemmas))
+        print(u'{0}: {1}'.format(gloss, u', '.join(lemmas)))
 

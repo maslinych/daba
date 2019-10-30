@@ -13,6 +13,6 @@ for w in test.words():
             wordindict =True
     else:
         if not wordindict:
-            print " ".join(res).encode('utf-8')
+            print(" ".join(res).encode('utf-8'))
 
 

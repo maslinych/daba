@@ -27,4 +27,4 @@ def __main__():
                         ng[g] = ng[g]+1
 
     for g, f in ng.iteritems():
-        print u'{0} {1}'.format(g,f)
+        print(u'{0} {1}'.format(g,f))

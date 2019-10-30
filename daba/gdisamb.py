@@ -55,7 +55,7 @@ LocaldictSaveEvent, EVT_LOCALDICT_SAVE = wx.lib.newevent.NewCommandEvent()
 ## UTILITY functions and no-interface classes
 
 def normalizeText(t):
-    return unicodedata.normalize('NFKD', unicode(t))
+    return unicodedata.normalize('NFKD', str(t))
 
 TokenEdit = namedtuple('TokenEdit', 'operation start end toklist')
 
@@ -89,7 +89,7 @@ def makeGlossString(gloss, morphemes=False):
     if not ''.join(gloss.ps) and not gloss.gloss and not gloss.morphemes:
         return gloss.form
     elif morphemes and gloss.morphemes:
-        return u'{0} ({1}){3}{2}{4}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep, '\n' + os.linesep.join([unicode(m) for m in gloss.morphemes]))
+        return u'{0} ({1}){3}{2}{4}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep, '\n' + os.linesep.join([str(m) for m in gloss.morphemes]))
     else:
         return u'{0} ({1}){3}{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep)
 
@@ -138,7 +138,7 @@ class EditLogger(object):
         return datetime.datetime.now().isoformat()
 
     def LogEdit(self, firstgloss, secondgloss):
-        self.fileobj.write(u'{0}\n'.format('\t'.join([self.timestamp, 'edit', unicode(firstgloss), unicode(secondgloss)])))
+        self.fileobj.write(u'{0}\n'.format('\t'.join([self.timestamp, 'edit', str(firstgloss), str(secondgloss)])))
 
     def LogSplit(self, srctoken, tokentuple):
         self.fileobj.write(u'{0}\n'.format('\t'.join([self.timestamp, 'split', srctoken, ''.join(tokentuple)])))
@@ -182,7 +182,7 @@ class SearchTool(object):
                             self.matches.append(match)
                     # FIXME: should not happen if all words are proper GlossTokens
                     except (AttributeError):
-                        print word
+                        print(word)
             elif searchtype == 'sentence part':
                 for matchobj in re.finditer(self.searchstr, sent[0].value):
                     self.matches.append((snum, matchobj))
@@ -314,7 +314,7 @@ class GlossInputDialog(wx.Dialog):
 
         vbox_top = wx.BoxSizer(wx.VERTICAL)
         vbox_top.Add(wx.StaticText(self, wx.ID_ANY, "Gloss string (edit inplace):"))
-        glossstring = unicode(self.as_gloss)
+        glossstring = str(self.as_gloss)
         self.glosstext = wx.ComboBox(self, wx.ID_ANY, glossstring,
                                      choices=[glossstring])
         vbox_top.Add(self.glosstext, 1, wx.EXPAND | wx.TOP | wx.BOTTOM, 10)
@@ -342,7 +342,7 @@ class GlossInputDialog(wx.Dialog):
 
     def UpdateInterface(self, gloss):
         self.freeze = True
-        glossstring = unicode(gloss)
+        glossstring = str(gloss)
         cursor = self.glosstext.GetInsertionPoint()
         self.glosstext.SetValue(glossstring)
         self.glosstext.SetInsertionPoint(cursor)
@@ -357,7 +357,7 @@ class GlossInputDialog(wx.Dialog):
     def ShowLocaldictVariants(self, savedglosses):
         for gloss in savedglosses:
             if not gloss == self.as_gloss:
-                self.glosstext.Append(unicode(gloss))
+                self.glosstext.Append(str(gloss))
     
     def SetGlossAttr(self, **kwargs):
         self.as_gloss._replace(**kwargs) 
@@ -490,7 +490,7 @@ class GlossEditButton(wx.Panel):
             self.state = statecode
         except KeyError:
             #FIXME: proper error message
-            print 'Unknown state code:', statecode
+            print('Unknown state code:', statecode)
 
 
 class GlossSelector(wx.Panel):
@@ -633,7 +633,7 @@ class GlossSelector(wx.Panel):
                 self.gloss = Gloss(self.children[0].gloss.form, (), '', ())
                 self.stage = self.parserstage
             else:
-                print "Bug: Negative selection!", selected
+                print("Bug: Negative selection!", selected)
         else:
             self.gloss = gloss
             self.glosslist = [gloss]
@@ -924,7 +924,7 @@ class SentenceText(wx.stc.StyledTextCtrl):
         try:
             startchar, charlength = self.charspans[toknum]
         except (IndexError):
-            print toknum, token
+            print(toknum, token)
         bytepos = self.calcBytePos(self.text, startchar)
         bytelen = self.calcByteLen(token)
         self.StartStyling(bytepos, 0xff)
@@ -1524,7 +1524,7 @@ class MainFrame(wx.Frame):
             elif savedstate.operation == 'join':
                 self.processor.glosses[snum][2][savedstate.start:savedstate.end] = savedstate.toklist
             else:
-                print "Unimplemented undo operation!"
+                print("Unimplemented undo operation!")
             self.ShowSent(snum)
 
     def OnMenuSearch(self,e):

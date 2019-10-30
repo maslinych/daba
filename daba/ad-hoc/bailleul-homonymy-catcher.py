@@ -15,8 +15,8 @@ for w, lems in wl.items():
         pslist = reduce(lambda x,y: x.union(y), [lem[1] for lem in lems])
         if len(pslist) > 1:
         #if len(pslist) == 1: # polysemy case
-            print fd[detone(w)], w,
+            print(fd[detone(w)], w,)
             for l in lems:
-                print '|', '/'.join(l[1]), u"‘" + l[2] + u"’",
+                print('|', '/'.join(l[1]), u"‘" + l[2] + u"’",)
             print
 

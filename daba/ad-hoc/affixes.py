@@ -11,6 +11,6 @@ for line in sys.stdin:
         affixlist = lemma[1][1]
         if affixlist:
             affixes, glosses = zip(*affixlist)
-            print u'{2} {1} {0}'.format(word, '-'.join(affixes), '-'.join(glosses))
+            print(u'{2} {1} {0}'.format(word, '-'.join(affixes), '-'.join(glosses)))
             
 

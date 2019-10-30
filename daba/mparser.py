@@ -19,7 +19,7 @@ from ntgloss import Gloss, emptyGloss
 import os
 import argparse
 import sys
-import cPickle
+import pickle
 import funcparserlib.lexer
 import formats
 from plugins import OrthographyConverter
@@ -41,7 +41,7 @@ class Tokenizer(object):
         'unicode -> Sequence(Token)'
         tok = funcparserlib.lexer.make_tokenizer(self.specs)
         r = tok(string)
-        # print "TKS", [t for t in r]
+        # print("TKS", [t for t in r])
         return r
 
     def split_sentences(self, toklist):
@@ -68,11 +68,11 @@ class ChainDict(object):
 
     @property
     def ids(self):
-        return self._maps.viewkeys()
+        return self._maps.keys()
 
     @property
     def dictlist(self):
-        return self._maps.viewvalues()
+        return self._maps.values()
 
     def __len__(self):
         return sum([len(dic) for dic in self.dictlist])
@@ -149,7 +149,7 @@ class DictLoader(object):
                 name, ext = os.path.splitext(f)
                 if ext in ['.bdi']:
                     with open(os.path.join(self.runtimedir, f)) as bdi:
-                        dic = cPickle.load(bdi)
+                        dic = pickle.load(bdi)
                         assert isinstance(dic, formats.DabaDict)
                         self.load(dic)
 
@@ -197,7 +197,7 @@ class DictLoader(object):
             sys.stderr.write(u'DICT saved {}\n'.format(dic).encode('utf-8'))
         self.load(dic)
         with open(self.filepath(dic), 'wb') as o:
-            cPickle.dump(dic, o)
+            pickle.dump(dic, o)
 
 
 class GrammarLoader(object):
@@ -205,19 +205,19 @@ class GrammarLoader(object):
         self.runtimedir = runtimedir
         self.gramlist = []
         self.grammar = None
-        root = os.getcwdu()
+        #root = os.getcwdu()
         for f in os.listdir(self.runtimedir):
             name, ext = os.path.splitext(f)
             if ext in ['.bgr']:
                 try:
                     with open(os.path.join(self.runtimedir, f), 'rb') as gram:
-                        g = cPickle.load(gram)
+                        g = pickle.load(gram)
                     assert isinstance(g, grammar.Grammar)
                     self.gramlist = [name]
                     self.grammar = g
-                except (cPickle.UnpicklingError, ImportError, AssertionError):
+                except (pickle.UnpicklingError, ImportError, AssertionError):
                     #FIXME: raise an exception with error message
-                    print "Invalid binary grammar file:", f
+                    print("Invalid binary grammar file:", f)
     
     def load(self, gramfile):
         self.grammar = grammar.Grammar(gramfile)
@@ -228,7 +228,7 @@ class GrammarLoader(object):
             if ext in ['.bgr']:
                 os.unlink(os.path.join(self.runtimedir, f))
         with open(os.path.join(self.runtimedir, os.path.extsep.join([os.path.basename(gramfile), 'bgr'])), 'wb') as o:
-            cPickle.dump(self.grammar, o)
+            pickle.dump(self.grammar, o)
 
 
 class Processor(object):
@@ -265,7 +265,7 @@ class Processor(object):
         return case
 
     def convert_orthography(self, word):
-        # print "GOT", word,
+        # print("GOT", word,)
         wlist = [word]
         for plugin in self.converters:
             converted = []
@@ -273,7 +273,7 @@ class Processor(object):
                 for result in plugin.convert(w):
                     converted.append(result)
             wlist = converted
-        # print "->", u'/'.join(wlist).encode('utf-8')
+        # print("->", u'/'.join(wlist).encode('utf-8'))
         return wlist or [word]
     
     def filter_parsed(self, results, forms):
@@ -316,7 +316,7 @@ class Processor(object):
                             try:
                                 stage, glosslist = self.filter_parsed(converts, filter(None, wlist))
                             except ValueError:
-                                print "WARNING: invalid orthographic conversion result, skippig token:", token.type, token.value, converts
+                                print("WARNING: invalid orthographic conversion result, skippig token:", token.type, token.value, converts)
                         else:
                             stage, glosslist = self.parser.lemmatize(token.value.lower())
 
@@ -330,9 +330,9 @@ class Processor(object):
                                     normform = normforms[0]
                                 else:
                                     normform = u'*{}*'.format(u'/'.join(normforms))
-                            annot.append(formats.WordToken(glosslist, normform, unicode(stage)))
+                            annot.append(formats.WordToken(glosslist, normform, str(stage)))
                         else:
-                            annot.append(formats.WordToken(glosslist, token.value, unicode(stage)))
+                            annot.append(formats.WordToken(glosslist, token.value, str(stage)))
 
             self.parsed.append(par)
         return self.parsed
@@ -348,11 +348,11 @@ def load_plugins():
 
 
 def parse_file(infile, outfile, pp, args):
-    print 'Processing', infile
+    print('Processing', infile)
     io = formats.FileWrapper()
     io.read(infile)
     io.write(outfile, pp.parse(io.para), parsed=True, format=args.format)
-    print 'Finished', outfile
+    print('Finished', outfile)
 
 
 def main():
@@ -373,7 +373,7 @@ def main():
     aparser.add_argument("-t", "--detone", action='store_true', help="Ignore tones in dictionary lookups")
     aparser.add_argument("-z", "--tokenizer", action='store', choices=tkz.methods, default="default", help="Tokenizer to use")
     aparser.add_argument("-f", "--format", action='store', choices=formats.FileWrapper().output_formats, default="html", help="Output file format")
-    aparser.add_argument("-v", "--verbose", action='store_true', help="Print info messages on loaded dictionaries")
+    aparser.add_argument("-v", "--verbose", action='store_true', help="print info messages on loaded dictionaries")
     args = aparser.parse_args()
 
     tkz.use_method(args.tokenizer)

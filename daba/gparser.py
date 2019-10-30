@@ -33,7 +33,7 @@ def get_outdir(fname):
             try:
                 os.mkdir(dirname)
             except OSError:
-                print "Could not create output directory, please do it manually"
+                print("Could not create output directory, please do it manually")
     return dirname
 
 def get_outfile(fname):
@@ -261,7 +261,7 @@ class MainFrame(wx.Frame):
                 self.FinishedParsing(e)
         else:
             #FIXME: proper error message or better avoid this case!
-            print "File already parsed!"
+            print("File already parsed!")
 
     def NoFileError(self,e):
         dlg = wx.MessageDialog(self, 'Error: no file opened!', 'No file opened', wx.OK)

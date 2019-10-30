@@ -31,5 +31,5 @@ def counts(wordlist,fd):
             yield (stages, length, u' '.join(word), fd[tuple(word)])
 
 for t in counts(wlist,fdist):
-    print u'{0},{1},{2},{3}'.format(*t)
+    print(u'{0},{1},{2},{3}'.format(*t))
 

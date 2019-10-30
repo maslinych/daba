@@ -44,11 +44,11 @@ class DanOldtoNew(OrthographyConverter):
         if string[0] in [u"-‑‐–=\"'\u2018\u201c"]:
             string = string[1:]
         if string.isupper():
-            case = unicode.upper
+            case = str.upper
         elif string.istitle():
-            case = unicode.title
+            case = str.title
         else:
-            case = unicode.lower
+            case = str.lower
         return case
 
     def replace_ng(self, tokens):
@@ -83,7 +83,7 @@ class DanOldtoNew(OrthographyConverter):
                 ]
         tok = funcparserlib.lexer.make_tokenizer(specs)
         r = [x for x in tok(unicodedata.normalize('NFKD', word))]
-        # print 'CW', word, ':', r
+        # print('CW', word, ':', r)
         return self.replace_ng(r)
 
     def multiply_list(self, amblist):
@@ -104,9 +104,9 @@ class DanOldtoNew(OrthographyConverter):
         # convert a single grapheme into a list of corresponding graphemes
         # in new orthography
         if unicodedata.category(grapheme[0]) == 'Lu':
-            case = unicode.title
+            case = str.title
         else:
-            case = unicode.lower
+            case = str.lower
         grapheme = unicodedata.normalize('NFKD', grapheme)
         try:
             return [case(g) for g in self.conversion_table[grapheme.lower()]]

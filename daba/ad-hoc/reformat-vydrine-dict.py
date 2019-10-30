@@ -323,7 +323,7 @@ for record in records:
         record = cleanup_record(record)
 #        serialize_record(record)
         record = split_variants(record)
-#        print "BEFORE"
+#        print("BEFORE")
 #        serialize_record(record)
         record = replace_bamana_lx(record)
 #        serialize_record(record)
@@ -337,7 +337,7 @@ for record in records:
 
 for record in preprocessed:
     if headword_is_maninka(record):
-#        print "RECORDS"
+#        print("RECORDS")
 #        serialize_record(record)
         record = cut_bamana_variants(record)
 #        serialize_record(record)

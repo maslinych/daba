@@ -29,4 +29,4 @@ for line in sys.stdin:
                 positive.append(ngram)
             else:
                 negative.append(ngram)
-    print u'{1:.2f}\t{0}\t{2} | {3}'.format(word, c/max, ';'.join(positive), ' '.join(negative))
+    print(u'{1:.2f}\t{0}\t{2} | {3}'.format(word, c/max, ';'.join(positive), ' '.join(negative)))

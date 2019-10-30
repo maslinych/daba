@@ -11,5 +11,5 @@ for entry in bamana.lexicon.findall('record'):
     except AttributeError:
         ge = ""
     if u' ' in ge:
-        print u'{0} ‘{1}’'.format(entry.find('lx').text, ge)
+        print(u'{0} ‘{1}’'.format(entry.find('lx').text, ge))
 

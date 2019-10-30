@@ -24,7 +24,7 @@ def deduplicate_lemmas(result):
     try:
         return list(dict(result).items())
     except ValueError:
-        print result
+        print(result)
         return result
 
 
@@ -131,7 +131,7 @@ def main():
                     form = detone(form)
                 if args.plain:
                     for gloss in dictionary[form]:
-                        print gloss
+                        print(gloss)
                         result = make_taglist([gloss], formforlemma=True, tonal=args.tonal)
                         for lemma in result:
                             print_line(form, [lemma])

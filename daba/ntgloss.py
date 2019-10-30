@@ -4,7 +4,7 @@
 from collections import namedtuple
 from contextlib import closing
 import re
-import cPickle
+import pickle
 import itertools
 import xml.etree.cElementTree as e
 
@@ -20,8 +20,8 @@ def unwrap_re(tupl):
         #    part = part[4:-5]
         if not part:
             part = '.+'
-        unfolded.append(ur'(?P<__group{0}>{1})'.format(i,part))
-    return re.compile(ur'^{0}$'.format(''.join(unfolded)))
+        unfolded.append(r'(?P<__group{0}>{1})'.format(i,part))
+    return re.compile(r'^{0}$'.format(''.join(unfolded)))
 
 def match_any(my, other):
     try:
@@ -61,7 +61,7 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
         gloss = untuple(self.gloss)
         gstring = u':'.join([i if i else '' for i in [form,'/'.join(self.ps),gloss]])
         if self.morphemes:
-            return u'{0} [{1}]'.format(gstring, u' '.join(unicode(g) if g else '' for g in self.morphemes))
+            return u'{0} [{1}]'.format(gstring, u' '.join(str(g) if g else '' for g in self.morphemes))
         else:
             return gstring
    
@@ -211,7 +211,7 @@ class Pattern(object):
                                 newmorphs = list(zip(*newmorphs)[1])
                             except IndexError:
                                 #FIXME: should not happen, add proper error handling
-                                print "Error matching pattern:", newmorphs
+                                print("Error matching pattern:", newmorphs)
                             target = target._replace(morphemes = tuple(unfold([[emptyGloss._replace(form=newform) for newform in newmorphs] if j==i else [tm] for j,tm in enumerate(target.morphemes)])))
                             for m in newmorphs[1:]:
                                 shift += 1
@@ -235,7 +235,7 @@ class Dictionary(object):
             self.lexicon = {}
         else:
             with closing(open(filename, 'rb')) as dictfile:
-                self.lexicon = cPickle.load(dictfile)
+                self.lexicon = pickle.load(dictfile)
 
     def __contains__(self,item):
         return item in self.lexicon
@@ -351,7 +351,7 @@ class TestObjects(unittest.TestCase):
     def test_pattern(self):
         self.assertEquals(True, self.pat.matches(self.ga))
         self.assertEquals(False, self.pat.matches(self.gam))
-        self.assertEquals(unicode(self.gam), unicode(self.pat.apply(self.ga)))
+        self.assertEquals(str(self.gam), unicode(self.pat.apply(self.ga)))
 
 
 if __name__ == '__main__':

@@ -13,12 +13,12 @@ for w in test.words():
                 res.remove(r)
                 break
             if detone(r) in wl:
-                print "DICT:", 
+                print("DICT:", )
             elif detone(r) in pn:
-                print "PROPER:",
+                print("PROPER:",)
             else:
-                print "NOTDICT:", 
-            print r.encode('utf-8'),
+                print("NOTDICT:", )
+            print(r.encode('utf-8'),)
         else:
-            print 
+            print()
     

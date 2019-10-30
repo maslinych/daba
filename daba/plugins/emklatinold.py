@@ -32,13 +32,13 @@ class ManinkaOldtoNew(OrthographyConverter):
                     ('TY', (r'ty', re.I | re.U)),
                     ('DY', (r'dy', re.I | re.U)),
                     ('NY', (r'ny', re.I | re.U)),
-                    ('EE', (ur'è[eè]', re.I | re.U)),
-                    ('OO', (ur'öö', re.I | re.U)),
+                    ('EE', (r'è[eè]', re.I | re.U)),
+                    ('OO', (r'öö', re.I | re.U)),
                     ('ANY', (r'.', re.U)),
                     ]
             tok = funcparserlib.lexer.make_tokenizer(specs)
             r = [x.value for x in tok(unicodedata.normalize('NFKC', word))]
-            #print 'CW', string, ':', r
+            #print(('CW', string, ':', r))
             return r
 
         def multiply_list(amblist):

@@ -9,9 +9,9 @@ import codecs
 import unicodedata
 import hashlib
 import xml.etree.ElementTree as e
-import daba.grammar as grammar
-from daba.ntgloss import Gloss
-from daba.orthography import detone
+import grammar
+from ntgloss import Gloss
+from orthography import detone
 from pytrie import StringTrie as trie
 from collections import MutableMapping, defaultdict, OrderedDict
 from abc import abstractmethod
@@ -28,7 +28,7 @@ from abc import abstractmethod
 
 
 #FIXME: duplicate, move to common util
-normalizeText = lambda t: unicodedata.normalize('NFKD', unicode(t))
+normalizeText = lambda t: unicodedata.normalize('NFKD', str(t))
 
 # to allow pickling polisemy dictionary
 def ddlist():
@@ -41,7 +41,7 @@ def gloss_to_html(gloss, spanclass='lemma', variant=False):
     try:
         w.text = gloss.form
     except AttributeError:
-        print u"ERR: {}".format(gloss).encode('utf-8')
+        print(u"ERR: {}".format(gloss).encode('utf-8'))
         exit(1)
     if gloss.ps:
         ps = e.SubElement(w, 'sub', {'class': 'ps'})
@@ -55,7 +55,7 @@ def gloss_to_html(gloss, spanclass='lemma', variant=False):
             #NB: SIDE EFFECT!
             w.append(gloss_to_html(m, spanclass='m'))
     except AttributeError:
-        print "ERR GLOSS: {}\n".format(unicode(gloss)).encode('utf-8')
+        print("ERR GLOSS: {}\n".format(str(gloss)).encode('utf-8'))
     return w
 
 
@@ -69,7 +69,7 @@ def glosstext_to_html(glosstext, variant=False, **kwargs):
 
 class BaseToken(object):
     def __unicode__(self):
-        return u' '.join([self.type, self.value or '', unicode(self.attrs)])
+        return u' '.join([self.type, self.value or '', str(self.attrs)])
 
     def __repr__(self):
         return ' '.join([self.type, repr(self.value), str(self.attrs)])
@@ -150,7 +150,7 @@ class WordToken(BaseToken):
         return False
 
     def __unicode__(self):
-        return u' '.join([self.type, self.stage, unicode(self.gloss)])
+        return u' '.join([self.type, self.stage, str(self.gloss)])
 
     def as_tuple(self):
         # SUSPECT! to remove?
@@ -183,8 +183,8 @@ class TxtReader(BaseReader):
     def __init__(self, filename, encoding="utf-8"):
         self.isdummy = True
         self.metadata = {}
-        with open(filename) as f:
-            self.para = re.split(os.linesep + '{2,}', normalizeText(f.read().decode(encoding).strip()))
+        with open(filename, encoding=encoding) as f:
+            self.para = re.split(os.linesep + '{2,}', normalizeText(f.read().strip()))
 
 
 class HtmlCommons(object):
@@ -228,7 +228,7 @@ class HtmlReader(BaseReader):
                 ('_auto:sentences', self.numsent),
                 ('_auto:paragraphs', self.numpar)
                 ]:
-            self.metadata[k] = unicode(v)
+            self.metadata[k] = str(v)
 
     def __iter__(self):
         for token in self.tokens:
@@ -355,7 +355,8 @@ class HtmlReader(BaseReader):
 
 
 class TxtWriter(object):
-    def __init__(self, (metadata, para), filename, encoding="utf-8"):
+    def __init__(self, metadata_para, filename, encoding="utf-8"):
+        metadata, para = metadata_para
         self.encoding = encoding
         self.metadata = metadata
         self.para = para
@@ -388,7 +389,8 @@ class TxtWriter(object):
 
 
 class TokensWriter(object):
-    def __init__(self, (metadata, para), filename, encoding="utf-8"):
+    def __init__(self, metadata_para, filename, encoding="utf-8"):
+        metadata, para = metadata_para
         self.encoding = encoding
         self.metadata = metadata
         self.para = para
@@ -417,7 +419,8 @@ class TokensWriter(object):
 
 
 class SentenceListWriter(object):
-    def __init__(self, (metadata, para), filename, encoding="utf-8"):
+    def __init__(self, metadata_para, filename, encoding="utf-8"):
+        metadata, para = metadata_para
         self.encoding = encoding
         self.metadata = metadata
         self.para = para
@@ -435,7 +438,8 @@ class SentenceListWriter(object):
         
 
 class SimpleHtmlWriter(object):
-    def __init__(self, (metadata, para), filename, encoding="utf-8"):
+    def __init__(self, metadata_para, filename, encoding="utf-8"):
+        metadata, para = metadata_para
         self.encoding = encoding
         self.metadata = metadata
         self.para = para
@@ -458,8 +462,9 @@ class SimpleHtmlWriter(object):
 
 
 class HtmlWriter(object):
-    def __init__(self, (metadata, para), filename=None, encoding="utf-8",
+    def __init__(self, metadata_para, filename=None, encoding="utf-8",
                  compatibility_mode=True):
+        metadata, para = metadata_para
         self.encoding = encoding
         self.metadata = metadata
         self.para = para
@@ -507,7 +512,7 @@ class HtmlWriter(object):
     def _format_word_token(self, annot, gt):
         sourceform, stage, glosslist = gt.value
         w = e.SubElement(annot, 'span', {'class': 'w',
-                                         'stage': unicode(stage)})
+                                         'stage': str(stage)})
         w.text = gt.token
         variant = False
         for gloss in glosslist:
@@ -570,7 +575,7 @@ class FileWrapper(object):
         try:
             basename, ext = os.path.splitext(filename)
         except (AttributeError):
-            print "FILENAME", filename
+            print("FILENAME", filename)
         if ext in ['.txt']:
             self.format = 'txt'
             self._reader = TxtReader(filename)
@@ -578,7 +583,7 @@ class FileWrapper(object):
             self.format = 'html'
             self._reader = HtmlReader(filename)
         else:
-            raise(ValueError, "Unknown file extention: ", ext)
+            raise ValueError("Unknown file extention: ", ext)
         self.metadata, self.para = self._reader.data()
         if self._reader.isdummy:
             self.parsed = False
@@ -606,7 +611,7 @@ class FileWrapper(object):
         elif format == "tokens":
             TokensWriter((metadata, result), filename, self.encoding).write()
         else:
-            print "Unknown output format: {}".format(format)
+            print("Unknown output format: {}".format(format))
 
 
 class DictWriter(object):
@@ -622,7 +627,7 @@ class DictWriter(object):
     def write(self):
         def makeGlossSfm(gloss,morpheme=False):
             if not morpheme:
-                sfm = ur"""
+                sfm = r"""
 \lx {0}
 \ps {1}
 \ge {2}
@@ -788,7 +793,7 @@ class DictReader(object):
                     ps = ()
                 return Gloss(f, ps, g, ())
             except (ValueError):
-                print "Error line:", str(self.line), unicode(v).encode('utf-8')
+                print("Error line:", str(self.line), str(v).encode('utf-8'))
 
         def normalize(value):
             return normalizeText(value.translate({ord(u'.'): None, ord(u'-'):None}).lower())
@@ -875,9 +880,9 @@ class DictReader(object):
                 process_record(lemmalist)
 
             if not self._dict.attributed():
-                print r"Dictionary does not contain obligatory \lang, \name or \ver fields.\
-                        Please specify them and try to load again."
-                print self._dict.lang, self._dict.name, self._dict.ver
+                print(r"Dictionary does not contain obligatory \lang, \name or \ver fields.\
+                        Please specify them and try to load again.")
+                print(self._dict.lang, self._dict.name, self._dict.ver)
             
 
     #FIXME: kept for backward compatibility, remove after refactoring

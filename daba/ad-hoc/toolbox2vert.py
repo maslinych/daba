@@ -84,7 +84,7 @@ class ShGloss(collections.Mapping):
         return repr(self._dict)
 
     def __unicode__(self):
-        return unicode(self._dict)
+        return str(self._dict)
 
 
 class Layers(collections.Iterable):
@@ -100,7 +100,7 @@ class Layers(collections.Iterable):
         return iter(self.tokens)
 
     def __unicode__(self):
-        ' '.join(unicode(i) for i in self.tokens)
+        ' '.join(str(i) for i in self.tokens)
 
     def __len__(self):
         return len(self.tokens)
@@ -278,10 +278,10 @@ class Record(object):
                         morphemes.append(morphs.popleft())
                     except IndexError:
                         try:
-                            print dict(self.metadata)[self.config.docid],
+                            print(dict(self.metadata)[self.config.docid],)
                         except KeyError:
-                            print "UNK",
-                        print "tokens:", len(self.tokens), "punct:", npunct, "morphemes:", len(self.morphemes)
+                            print("UNK",)
+                        print("tokens:", len(self.tokens), "punct:", npunct, "morphemes:", len(self.morphemes))
 
                 while morphs and morphs[0].isaffix:
                     morphemes.append(morphs.popleft())

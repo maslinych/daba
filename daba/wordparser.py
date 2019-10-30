@@ -1,7 +1,7 @@
 import readline
 import sys
 from mparser import DictLoader, GrammarLoader, Processor
-from pprint import pprint
+from pprint(import pprint)
 
 def main():
     dl = DictLoader()
@@ -10,7 +10,7 @@ def main():
     while True:
         word = raw_input('Enter word:').decode(sys.stdin.encoding)
         result = pp.parser.lemmatize(word, debug=True)
-        print 'Final result::'
+        print('Final result::')
         pprint(result)
 
 if __name__ == '__main__':

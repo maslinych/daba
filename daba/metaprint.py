@@ -14,7 +14,7 @@ def main():
     aparser.add_argument('-s', '--sentences', dest='fields', action='append_const', const='_auto:sentences', help='Number of sentences in document')
     aparser.add_argument('-p', '--paragraphs', dest='fields', action='append_const', const='_auto:paragraphs', help='Number of paragraphs in document')
     aparser.add_argument('-d', '--delimeter', action='store', default="\t", help='Delimiter for output fields')
-    aparser.add_argument('-a', '--all', action='store_true', help='Print all metadata found in a file')
+    aparser.add_argument('-a', '--all', action='store_true', help='print(all metadata found in a file'))
     args = aparser.parse_args()
 
     reader = formats.HtmlReader(args.infile, onlymeta=True)
@@ -22,7 +22,7 @@ def main():
     for k,v in reader.metadata.items():
         meta[k] = v
 
-    sys.stdout.write(unicode(args.infile).encode('utf-8'))
+    sys.stdout.write(str(args.infile).encode('utf-8'))
 
     if args.all:
         sys.stdout.write('\n')

@@ -172,7 +172,7 @@ class Parser(object):
                 return ()
         except (KeyError,AttributeError):
             if gloss.form in gdict:
-                print 'PP', gloss.form, gdict[gloss.form]
+                print('PP', gloss.form, gdict[gloss.form])
             return ()
 
     def lookup(self, lemma, make_lemma=False):
@@ -226,7 +226,7 @@ class Parser(object):
         try:
             parts = len(pattern.select.morphemes)
         except (TypeError):
-            #FIXME: morphemes=None case. Print some error message?
+            #FIXME: morphemes=None case. print(some error message?)
             parts = 0
         result = []
         if  parts < 2:
@@ -295,8 +295,8 @@ class Parser(object):
                     stage = step
                     parsedword = newparsed
                 if debug:
-                    print stagestr
-                    print stage, '\n'.join(unicode(p) for p in newparsed)
+                    print(stagestr)
+                    print(stage, '\n'.join(str(p) for p in newparsed))
         filtered = self.filter_duplicates(parsedword)
         return (stage, filtered)
 

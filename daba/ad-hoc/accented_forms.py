@@ -5,4 +5,4 @@ from orthograph import *
 for w in test.words():
     res = convertw(w)
     if res[0] != detone(res[0]):
-        print w.encode('utf-8')
+        print(w.encode('utf-8'))

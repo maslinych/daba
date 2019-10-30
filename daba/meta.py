@@ -44,7 +44,7 @@ class MetaData(object):
             try:
                 section, name = mkey.split(self.namesep)
             except (ValueError):
-                print u"Malformed meta field: {} {}".format(name, mvalue).encode('utf-8')
+                print(u"Malformed meta field: {} {}".format(name, mvalue).encode('utf-8'))
             values = mvalue.split(self.valuesep)
             self._data[section][name] = values
 
@@ -128,21 +128,21 @@ class GUIBuilder(object):
             return d
         self.wvalues = {
                 'text': operate(wx.TextCtrl.GetValue, 
-                    lambda w,t: wx.TextCtrl.SetValue(w, unicode(t))),
+                    lambda w,t: wx.TextCtrl.SetValue(w, str(t))),
                 'long_text': operate(wx.TextCtrl.GetValue, 
-                    lambda w,t: wx.TextCtrl.SetValue(w, unicode(t))),
+                    lambda w,t: wx.TextCtrl.SetValue(w, str(t))),
                 'int': operate(wx.lib.intctrl.IntCtrl.GetValue, 
                     lambda w,t: wx.lib.intctrl.IntCtrl.SetValue(w,int(t) if t else 0)),
                 'closed_list': operate(wx.Choice.GetStringSelection, 
-                    lambda w,t: wx.Choice.SetStringSelection(w, unicode(t) if t else u'inconnu')),
+                    lambda w,t: wx.Choice.SetStringSelection(w, str(t) if t else u'inconnu')),
                 'open_list': operate(wx.ComboBox.GetValue, 
-                    lambda w,t: wx.ComboBox.SetValue(w, unicode(t))),
+                    lambda w,t: wx.ComboBox.SetValue(w, str(t))),
                 'checklist': operate(lambda t: ';'.join(wx.CheckListBox.GetCheckedStrings(t)), 
                     lambda w,t: wx.CheckListBox.SetCheckedStrings(w, t.split(';'))),
                 'date': operate(lambda t: wx.adv.DatePickerCtrl.GetValue(t).FormatDate(),
                     lambda w,t: wx.adv.DatePickerCtrl.SetValue(w, parse_date(t))),
                 'datetext': operate(wx.lib.masked.TextCtrl.GetValue,
-                    lambda w,t: wx.lib.masked.BaseMaskedTextCtrl.SetValue(w, unicode(t))),
+                    lambda w,t: wx.lib.masked.BaseMaskedTextCtrl.SetValue(w, str(t))),
                 }
 
     def makeLabel(self, parent, field):
@@ -167,7 +167,7 @@ class GUIBuilder(object):
             self.wvalues[wtype].set(widget, value)
         except (AssertionError):
             if value:
-                print u"Incorrect value '{0}' for field '{1}' will be ignored".format(widget, value)
+                print(u"Incorrect value '{0}' for field '{1}' will be ignored".format(widget, value))
                 return False
         return True
 
@@ -205,7 +205,7 @@ class DataPanel(wx.ScrolledWindow):
             try:
                 self.builder.setWidgetValue(wtype, widget, value)
             except (ValueError, TypeError):
-                print "Problem with setting value", u'{1}, {2}:{3}'.format(wtype, name, value).encode('utf-8')
+                print("Problem with setting value", u'{1}, {2}:{3}'.format(wtype, name, value).encode('utf-8'))
 
     def getPanelData(self):
         return [(name, self.getFieldValue(name)) for name in self.widgetlist.iterkeys()]
@@ -256,8 +256,8 @@ class MetaDB(object):
             try:
                 utf[k.decode('utf-8')] = v.decode('utf-8')
             except (AttributeError):
-                print "ERROR:", k, v
-                print "ROW", row
+                print("ERROR:", k, v)
+                print("ROW", row)
                 utf[k.decode('utf-8')] = ''
         #utf = self._normalize_row(utf)
         utf = dict((self._strip_secname(k),v) for k,v in utf.iteritems())
@@ -292,7 +292,7 @@ class MetaDB(object):
         try:
             return u' '.join([row[self._strip_secname(field)] for field in self.csvnames if self._strip_secname(field) != self.idcolumn])
         except (KeyError, TypeError):
-            print self.csvnames, row
+            print(self.csvnames, row)
     
     def _make_keystring(self, mdict):
         return self._row_as_string(self._normalize_row(mdict))

@@ -18,9 +18,9 @@ def main():
         if not gloss.gloss and len(gloss.ps) > 1 and gloss.morphemes:
             stemps = [m.ps for m in gloss.morphemes if 'mrph' not in m.ps]
             if len(stemps) == 1 and stemps[0].issubset(gloss.ps):
-                print gloss, '->',
+                print(gloss, '->',)
                 gloss = gloss._replace(ps = stemps[0])
-                print gloss
+                print(gloss)
                 handler.setgloss(gloss, index)
 
     out = formats.HtmlWriter((handler.metadata, handler.glosses), args.outfile or args.infile)

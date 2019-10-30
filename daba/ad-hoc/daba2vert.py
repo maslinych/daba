@@ -6,7 +6,7 @@ import re
 import html
 import argparse
 import daba.formats
-import cPickle
+import pickle
 import itertools
 from daba.orthography import detone
 
@@ -32,13 +32,13 @@ class VariantsLoader(object):
         cachefile = ''.join([filename, '.variants.cache'])
         if os.path.exists(cachefile) and os.path.getmtime(cachefile) > os.path.getmtime(filename):
             with open(cachefile, 'rb') as cache:
-                self.vardict, self.polisemy = cPickle.load(cache)
+                self.vardict, self.polisemy = pickle.load(cache)
         else:
             reader = daba.formats.DictReader(filename, store=False, variants=True, polisemy=True)
             self.vardict = reader.getVariants()
             self.polisemy = reader.getPolisemy()
             with open(cachefile, 'wb') as cache:
-                cPickle.dump((self.vardict, self.polisemy), cache)
+                pickle.dump((self.vardict, self.polisemy), cache)
 
     def get(self):
         return self.vardict, self.polisemy
@@ -54,9 +54,9 @@ def dedot(s, repl=''):
 
 def print_fields(fields, unique=True):
     if unique:
-        print u"\t".join([u'|'.join(filter(None, set(s))) for s in fields]).encode('utf-8')
+        print(u"\t".join([u'|'.join(filter(None, set(s))) for s in fields]).encode('utf-8'))
     else:
-        print u"\t".join([u'|'.join(filter(None, s)) for s in fields]).encode('utf-8')
+        print(u"\t".join([u'|'.join(filter(None, s)) for s in fields]).encode('utf-8'))
 
 
 def make_lemmafunc(args):
@@ -86,7 +86,7 @@ def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
     if gt.type in ['Comment', '<s>', '<p>']:
         return
     if not gt.type == "w":
-        print u"{0}\t".format(gt.token).encode('utf-8'),
+        print(u"{0}\t".format(gt.token).encode('utf-8'),)
     if gt.type == 'w':
         normalized = gt.glosslist[0].form
         if ' ' in normalized:
@@ -101,7 +101,7 @@ def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
                 token = detone(token)
         else:
             token = gt.token
-        print u"{0}\t".format(token).encode('utf-8'),
+        print(u"{0}\t".format(token).encode('utf-8'),)
 
         tonals = []
         fields = []
@@ -218,12 +218,12 @@ def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
             ctag = args.senttag
         else:
             ctag = gt.type
-        print u"\t".join([gt.token, ctag] + [gt.token]*(nfields-2)).encode('utf-8')
+        print(u"\t".join([gt.token, ctag] + [gt.token]*(nfields-2)).encode('utf-8'))
 
 
 def print_metafield(name, store):
     value = html.escape(store.setdefault(name, 'UNDEF'))
-    print u'{0}="{1}"'.format(name.replace(':', '_'), value).encode('utf-8'),
+    print(u'{0}="{1}"'.format(name.replace(':', '_'), value).encode('utf-8'),)
 
 
 def reversedEnumerate(l):
@@ -234,7 +234,7 @@ def main():
     oparser = argparse.ArgumentParser(description='Native Daba format to vertical format converter')
     oparser.add_argument('infile', help='Input file (.html)')
     oparser.add_argument("-t", "--tonal", action="store_true", help="Make tonal lemmas")
-    oparser.add_argument("-u", "--unique", action="store_true", help="Print only unique lemmas and glosses")
+    oparser.add_argument("-u", "--unique", action="store_true", help="print(only unique lemmas and glosses"))
     oparser.add_argument("-n", "--nullify", action="store_true", help="Transliterate all non-ascii characters")
     oparser.add_argument("-v", "--variants", help="Treat all variants in given dictionary as alternative lemmas")
     oparser.add_argument('-N', '--canonical', action='store_true', help='Return canonical lemma (to be used with --variants)')
@@ -256,8 +256,8 @@ def main():
         vardict = None
         polidict = None
 
-    print "<doc ",
-    print u'id="{0}"'.format(os.path.basename(args.infile.decode("utf-8"))).encode('utf-8'),
+    print("<doc ",)
+    print(u'id="{0}"'.format(os.path.basename(args.infile.decode("utf-8"))).encode('utf-8'),)
     
     metad = dict(reader.metadata)
     for f in ['source:type', 'source:year', 'text:translation', 'text:medium', 'author:name']:
@@ -267,28 +267,28 @@ def main():
         hgenres = [g.split(' : ')[0] for g in genres] + genres
         hgenres.sort()
         metad['text:genre'] = u';'.join(hgenres)
-        print u'text_genre="{0}"'.format(metad['text:genre']).encode('utf-8'),
+        print(u'text_genre="{0}"'.format(metad['text:genre']).encode('utf-8'),)
     except (KeyError):
-        print 'text_genre="UNDEF"',
+        print('text_genre="UNDEF"',)
     try:
         print_metafield('text:title', metad)
     except (KeyError):
-        print 'text_title="UNDEF"',
-    print ">"
+        print('text_title="UNDEF"',)
+    print(">")
 
     for par in reader.glosses:
-        print "<p>"
+        print("<p>")
         for sent, annot in par:
-            print "<s>"
+            print("<s>")
             for i, token in reversedEnumerate(annot):
                 if i > 0:
                     print_token(token, args, vardict, polidict, make_lemmafunc(args))
                 else:
                     print_token(token, args, vardict, polidict, make_lemmafunc(args), sent=True)
-            print "</s>"
-        print "</p>"
+            print("</s>")
+        print("</p>")
 
-    print "</doc>"
+    print("</doc>")
 
 if __name__ == '__main__':
     main()
