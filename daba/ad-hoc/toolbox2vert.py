@@ -179,6 +179,7 @@ class Config(object):
         defaults = u'''
 {
     "recstarters": ["id", "ref"],
+    "blockstarters": ["tx"],
     "reclabel": "ref",
     "docid": "id",
     "tagfield": "ps",
@@ -220,45 +221,31 @@ class Config(object):
             setattr(self, key, value)
 
 
-class Record(object):
+class ShBlock(object):
     def __init__(self, fields, config):
-        self.metadata = []
         self._tokens = []
         self._morphemes = []
-        self.atdoclevel = False
         self.config = config
+        self.fields = fields
 
         for marker, value in fields:
-            marker = marker.decode('utf-8')
-            value = value.decode('utf-8')
-            if marker in config.annotlevels['sentence']:
-                self.metadata.append((marker, value))
-            elif marker in config.annotlevels['token']:
+            if marker in config.annotlevels['token']:
                 self._tokens.append((marker, self._tokenize(value)))
             elif marker in config.annotlevels['morpheme']:
                 self._morphemes.append((marker, value.split()))
-            elif marker in config.annotlevels['document']:
-                self.metadata.append((marker, value))
-                self.atdoclevel = True
-
         self.tokens = Layers(self._tokens)
         self.morphemes = Layers(self._morphemes)
 
     def _tokenize(self, string):
-        return re.findall(u'[^ .,:;?!()"“”–‒«»]+|[.,:;?!()"“–‒”«»]+', string)
-
-    def __nonzero__(self):
-        return bool(self.metadata) or bool(self._tokens) or bool(self._morphemes)
+        tokens = re.findall(u'[^ .,:;?!()"“”–‒«»]+|[.,:;?!()"“–‒”«»]+', string)
+        try:
+            words = reduce(lambda a,b: ''.join([a,b]) if b.startswith("-") else ' '.join([a, b]), tokens).split()
+        except TypeError:
+            words = tokens
+        return words
 
     def ispunct(self, string):
-        return bool(re.match(u'[.,:;?!()"“”–‒«»]+$', string))
-
-    def get_senttext(self):
-        tdict = dict(self._tokens)
-        return u' '.join(tdict[self.config.daba['token']])
-
-    def get_senttoken(self):
-        return PlainToken(('</s>', self.get_senttext()), attrs=dict(self.metadata))
+        return bool(re.match(u'[.,:;?!()"“”«»–‒]+$', string))
 
     def itokens(self):
         morphs = collections.deque(self.morphemes)
@@ -277,15 +264,71 @@ class Record(object):
                     try:
                         morphemes.append(morphs.popleft())
                     except IndexError:
-                        try:
-                            print dict(self.metadata)[self.config.docid],
-                        except KeyError:
-                            print "UNK",
-                        print "tokens:", len(self.tokens), "punct:", npunct, "morphemes:", len(self.morphemes)
-
+                        raise ValueError("Misaligned morphemes")
                 while morphs and morphs[0].isaffix:
                     morphemes.append(morphs.popleft())
             yield ShToken(**{'type': toktype, 'word': tok, 'morphemes': morphemes})
+        if morphs:
+            raise ValueError("Misaligned morphemes")
+
+
+
+class Record(object):
+    def __init__(self, fields, config):
+        self.metadata = []
+        self._tokens = []
+        self._morphemes = []
+        self.blocks = []
+        self.atdoclevel = False
+        self.config = config
+        self.fields = fields
+
+        blockdata = []
+        for marker, value in fields:
+            marker = marker.decode('utf-8')
+            value = value.decode('utf-8')            
+            if marker in config.annotlevels['sentence']:
+                self.metadata.append((marker, value))
+            elif marker in config.annotlevels['document']:
+                self.metadata.append((marker, value))
+                self.atdoclevel = True
+            elif marker in config.blockstarters:
+                if blockdata:
+                    self.blocks.append(ShBlock(blockdata, self.config))
+                    blockdata = []
+                blockdata.append((marker, value))
+            elif marker in config.annotlevels['token'] or marker in config.annotlevels['morpheme']:
+                blockdata.append((marker, value))              
+        if blockdata:
+            self.blocks.append(ShBlock(blockdata, self.config))
+
+    def __nonzero__(self):
+        return bool(self.metadata) or bool(self.blocks)
+
+    #FIXME: переписать с ShBlock
+    def get_senttext(self):
+        tdict = dict(self._tokens)
+        return u' '.join(tdict[self.config.daba['token']])
+
+    def get_senttoken(self):
+        return PlainToken(('</s>', self.get_senttext()), attrs=dict(self.metadata))
+
+    def itokens(self):
+        tokens = []
+        for b in self.blocks:
+            try:
+                tokens.extend([t for t in b.itokens()])
+            except ValueError:
+                try:
+                    ref = dict(self.metadata)[self.config.reclabel]
+                except KeyError:
+                    ref = '\n'.join(u'\\{} {}'.format(k, v) for k, v in self.metadata)
+                warn = '\n'.join([u'\\{} {}'.format(m, v) for m, v in b.fields]).encode("utf-8")
+                sys.stderr.write('Misaligned morphemes:\n'.encode("utf-8"))
+                sys.stderr.write(u'{}\n'.format(ref).encode("utf-8"))
+                sys.stderr.write('{}\n\n'.format(warn))
+        for t in tokens:
+            yield t
 
 
 class ToolboxReader(object):
