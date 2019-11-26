@@ -93,6 +93,7 @@ setup(
         'funcparserlib',
         'intervaltree',
         'pytrie',
+        'regex',
         'wxPython',
     ],
     # List additional groups of dependencies here (e.g. development
