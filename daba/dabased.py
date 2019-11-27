@@ -358,7 +358,7 @@ def main():
     aparser.add_argument('infile', help='Input file (.html)')
     aparser.add_argument('-o', '--outfile', help='Output file', default=None)
     aparser.add_argument('-s', '--script', help='File with edit commands', required=True)
-    aparser.add_argument('-v', '--verbose', help='print(info messages', action='store_true'))
+    aparser.add_argument('-v', '--verbose', help='Print info messages', action='store_true')
     args = aparser.parse_args()
     if not args.outfile:
         args.outfile = args.infile

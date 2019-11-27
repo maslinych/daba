@@ -234,7 +234,7 @@ def main():
     oparser = argparse.ArgumentParser(description='Native Daba format to vertical format converter')
     oparser.add_argument('infile', help='Input file (.html)')
     oparser.add_argument("-t", "--tonal", action="store_true", help="Make tonal lemmas")
-    oparser.add_argument("-u", "--unique", action="store_true", help="print(only unique lemmas and glosses"))
+    oparser.add_argument("-u", "--unique", action="store_true", help="Print only unique lemmas and glosses")
     oparser.add_argument("-n", "--nullify", action="store_true", help="Transliterate all non-ascii characters")
     oparser.add_argument("-v", "--variants", help="Treat all variants in given dictionary as alternative lemmas")
     oparser.add_argument('-N', '--canonical', action='store_true', help='Return canonical lemma (to be used with --variants)')
