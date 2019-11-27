@@ -171,7 +171,7 @@ def preprocess(gstring):
             fields = line.split()
             mdict[fields[1]] = fields[2]
     filtered = '\n'.join(filter(lambda i: not i.startswith('macro'), lines))
-    for macro,replacement in mdict.iteritems():
+    for macro,replacement in mdict.items():
         filtered = filtered.replace(macro, replacement)
     return filtered
 

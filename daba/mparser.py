@@ -107,7 +107,7 @@ class ChainDict(object):
                 result.add(prefix)
         return result
 
-    def iteritems(self):
+    def items(self):
         result = []
         keysseen = []
         for mapping in self.dictlist:
@@ -162,7 +162,7 @@ class DictLoader(object):
         self.dictionary.add(dic)
 
     def addfile(self, dictfile):
-        dic = formats.DictReader(dictfile).get()
+        dic = daba.formats.DictReader(dictfile).get()
         if not dic.hash in self.dictionary.ids:
             self.add(dic)
             return dic.hash

@@ -40,7 +40,7 @@ class MetaData(object):
             self.fromPlain(metadict)
 
     def fromPlain(self, metadict):
-        for mkey, mvalue in metadict.iteritems():
+        for mkey, mvalue in metadict.items():
             try:
                 section, name = mkey.split(self.namesep)
             except (ValueError):
@@ -51,19 +51,19 @@ class MetaData(object):
     def toPlain(self):
         return dict(
                 (self.namesep.join([section, name]), self.valuesep.join(values)) 
-                for section, d in self._data.iteritems() for name, values in d.iteritems()
+                for section, d in self._data.items() for name, values in d.items()
                 )
 
     def getSection(self, section):
-        fnames, fvalues = zip(*[(k,v) for k,v in self._data[section].iteritems()])
+        fnames, fvalues = zip(*[(k,v) for k,v in self._data[section].items()])
         return map(lambda vs: zip(fnames, vs), zip(*fvalues))
 
     def setSection(self, section, secdata):
         for name, values in  map(lambda x: (x[0][0], zip(*x)[1]), zip(*secdata)):
             self._data[section][name] = values
 
-    def itersections(self):
-        for secname in self._data.iterkeys():
+    def sections(self):
+        for secname in self._data.keys():
             if secname != "_auto":
                 yield (secname, self.getSection(secname))
 
@@ -106,7 +106,7 @@ class MetaConfig(object):
         return self._data[section][0]
 
     def sections(self):
-        return self._data.iterkeys()
+        return self._data.keys()
 
 
 class GUIBuilder(object):
@@ -208,7 +208,7 @@ class DataPanel(wx.ScrolledWindow):
                 print("Problem with setting value", u'{1}, {2}:{3}'.format(wtype, name, value).encode('utf-8'))
 
     def getPanelData(self):
-        return [(name, self.getFieldValue(name)) for name in self.widgetlist.iterkeys()]
+        return [(name, self.getFieldValue(name)) for name in self.widgetlist.keys()]
 
     def getFieldValue(self, name):
         widget, wtype = self.widgetlist[name]
@@ -252,7 +252,7 @@ class MetaDB(object):
 
     def _decode_row(self, row):
         utf = {}
-        for k,v in row.iteritems():
+        for k,v in row.items():
             try:
                 utf[k.decode('utf-8')] = v.decode('utf-8')
             except (AttributeError):
@@ -260,7 +260,7 @@ class MetaDB(object):
                 print("ROW", row)
                 utf[k.decode('utf-8')] = ''
         #utf = self._normalize_row(utf)
-        utf = dict((self._strip_secname(k),v) for k,v in utf.iteritems())
+        utf = dict((self._strip_secname(k),v) for k,v in utf.items())
         if self.idcolumn not in utf.keys():
             key = self._add_uuid(utf)
         return utf
@@ -271,19 +271,19 @@ class MetaDB(object):
         return key
 
     def _remove_uuid(self, mdict):
-        return dict((k,v) for k,v in mdict.iteritems() if k != self.idcolumn)
+        return dict((k,v) for k,v in mdict.items() if k != self.idcolumn)
 
     def _add_secname(self, key):
         return self.namesep.join([self.secname, key])
     
     def _encode_row(self, row):
         utf = {}
-        for k,v in row.iteritems():
+        for k,v in row.items():
             utf[self._add_secname(k).encode('utf-8')] = v.encode('utf-8')
         return utf
 
     def _normalize_row(self, row):
-        for k,v in row.iteritems():
+        for k,v in row.items():
             if row[k] in [0, "0", 'inconnu']:
                 row[k] = ""
         return row
@@ -313,7 +313,7 @@ class MetaDB(object):
         return self._normalize_row(mdict) == self._remove_uuid(dbentry)
 
     def content_matches(self, mdict):
-        return any([self._match_content(mdict, dbentry) for dbentry in self._map.itervalues()])
+        return any([self._match_content(mdict, dbentry) for dbentry in self._map.values()])
 
     def append(self, mdict):
         key = self._add_uuid(mdict)
@@ -338,7 +338,7 @@ class MetaDB(object):
             if self.is_known_by_key(mdict):
                 return mdict[self.idcolumn]
             elif self.content_matches(mdict):
-                for key, dbentry in self._map.iteritems():
+                for key, dbentry in self._map.items():
                     if self._match_content(mdict, dbentry):
                         return key
         else:
@@ -459,7 +459,7 @@ class MetaPanel(wx.Panel):
         if self.selector.IsModified():
             try:
                 dbentry = self.db.getEntryByKey(self.selector.GetValue())
-                self.setCurrentPanelData(dbentry.iteritems())
+                self.setCurrentPanelData(dbentry.items())
             except KeyError:
                 pass
 
@@ -576,12 +576,12 @@ class MainFrame(wx.Frame):
         self.txt = u''.join([p for p in self.io.para if p is not None])
 
     def update_interface(self):
-        for secname, secdata in self.metadata.itersections():
+        for secname, secdata in self.metadata.sections():
             self.metapanels[secname].setSectionData(secdata)
 
     def update_metadata(self):
         # collect all metadata given
-        for secname, mp in self.metapanels.iteritems():
+        for secname, mp in self.metapanels.items():
             self.metadata.setSection(secname, mp.getSectionData())
 
     def write_xmldata(self):

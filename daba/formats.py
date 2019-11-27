@@ -719,7 +719,7 @@ class VariantsDict(MutableMapping):
         return len(self._data)
 
     def __iter__(self):
-        for (ps, gs), formlist in self._data.iteritems():
+        for (ps, gs), formlist in self._data.items():
             for form in formlist:
                 yield Gloss(form, ps, gs, ())
 
