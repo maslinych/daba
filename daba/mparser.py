@@ -292,18 +292,18 @@ class Processor(object):
         for para in txt:
             par = []
             for sent in self.tokenizer.split_sentences(self.tokenizer.tokenize(para)):
-                sttoken = formats.PlainToken(('</s>', ''.join(t.value for t in sent)))
+                sttoken = daba.formats.PlainToken(('</s>', ''.join(t.value for t in sent)))
                 st = (sttoken, [])
                 par.append(st)
                 annot = st[1]
                 for token in sent:
                     if token.type in ['Comment', 'Tag']:
-                        annot.append(formats.PlainToken((token.type, token.value)))
+                        annot.append(daba.formats.PlainToken((token.type, token.value)))
                     elif token.type in ['Punct', 'SentPunct', 'Nonword']:
-                        annot.append(formats.PlainToken(('c', token.value)))
+                        annot.append(daba.formats.PlainToken(('c', token.value)))
                     elif token.type in ['Cardinal']:
                         gloss = Gloss(token.value, ('num',), 'CARDINAL', ())
-                        annot.append(formats.WordToken([gloss], token.value, 'tokenizer'))
+                        annot.append(daba.formats.WordToken([gloss], token.value, 'tokenizer'))
                     elif token.type in ['Word']:
                         if self.converters:
                             wlist = self.convert_orthography(token.value)
@@ -329,9 +329,9 @@ class Processor(object):
                                     normform = normforms[0]
                                 else:
                                     normform = u'*{}*'.format(u'/'.join(normforms))
-                            annot.append(formats.WordToken(glosslist, normform, str(stage)))
+                            annot.append(daba.formats.WordToken(glosslist, normform, str(stage)))
                         else:
-                            annot.append(formats.WordToken(glosslist, token.value, str(stage)))
+                            annot.append(daba.formats.WordToken(glosslist, token.value, str(stage)))
 
             self.parsed.append(par)
         return self.parsed
@@ -348,7 +348,7 @@ def load_plugins():
 
 def parse_file(infile, outfile, pp, args):
     print('Processing', infile)
-    io = formats.FileWrapper()
+    io = daba.formats.FileWrapper()
     io.read(infile)
     io.write(outfile, pp.parse(io.para), parsed=True, format=args.format)
     print('Finished', outfile)
@@ -371,7 +371,7 @@ def main():
     aparser.add_argument("-l", "--list", help="Read input filenames list from file")
     aparser.add_argument("-t", "--detone", action='store_true', help="Ignore tones in dictionary lookups")
     aparser.add_argument("-z", "--tokenizer", action='store', choices=tkz.methods, default="default", help="Tokenizer to use")
-    aparser.add_argument("-f", "--format", action='store', choices=formats.FileWrapper().output_formats, default="html", help="Output file format")
+    aparser.add_argument("-f", "--format", action='store', choices=daba.formats.FileWrapper().output_formats, default="html", help="Output file format")
     aparser.add_argument("-v", "--verbose", action='store_true', help="print info messages on loaded dictionaries")
     args = aparser.parse_args()
 
