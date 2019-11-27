@@ -278,11 +278,11 @@ class Processor(object):
     def filter_parsed(self, results, forms):
         stage = max([c[0] for c in results])
         filtered = []
-        for r in filter(lambda s: s[0] >= 0, results):
+        for r in filter(lambda s: str(s[0]) >= '0', results):
             filtered.extend(r[1])
         if not filtered:
             filtered = [g for glosslist in zip(*results)[1] for g in glosslist]
-        filtered = filter(lambda g: any(tones_match(s, g.form) for s in forms), filtered)
+        filtered = list(filter(lambda g: any(tones_match(s, g.form) for s in forms), filtered))
         if not filtered:
             filtered = [emptyGloss._replace(form=w) for w in forms]
         return stage, filtered
