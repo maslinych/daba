@@ -8,7 +8,7 @@ def main():
     gr = GrammarLoader()
     pp = Processor(dl, gr)
     while True:
-        word = raw_input('Enter word:').decode(sys.stdin.encoding)
+        word = input('Enter word:')
         result = pp.parser.lemmatize(word, debug=True)
         print('Final result::')
         pprint(result)
