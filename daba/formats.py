@@ -822,7 +822,7 @@ class DictReader(object):
                     pass
             return ge
                     
-        def process_record(lemmalist):
+        def process_record(key, lemmalist):
             if lemmalist:
                 ge = select_gloss(glossdict)
                 if self.inverse:
@@ -843,7 +843,7 @@ class DictReader(object):
                 # end of the artice/dictionary
                 if not line or line.isspace():
                     if not ignore:
-                        process_record(lemmalist)
+                        process_record(key, lemmalist)
                     ignore = False
                     lemmalist = []
                     ps = ()
@@ -879,7 +879,7 @@ class DictReader(object):
                             if not dk == key:
                                 self._polisemy[dk][select_gloss(glossdict)].append(value)
             else:
-                process_record(lemmalist)
+                process_record(key, lemmalist)
 
             if not self._dict.attributed():
                 print(r"Dictionary does not contain obligatory \lang, \name or \ver fields.\
