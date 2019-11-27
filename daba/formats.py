@@ -688,7 +688,7 @@ class DabaDict(MutableMapping):
 
     def __setitem__(self, key, value):
         assert isinstance(value, Gloss)
-        self.sha.update(repr((key,value)))
+        self.sha.update(repr((key,value)).encode('utf-8'))
         return self._data.setdefault(key, []).append(value)
 
     def __delitem__(self, key):
