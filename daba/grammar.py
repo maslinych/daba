@@ -221,8 +221,8 @@ pattern :: [ la::] | :v: [:v: ::PROG]
         self.assertEquals(fullgloss_parser().parse(tokenize(fg6)), pg1) 
         
     def test_parser(self):
-        self.assertEquals(str(self.gmin), unicode(parse(tokenize(self.minimal))))
-        self.assertEquals(str(self.greal), unicode(parse(tokenize(self.real))))
+        self.assertEquals(str(self.gmin), str(parse(tokenize(self.minimal))))
+        self.assertEquals(str(self.greal), str(parse(tokenize(self.real))))
 
 if __name__ == '__main__':
     unittest.main()

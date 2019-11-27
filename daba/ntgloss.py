@@ -266,8 +266,8 @@ class TestObjects(unittest.TestCase):
         # test gloss creation
         #self.assertRaises(GlossError, Gloss, u'')
         # test gloss return value
-        self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a',tuple(['ps']),'gloss',())))
-        self.assertEquals(u'a:adj/n:gloss', unicode(Gloss(u'a',tuple(['n','adj']),'gloss',())))
+        self.assertEquals(u'a:ps:gloss', str(Gloss(u'a',tuple(['ps']),'gloss',())))
+        self.assertEquals(u'a:adj/n:gloss', str(Gloss(u'a',tuple(['n','adj']),'gloss',())))
         # test equality comparison
         self.assertEquals(True, emptyGloss == emptyGloss)
         self.assertEquals(True, Gloss(u'a',tuple(['n','adj']),'gloss',()) == Gloss(u'a',tuple(['adj','n']),'gloss',()))
@@ -325,21 +325,21 @@ class TestObjects(unittest.TestCase):
         # test gloss union (typical use: union with pattern data)
         # NB: empty gloss always returns empty union
         self.assertEquals(None, emptyGloss.union(emptyGloss))
-        self.assertEquals(u'á:ps:gloss', unicode(Gloss(u'a',tuple([]),'',()).union(Gloss(u'á',tuple(['ps']),'gloss',()))))
-        self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a',tuple(['ps']),'gloss',()).union(emptyGloss)))
-        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'a',tuple(['n']),'',()))))
-        self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a',tuple(['ps']),'',()).union(Gloss(u'',tuple([]),'gloss',()))))
-        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',tuple(['n','adj']),'',()).union(Gloss(u'',tuple(['n']),'gloss',()))))
-        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',tuple([]),'',()).union(Gloss(u'',tuple(['n']),'gloss',()))))
-        self.assertEquals(u'None', unicode(emptyGloss.union(Gloss(u'a',tuple([]),'',()))))
-        self.assertEquals(u'b:n:gloss', unicode(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'b',tuple(['n']),'',()))))
-        self.assertEquals(u'None', unicode(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'b',tuple(['v']),'',()))))
-        self.assertEquals(u'ab:n:gloss, [a:n:gloss, b:mrph:ge]', unicode(self.gam.union(self.ga)))
-        self.assertEquals(u'ab:n:gloss, [a:n:gloss, b:mrph:ge]', unicode(self.gam.union(self.m)))
+        self.assertEquals(u'á:ps:gloss', str(Gloss(u'a',tuple([]),'',()).union(Gloss(u'á',tuple(['ps']),'gloss',()))))
+        self.assertEquals(u'a:ps:gloss', str(Gloss(u'a',tuple(['ps']),'gloss',()).union(emptyGloss)))
+        self.assertEquals(u'a:n:gloss', str(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'a',tuple(['n']),'',()))))
+        self.assertEquals(u'a:ps:gloss', str(Gloss(u'a',tuple(['ps']),'',()).union(Gloss(u'',tuple([]),'gloss',()))))
+        self.assertEquals(u'a:n:gloss', str(Gloss(u'a',tuple(['n','adj']),'',()).union(Gloss(u'',tuple(['n']),'gloss',()))))
+        self.assertEquals(u'a:n:gloss', str(Gloss(u'a',tuple([]),'',()).union(Gloss(u'',tuple(['n']),'gloss',()))))
+        self.assertEquals(u'None', str(emptyGloss.union(Gloss(u'a',tuple([]),'',()))))
+        self.assertEquals(u'b:n:gloss', str(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'b',tuple(['n']),'',()))))
+        self.assertEquals(u'None', str(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'b',tuple(['v']),'',()))))
+        self.assertEquals(u'ab:n:gloss, [a:n:gloss, b:mrph:ge]', str(self.gam.union(self.ga)))
+        self.assertEquals(u'ab:n:gloss, [a:n:gloss, b:mrph:ge]', str(self.gam.union(self.m)))
         # test morphemes union by pattern
-        self.assertEquals(u'ab::, [a::1, b::2]', unicode(Gloss('ab',tuple([]),'', (Gloss('a',tuple([]),'',()), Gloss('b',tuple([]),'',()))).union(Gloss('',tuple([]),'', (Gloss('',tuple([]),'2',()), Gloss('',tuple([]),'1',()))), pattern=(1,0))))
+        self.assertEquals(u'ab::, [a::1, b::2]', str(Gloss('ab',tuple([]),'', (Gloss('a',tuple([]),'',()), Gloss('b',tuple([]),'',()))).union(Gloss('',tuple([]),'', (Gloss('',tuple([]),'2',()), Gloss('',tuple([]),'1',()))), pattern=(1,0))))
         # test regex capabilities
-        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',tuple(['n']),'gloss',()).union(self.gre)))
+        self.assertEquals(u'a:n:gloss', str(Gloss(u'a',tuple(['n']),'gloss',()).union(self.gre)))
 
     def test_gloss_html(self):
         # text Gloss coercing to html
@@ -351,7 +351,7 @@ class TestObjects(unittest.TestCase):
     def test_pattern(self):
         self.assertEquals(True, self.pat.matches(self.ga))
         self.assertEquals(False, self.pat.matches(self.gam))
-        self.assertEquals(str(self.gam), unicode(self.pat.apply(self.ga)))
+        self.assertEquals(str(self.gam), str(self.pat.apply(self.ga)))
 
 
 if __name__ == '__main__':

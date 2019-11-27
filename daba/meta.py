@@ -160,7 +160,7 @@ class GUIBuilder(object):
         return result
 
     def getWidgetValue(self, wtype, widget):
-        return unicode(self.wvalues[wtype].get(widget))
+        return str(self.wvalues[wtype].get(widget))
 
     def setWidgetValue(self, wtype, widget, value):
         try:

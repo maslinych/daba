@@ -1,7 +1,7 @@
 import readline
 import sys
 from mparser import DictLoader, GrammarLoader, Processor
-from pprint(import pprint)
+from pprint import pprint
 
 def main():
     dl = DictLoader()

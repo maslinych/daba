@@ -205,7 +205,6 @@ class GrammarLoader(object):
         self.runtimedir = runtimedir
         self.gramlist = []
         self.grammar = None
-        #root = os.getcwdu()
         for f in os.listdir(self.runtimedir):
             name, ext = os.path.splitext(f)
             if ext in ['.bgr']:
