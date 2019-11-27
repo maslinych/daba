@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import formats
 import sys
 from collections import defaultdict
+
+import daba.formats
 
 def main():
     aparser = argparse.ArgumentParser(description='Daba suite. Metadata pretty printer.')
@@ -17,7 +18,7 @@ def main():
     aparser.add_argument('-a', '--all', action='store_true', help='Print all metadata found in a file')
     args = aparser.parse_args()
 
-    reader = formats.HtmlReader(args.infile, onlymeta=True)
+    reader = daba.formats.HtmlReader(args.infile, onlymeta=True)
     meta = defaultdict(unicode)
     for k,v in reader.metadata.items():
         meta[k] = v

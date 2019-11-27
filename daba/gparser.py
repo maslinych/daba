@@ -18,11 +18,11 @@
 
 import wx
 import os
-import mparser
-import formats
 from contextlib import contextmanager
-from plugins import OrthographyConverter
 
+import daba.mparser
+import daba.formats
+from daba.plugins import OrthographyConverter
 
 def get_outdir(fname):
     dirname = os.path.dirname(fname)
@@ -166,7 +166,7 @@ class TokenizerLister(wx.Panel):
     def __init__(self, parent, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.selection = 'default'
-        self.tkz = mparser.Tokenizer()
+        self.tkz = daba.mparser.Tokenizer()
         self.tokenizers = self.tkz.methods
         tokenizerbox = wx.StaticBox(self, wx.ID_ANY, "Available Tokenizers")
         self.tsizer = wx.StaticBoxSizer(tokenizerbox, wx.VERTICAL)
@@ -210,8 +210,8 @@ class MainFrame(wx.Frame):
         self.InitValues()
         # setup Resources
         self.dirname = os.curdir
-        self.dl = mparser.DictLoader()
-        self.gr = mparser.GrammarLoader()
+        self.dl = daba.mparser.DictLoader()
+        self.gr = daba.mparser.GrammarLoader()
         self.resourcepanel = ResourcePanel(self, self.dl, self.gr)
         self.filepanel = FilePanel(self)
 
@@ -240,13 +240,13 @@ class MainFrame(wx.Frame):
     def InitValues(self):
         self.infile = None
         self.outfile = None
-        self.io = formats.FileWrapper()
+        self.io = daba.formats.FileWrapper()
         self.parsed = False
 
     def OnParse(self,e):
         @contextmanager
         def wait_for_parser():
-            self.processor = mparser.Processor(self.dl, self.gr,
+            self.processor = daba.mparser.Processor(self.dl, self.gr,
                                                tokenizer=self.resourcepanel.toklist.tkz,
                                                converters=self.resourcepanel.convlist.selection)
             yield self.processor.parse(self.io.para)

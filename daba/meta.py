@@ -28,7 +28,7 @@ import tempfile
 import shutil
 import csv
 import uuid
-import formats
+import daba.formats
 
 
 class MetaData(object):
@@ -570,7 +570,7 @@ class MainFrame(wx.Frame):
         self.Layout()
 
     def parse_file(self, ifile):
-        self.io = formats.FileWrapper()
+        self.io = daba.formats.FileWrapper()
         self.io.read(ifile)
         self.metadata = MetaData(self.io.metadata)
         self.txt = u''.join([p for p in self.io.para if p is not None])

@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import formats
+import daba.formats
 
 
 def token_iterator(infile, select_types=('</s>',)):
-    reader = formats.HtmlReader(infile)
+    reader = daba.formats.HtmlReader(infile)
     for token in reader:
         if token.type in select_types:
             yield token

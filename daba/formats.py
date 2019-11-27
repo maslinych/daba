@@ -9,12 +9,14 @@ import codecs
 import unicodedata
 import hashlib
 import xml.etree.ElementTree as e
-import grammar
-from ntgloss import Gloss
-from orthography import detone
 from pytrie import StringTrie as trie
 from collections import MutableMapping, defaultdict, OrderedDict
 from abc import abstractmethod
+
+import daba.grammar
+from daba.ntgloss import Gloss
+from daba.orthography import detone
+
 
 # Data structure for internal bare text representation:
 # ({metadata}, [para+])
@@ -61,8 +63,8 @@ def gloss_to_html(gloss, spanclass='lemma', variant=False):
 
 def glosstext_to_html(glosstext, variant=False, **kwargs):
     """Serialize text representation of a gloss into HTML string"""
-    toks = grammar.str_tokenize(glosstext)
-    gloss = grammar.stringgloss_parser().parse(toks)
+    toks = daba.grammar.str_tokenize(glosstext)
+    gloss = daba.grammar.stringgloss_parser().parse(toks)
     html = gloss_to_html(gloss, variant=variant)
     return e.tostring(html, **kwargs)
 

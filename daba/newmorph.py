@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import re
-from ntgloss import Gloss, CompactGloss, emptyGloss, Pattern, Dictionary
-from orthography import detone, tones_match
+from daba.ntgloss import Gloss, CompactGloss, emptyGloss, Pattern, Dictionary
+from daba.orthography import detone, tones_match
 
 
 def nullgloss(word):

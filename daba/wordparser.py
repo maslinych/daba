@@ -1,6 +1,6 @@
 import readline
 import sys
-from mparser import DictLoader, GrammarLoader, Processor
+from daba.mparser import DictLoader, GrammarLoader, Processor
 from pprint import pprint
 
 def main():

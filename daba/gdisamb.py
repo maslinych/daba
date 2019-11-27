@@ -28,12 +28,13 @@ import wx.lib.newevent
 import wx.lib.scrolledpanel
 import wx.stc
 
-import formats
-import grammar
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
 from intervaltree import IntervalTree
-from ntgloss import Gloss
+
+import daba.formats
+import daba.grammar
+from daba.ntgloss import Gloss
 
 
 ## EVENTS 
@@ -100,7 +101,7 @@ class FileParser(object):
         self.dirty = False
 
     def read_file(self, filename):
-        freader = formats.HtmlReader(filename)
+        freader = daba.formats.HtmlReader(filename)
         self.metadata = freader.metadata
         self.glosses = []
         for pnum, par in enumerate(freader.glosses):
@@ -125,7 +126,7 @@ class FileParser(object):
                         glosstoken.setGlosslist(selectlist)
                     outgloss.append(glosstoken)
             out[-1].append((sent[0], outgloss))
-        fwriter = formats.HtmlWriter((self.metadata, out), filename)
+        fwriter = daba.formats.HtmlWriter((self.metadata, out), filename)
         fwriter.write()
 
 
@@ -371,8 +372,8 @@ class GlossInputDialog(wx.Dialog):
             glosstext = normalizeText(self.glosstext.GetValue())
             oldgloss = self.as_gloss
             try:
-                toks = grammar.str_tokenize(glosstext)
-                self.as_gloss = grammar.stringgloss_parser().parse(toks)
+                toks = daba.grammar.str_tokenize(glosstext)
+                self.as_gloss = daba.grammar.stringgloss_parser().parse(toks)
                 if not self.as_gloss == oldgloss:
                     self.glosstext.SetBackgroundColour(wx.NullColour)
                     self.glosstext.Refresh()
@@ -643,7 +644,7 @@ class GlossSelector(wx.Panel):
         self.UpdateState(self.statecode, self.gloss)
 
     def GetWordToken(self):
-        return formats.WordToken(self.glosslist, self.form, self.stage)
+        return daba.formats.WordToken(self.glosslist, self.form, self.stage)
 
     def OnContextMenu(self, evt):
         if not hasattr(self, "joinfwID"):
@@ -1330,9 +1331,9 @@ class MainFrame(wx.Frame):
 
     def SetLocaldict(self, dictfile):
         if os.path.exists(dictfile):
-            self.localdict = formats.DictReader(dictfile).get()
+            self.localdict = daba.formats.DictReader(dictfile).get()
         else:
-            self.localdict = formats.DabaDict()
+            self.localdict = daba.formats.DabaDict()
 
     def InitValues(self):
         self.infile = None
@@ -1444,7 +1445,7 @@ class MainFrame(wx.Frame):
         shift = 0
         for token in evt.result:
             self.processor.glosses[snum][1].insert(toknum+shift, [])
-            self.processor.glosses[snum][2].insert(toknum+shift, formats.WordToken([Gloss(token, (), '', ())], token, '-1'))
+            self.processor.glosses[snum][2].insert(toknum+shift, daba.formats.WordToken([Gloss(token, (), '', ())], token, '-1'))
             shift = shift+1
         self.processor.dirty = True
         wx.CallAfter(self.ShowSent, snum)
@@ -1460,7 +1461,7 @@ class MainFrame(wx.Frame):
         nexttoken = self.processor.glosses[snum][2][second]
         #FIXME: will break on non-word tokens
         newform = firsttoken.token + nexttoken.token
-        newtoken = formats.WordToken([Gloss(newform, (),'',())], newform, '-1')
+        newtoken = daba.formats.WordToken([Gloss(newform, (),'',())], newform, '-1')
         self.processor.glosses[snum][1][first] = []
         del self.processor.glosses[snum][1][second]
         self.processor.glosses[snum][2][first] = newtoken
@@ -1476,9 +1477,9 @@ class MainFrame(wx.Frame):
                 newtoken = savedtoken
                 newtoken.token = evt.token
             else:
-                newtoken = formats.WordToken([Gloss(evt.token, (), '', ())], evt.token, '-1')
+                newtoken = daba.formats.WordToken([Gloss(evt.token, (), '', ())], evt.token, '-1')
         else:
-            newtoken = formats.PlainToken((evt.toktype, evt.token))
+            newtoken = daba.formats.PlainToken((evt.toktype, evt.token))
         self.processor.glosses[snum][2][toknum] = newtoken
         self.processor.dirty = True
         wx.CallAfter(self.ShowSent, snum)
@@ -1646,7 +1647,7 @@ class MainFrame(wx.Frame):
 
     def SaveFiles(self):
         if self.localdict:
-            formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict',ver='0').write()
+            daba.formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict',ver='0').write()
         self.processor.write(self.outfile)
         self.config.Flush()
 

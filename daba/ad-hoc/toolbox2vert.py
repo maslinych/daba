@@ -4,11 +4,12 @@
 import re
 import argparse
 import collections
+import collections.abc
 import codecs
 import json
 import sys
 import os
-from itertools import izip_longest
+from itertools import zip_longest
 from nltk import toolbox
 from xml.sax.saxutils import quoteattr
 from daba.ntgloss import Gloss
@@ -54,7 +55,7 @@ class ShToken(collections.namedtuple('ShToken', 'type, word, morphemes')):
         return Gloss(*parts)
 
 
-class ShGloss(collections.Mapping):
+class ShGloss(collections.abc.Mapping):
     def __init__(self, tuples):
         self._dict = collections.OrderedDict()
         self.base = None
@@ -87,14 +88,14 @@ class ShGloss(collections.Mapping):
         return str(self._dict)
 
 
-class Layers(collections.Iterable):
+class Layers(collections.abc.Iterable):
     def __init__(self, tuples):
         self.names = []
         toks = []
         for name, value in tuples:
             self.names.append(name)
             toks.append(value)
-        self.tokens = map(lambda v: ShGloss(zip(self.names, v)), izip_longest(*toks, fillvalue=''))
+        self.tokens = map(lambda v: ShGloss(zip(self.names, v)), zip_longest(*toks, fillvalue=''))
 
     def __iter__(self):
         return iter(self.tokens)

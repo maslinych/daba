@@ -13,20 +13,20 @@
 # GNU General Public License for more details.
 #
 
-import newmorph
-import grammar
-from ntgloss import Gloss, emptyGloss
 import os
 import argparse
 import sys
 import pickle
 import funcparserlib.lexer
-import formats
-from plugins import OrthographyConverter
 import pkg_resources
-from plugins.tokenizer import TokenizerData
-from orthography import tones_match, detone
 
+import daba.formats
+import daba.newmorph
+import daba.grammar
+from daba.ntgloss import Gloss, emptyGloss
+from daba.plugins import OrthographyConverter
+from daba.plugins.tokenizer import TokenizerData
+from daba.orthography import tones_match, detone
 
 class Tokenizer(object):
     def __init__(self):
@@ -211,7 +211,7 @@ class GrammarLoader(object):
                 try:
                     with open(os.path.join(self.runtimedir, f), 'rb') as gram:
                         g = pickle.load(gram)
-                    assert isinstance(g, grammar.Grammar)
+                    assert isinstance(g, daba.grammar.Grammar)
                     self.gramlist = [name]
                     self.grammar = g
                 except (pickle.UnpicklingError, ImportError, AssertionError):
@@ -219,7 +219,7 @@ class GrammarLoader(object):
                     print("Invalid binary grammar file:", f)
     
     def load(self, gramfile):
-        self.grammar = grammar.Grammar(gramfile)
+        self.grammar = daba.grammar.Grammar(gramfile)
         self.gramlist = [os.path.basename(gramfile)]
         # take basename of the gramfile as a 
         for f in os.listdir(self.runtimedir):
@@ -250,7 +250,7 @@ class Processor(object):
         else:
             self.dictloader = dictloader
             self.grammar = grammarloader.grammar
-            self.parser = newmorph.Parser(self.dictloader.dictionary,
+            self.parser = daba.newmorph.Parser(self.dictloader.dictionary,
                                           self.grammar, detone=self.detone)
 
     def get_case(self, string):

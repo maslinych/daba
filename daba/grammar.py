@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 import re
-from ntgloss import Pattern, Gloss
+from daba.ntgloss import Pattern, Gloss
 from funcparserlib.parser import *
 from funcparserlib.lexer import make_tokenizer, Token, LexerError
 
