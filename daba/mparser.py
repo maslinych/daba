@@ -148,9 +148,9 @@ class DictLoader(object):
             for f in os.listdir(self.runtimedir):
                 name, ext = os.path.splitext(f)
                 if ext in ['.bdi']:
-                    with open(os.path.join(self.runtimedir, f)) as bdi:
+                    with open(os.path.join(self.runtimedir, f), 'rb') as bdi:
                         dic = pickle.load(bdi)
-                        assert isinstance(dic, formats.DabaDict)
+                        assert isinstance(dic, daba.formats.DabaDict)
                         self.load(dic)
 
     def filepath(self, dic):
