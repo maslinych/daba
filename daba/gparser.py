@@ -147,11 +147,10 @@ class ConverterLister(wx.Panel):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         #FIXME: make default plugins configurable from config file
         self.selection = ('apostrophe',)
-        mparser.load_plugins()
-        self.converters = OrthographyConverter.get_plugins().keys()
+        daba.mparser.load_plugins()
         converterbox = wx.StaticBox(self, -1, "Available Orthographic Converters")
         self.csizer = wx.StaticBoxSizer(converterbox, wx.VERTICAL)
-        self.converterlist = wx.CheckListBox(self, wx.ID_ANY, choices=self.converters)
+        self.converterlist = wx.CheckListBox(self, wx.ID_ANY, choices=OrthographyConverter.converters)
         self.converterlist.SetCheckedStrings(self.selection)
         self.Bind(wx.EVT_CHECKLISTBOX, self.OnSelection, self.converterlist)
         self.csizer.Add(self.converterlist, 0, wx.TOP|wx.LEFT, 10)

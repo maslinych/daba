@@ -92,7 +92,7 @@ class TokenizerData(object):
             "kpelle": self.kpelle,
             "default": self.bamana
         }
-        self.methods = self._methods.keys()
+        self.methods = list(self._methods.keys())
 
     def get(self, method):
         return self._methods[method]

@@ -26,8 +26,12 @@ class PluginMount(type):
             plugin_dict[obj.title] = obj
         return plugin_dict
 
+    @property
+    def converters(self):
+        """List of all installed orthography converters"""
+        return list(self.get_plugins().keys())
 
-class OrthographyConverter(object):
+class OrthographyConverter(metaclass=PluginMount):
     """
     Mount point for orthography conversion plugins.
 
@@ -39,7 +43,7 @@ class OrthographyConverter(object):
     @convert    Main conversion method. Takes single token as input, returns
     list of possible conversions
     """
-    __metaclass__ = PluginMount
+    #__metaclass__ = PluginMount
 
 
 class TonesConverter(object):
