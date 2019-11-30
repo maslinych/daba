@@ -71,17 +71,17 @@ def csv_export(enc, filename, gold_tokens, test_tokens):
             token          = g[0]
             golden_code    = g[-1]
             predicted_code = t[-1]
-            golden_form    = enc.differential_decode(token, golden_code.decode('utf-8'))
-            predicted_form = enc.differential_decode(token, predicted_code.decode('utf-8'))
+            golden_form    = enc.differential_decode(token, golden_code)
+            predicted_form = enc.differential_decode(token, predicted_code)
             sameCodes = (golden_code == predicted_code)
             sameForms = (golden_form == predicted_form)
 
-            if not repr(token.encode('utf-8')) :
+            if not repr(token) :
                 sameCodes = u''
             row = [
-                repr(token.encode('utf-8')),
-                repr(golden_form.encode('utf-8')),
-                repr(predicted_form.encode('utf-8')),
+                repr(token),
+                repr(golden_form),
+                repr(predicted_form),
                 repr(golden_code, spaces=True),
                 repr(predicted_code, spaces=True),
                 sameCodes]
@@ -170,7 +170,7 @@ def main():
                         if token.type == 'w' or token.type == 'c':
                             tags = ''
                             if args.pos:
-                                tags = '/'.join(token.gloss.ps).encode('utf-8')
+                                tags = '/'.join(token.gloss.ps)
                                 wordform = detone(token.gloss.form)
                                 sent.append((wordform, tags))
                             elif args.tone:
@@ -183,11 +183,11 @@ def main():
                                 if '|' not in token.gloss.form :
                                     [codes, chunks] = enc.differential_encode(token.token, token.gloss.form)
                                     for chunk, code in zip(chunks, codes) :
-                                        try : sent.append((chunk, code.encode('utf-8')))
+                                        try : sent.append((chunk, code))
                                         except LookupError: pass
                             """
                             elif args.gloss:
-                                tags += token.gloss.gloss.encode('utf-8')
+                                tags += token.gloss.gloss
                                 sent.append((token.token, tags))
                             """
 
@@ -229,7 +229,7 @@ def main():
                 if num_phases > 1:
                     for lab in labels:
                         pass
-                    labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
+                    labels = [code_dispatcher(label)[phase] for label in labels]
                 features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
                 trainer.append(features, labels)
             trainer.train(model = model_name)
@@ -264,7 +264,7 @@ def main():
                 features = [_get_features_customised_for_tones(sent,j) for j in range(len(sent))]
                 labels = tagger._tagger.tag(features)
                 if num_phases > 1:
-                    labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
+                    labels = [code_dispatcher(label)[phase] for label in labels]
                 tagged_sent = list(zip(sent, labels))
                 if not predicted_set[i]:
                     predicted_set[i] = tagged_sent
@@ -280,7 +280,7 @@ def main():
         predicted_tokens = list(itertools.chain(*predicted_set))
         if num_phases > 1:
             predicted_tokens = [
-                tuple([pair[0], code_resort(pair[1].decode('utf-8')).encode('utf-8')])
+                tuple([pair[0], code_resort(pair[1])])
                 for pair in predicted_tokens]
         gold_tokens = list(itertools.chain(*gold_set))
         # gold_tokens_eval, predicted_tokens_eval : list(str)

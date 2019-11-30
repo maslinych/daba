@@ -17,7 +17,7 @@ for i in d:
 d.close()
 
 for line in sys.stdin:
-    word = unicodedata.normalize('NFC', unicode(line.strip('\n').decode('utf-8')))
+    word = unicodedata.normalize('NFC', unicode(line.strip('\n')))
     c = 0
     max = ((len(word)+2)*2)-3
     positive = []

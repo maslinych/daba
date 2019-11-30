@@ -31,7 +31,7 @@ for word in types:
 
         glstr = [print_gloss(g) for g in dict_disambiguate(result)]
         for gs in glstr:
-            print("    ", gs.encode('utf-8'))
+            print("    ", gs)
         print
 
 

@@ -16,6 +16,6 @@ with open(sys.argv[1], encoding="utf-8") as f:
             print("SENT")
         for token in sent:
             if debug:
-                print(token.type, token.value.encode('utf-8'))
+                print(token.type, token.value)
             if token.type == 'Word':
-                print(token.value.encode('utf-8'))
+                print(token.value)

@@ -5,7 +5,7 @@ import sys
 import morphology as m
 
 for line in sys.stdin:
-    word = line.strip('\n').decode('utf-8')
+    word = line.strip('\n')
     derivatives = m.recursive_parse([m.strtolemma(word)], m.derivation_order, m.affixes)
     for lemma in derivatives:
         affixlist = lemma[1][1]

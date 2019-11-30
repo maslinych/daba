@@ -11,18 +11,18 @@ from daba.ntgloss import Gloss
 
 def print_field(tag, value):
     if not value:
-        print(u"\\{}".format(tag).encode("utf-8"))
+        print(u"\\{}".format(tag))
     elif not tag:
-        print(value.encode("utf-8"))
+        print(value)
     else:
-        print(u"\\{} {}".format(tag, value).encode("utf-8"))
+        print(u"\\{} {}".format(tag, value))
 
 
 def strip_lemma(lemma):
     try:
         u = str(lemma)
     except TypeError:
-        print("ERR: {}".format(repr(lemma)).encode('utf8'))
+        print("ERR: {}".format(repr(lemma)))
     if u.startswith('-'):
         return(u[1:])
     else:

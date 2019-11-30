@@ -7,7 +7,7 @@ from collections import namedtuple
 Field = namedtuple('Field', 'tag value')
 
 def parse_line(line):
-    line = line.decode('utf-8').strip()
+    line = line.strip()
     if line.startswith("\\"):
         tag, space, value = line[1:].partition(" ")
         value = value.strip()
@@ -298,7 +298,7 @@ def cleanup_record(record):
 
 def serialize_record(record):
     for field in record:
-        line = u'\\{0} {1}\n'.format(*field).encode('utf-8')
+        line = u'\\{0} {1}\n'.format(*field)
         sys.stdout.write(line)
     sys.stdout.write("\n")
 

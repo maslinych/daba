@@ -22,7 +22,7 @@ class NkoToLatin(OrthographyConverter):
 
         w = token
         if debug:
-            print("NKO", w.encode("utf-8"), )
+            print("NKO", w, )
     ### FOREIGN sounds with diacritics:
         w = w.replace(u'\u07d6\u07ed', r"z")
         w = w.replace(u'\u07db\u07ed', r"S")   ### SH
@@ -209,11 +209,11 @@ class NkoToLatin(OrthographyConverter):
         w = re.sub(r'^i\u0301`$', r'i\u0301', w)
         
         if debug:
-            print("LAT", w.encode("utf-8"),)
+            print("LAT", w,)
         w = self.normalize_tones(w)
 
         if debug:
-            print("TNL", w.encode("utf-8"))
+            print("TNL", w)
         return [w]
 
     def normalize_tones(self, word):

@@ -23,17 +23,17 @@ def main():
     for k,v in reader.metadata.items():
         meta[k] = v
 
-    sys.stdout.write(str(args.infile).encode('utf-8'))
+    sys.stdout.write(str(args.infile))
 
     if args.all:
         sys.stdout.write('\n')
         for name in sorted(meta.keys()):
-            sys.stdout.write(u"\t".join([name, meta[name]]).encode('utf-8'))
+            sys.stdout.write(u"\t".join([name, meta[name]]))
             sys.stdout.write('\n')
         sys.stdout.write('\n\n')
     else:
         sys.stdout.write(args.delimeter)
-        sys.stdout.write(args.delimeter.join([meta[field] for field in args.fields]).encode('utf-8'))
+        sys.stdout.write(args.delimeter.join([meta[field] for field in args.fields]))
         sys.stdout.write('\n')
 
 if __name__ == '__main__':

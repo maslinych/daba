@@ -158,7 +158,7 @@ class DictLoader(object):
 
     def load(self, dic):
         if self.verbose:
-            sys.stderr.write(u'LOADED DICT {}\n'.format(dic).encode('utf-8'))
+            sys.stderr.write(u'LOADED DICT {}\n'.format(dic))
         self.dictionary.add(dic)
 
     def addfile(self, dictfile):
@@ -188,13 +188,13 @@ class DictLoader(object):
                 dic = d
                 break
         if self.verbose:
-            sys.stderr.write(u'REMOVED DICT {}\n'.format(dic).encode('utf-8'))
+            sys.stderr.write(u'REMOVED DICT {}\n'.format(dic))
         self.dictionary.remove(dic.hash)
         os.unlink(self.filepath(dic))
 
     def save(self, dic):
         if self.verbose:
-            sys.stderr.write(u'DICT saved {}\n'.format(dic).encode('utf-8'))
+            sys.stderr.write(u'DICT saved {}\n'.format(dic))
         self.load(dic)
         with open(self.filepath(dic), 'wb') as o:
             pickle.dump(dic, o)
@@ -272,7 +272,7 @@ class Processor(object):
                 for result in plugin.convert(w):
                     converted.append(result)
             wlist = converted
-        # print("->", u'/'.join(wlist).encode('utf-8'))
+        # print("->", u'/'.join(wlist))
         return wlist or [word]
     
     def filter_parsed(self, results, forms):
@@ -393,7 +393,7 @@ def main():
         if args.list:
             with open(args.list) as filelist:
                 for line in filelist:
-                    infile = os.path.normpath(line.decode('utf-8').strip())
+                    infile = os.path.normpath(line.strip())
                     if os.path.exists(infile):
                         outfile = os.path.splitext(infile)[0] + '.pars.html'
                         parse_file(infile, outfile, pp, args)

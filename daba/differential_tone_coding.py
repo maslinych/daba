@@ -190,10 +190,10 @@
 #         return str_in.replace(seprator_in, u"")
 #     except:
 #         try :
-#             return str_in.decode('utf-8').replace(seprator_in, replacing).encode('utf-8')
+#             return str_in.replace(seprator_in, replacing)
 #         except :
 #             try :
-#                 return str_in.encode('utf-8').replace(seprator_in, replacing).decode('utf-8')
+#                 return str_in.replace(seprator_in, replacing)
 #             except :
 #                 raise
 #
@@ -311,7 +311,7 @@
 #         lst = [element for element in lst if element[1] >= min]
 #
 #     try :
-#         return u"".join([prefix + ' '  + itm[0].encode('utf-8') + u' : ' + str(itm[1]).encode('utf-8') + u'\n' for itm in lst if itm])
+#         return u"".join([prefix + ' '  + itm[0] + u' : ' + str(itm[1]) + u'\n' for itm in lst if itm])
 #     except :
 #         return u"".join([prefix + ' ' + itm[0] + u' : ' + str(itm[1]) + u'\n' for itm in lst if itm])
 #

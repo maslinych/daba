@@ -43,7 +43,7 @@ def gloss_to_html(gloss, spanclass='lemma', variant=False):
     try:
         w.text = gloss.form
     except AttributeError:
-        print(u"ERR: {}".format(gloss).encode('utf-8'))
+        print(u"ERR: {}".format(gloss))
         exit(1)
     if gloss.ps:
         ps = e.SubElement(w, 'sub', {'class': 'ps'})
@@ -57,7 +57,7 @@ def gloss_to_html(gloss, spanclass='lemma', variant=False):
             #NB: SIDE EFFECT!
             w.append(gloss_to_html(m, spanclass='m'))
     except AttributeError:
-        print("ERR GLOSS: {}\n".format(str(gloss)).encode('utf-8'))
+        print("ERR GLOSS: {}\n".format(str(gloss)))
     return w
 
 
@@ -374,20 +374,20 @@ class TxtWriter(object):
                             sourceform, stage, glosslist = gt.value
                             if not prevtype == 'copen' and prevtype is not None:
                                 outfile.write(u" ")
-                            outfile.write(sourceform.encode('utf-8'))
+                            outfile.write(sourceform)
                             prevtype = gt.type
                         elif gt.type == 'c':
                             prevtype = gt.type
                             if gt.value in u'.,:;!?»)]}':
-                                outfile.write(gt.value.encode('utf-8'))
+                                outfile.write(gt.value)
                             else:
-                                outfile.write(u' {}'.format(gt.value).encode('utf-8'))
+                                outfile.write(u' {}'.format(gt.value))
                                 if gt.value in u'([{«':
                                     prevtype = 'copen'
                         else:
-                            outfile.write(u" {}".format(gt.value).encode('utf-8'))
+                            outfile.write(u" {}".format(gt.value))
                             prevtype = gt.type
-                outfile.write("\n\n".encode('utf-8'))
+                outfile.write("\n\n")
 
 
 class TokensWriter(object):
@@ -400,10 +400,10 @@ class TokensWriter(object):
 
     def write(self):
         with open(self.filename, 'w') as outfile:
-            outfile.write(u'# <doc path={}'.format(self.filename).encode('utf-8'))
+            outfile.write(u'# <doc path={}'.format(self.filename))
             for (name, content) in self.metadata.items():
-                outfile.write(u' {}={}'.format(name, content).encode('utf-8'))
-            outfile.write(u'>\n'.encode('utf-8'))
+                outfile.write(u' {}={}'.format(name, content))
+            outfile.write(u'>\n')
             for p in self.para:
                 for (senttoken, sentannot) in p:
                     for gt in sentannot:
@@ -415,9 +415,9 @@ class TokensWriter(object):
                                 token = token[0].upper() + token[1:]
                         else:
                             token = gt.value
-                        outfile.write(u'{}\n'.format(token).encode('utf-8'))
-                    outfile.write("\n".encode('utf-8'))
-                outfile.write("\n".encode('utf-8'))
+                        outfile.write(u'{}\n'.format(token))
+                    outfile.write("\n")
+                outfile.write("\n")
 
 
 class SentenceListWriter(object):
@@ -434,7 +434,7 @@ class SentenceListWriter(object):
             for p in self.para:
                 for (senttoken, sentannot) in p:
                     s = u"<s n={0}>{1}</s>\n".format(snum, senttoken.value.strip())
-                    outfile.write(s.encode('utf-8'))
+                    outfile.write(s)
                     snum += 1
                 outfile.write("\n")
         
@@ -688,7 +688,7 @@ class DabaDict(MutableMapping):
 
     def __setitem__(self, key, value):
         assert isinstance(value, Gloss)
-        self.sha.update(repr((key,value)).encode('utf-8'))
+        self.sha.update(repr((key,value)))
         return self._data.setdefault(key, []).append(value)
 
     def __delitem__(self, key):
@@ -795,7 +795,7 @@ class DictReader(object):
                     ps = ()
                 return Gloss(f, ps, g, ())
             except (ValueError):
-                print("Error line:", str(self.line), str(v).encode('utf-8'))
+                print("Error line:", str(self.line), str(v))
 
         def normalize(value):
             return normalizeText(value.translate({ord(u'.'): None, ord(u'-'):None}).lower())

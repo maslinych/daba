@@ -59,7 +59,7 @@ class TonesConverter(object):
             return True
         except (ValueError) as e:
             if self.debug:
-                print(str(e).encode('utf-8'))
+                print(str(e))
             self.invalid = True
             return False
 
@@ -72,11 +72,11 @@ class TonesConverter(object):
                     self.syllabic.set_tone(j, tones[0])
                 else:
                     if self.debug:
-                        print('Conflicting conversion rules:', u' '.join([self.word, self.syllabic.base(j), u' '.join(tones)]).encode('utf-8'))
+                        print('Conflicting conversion rules:', u' '.join([self.word, self.syllabic.base(j), u' '.join(tones)]))
 
             if self.toreplace:
                 if self.debug:
-                    print(u' '.join([self.word, '->', self.syllabic.form()]).encode('utf-8'))
+                    print(u' '.join([self.word, '->', self.syllabic.form()]))
                 return [self.syllabic.form()]
             else:
                 return [self.word]

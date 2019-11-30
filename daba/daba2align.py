@@ -27,7 +27,7 @@ def main():
 
     with open(args.outfile, 'w') as out:
         for n, t in enumerate(token_iterator(args.infile)):
-            out.write(token_printer(t, n).encode('utf-8'))
+            out.write(token_printer(t, n))
 
 
 if __name__ == '__main__':

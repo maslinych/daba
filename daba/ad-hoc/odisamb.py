@@ -18,7 +18,7 @@ for w in test.words():
                 print("PROPER:",)
             else:
                 print("NOTDICT:", )
-            print(r.encode('utf-8'),)
+            print(r,)
         else:
             print()
     
