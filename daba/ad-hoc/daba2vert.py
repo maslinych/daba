@@ -7,7 +7,6 @@ import html
 import argparse
 import daba.formats
 import pickle
-import itertools
 from daba.orthography import detone
 
 INFLECTION = [
@@ -54,9 +53,9 @@ def dedot(s, repl=''):
 
 def print_fields(fields, unique=True):
     if unique:
-        print(u"\t".join([u'|'.join(filter(None, set(s))) for s in fields]).encode('utf-8'))
+        print(u"\t".join([u'|'.join(filter(None, set(s))) for s in fields]))
     else:
-        print(u"\t".join([u'|'.join(filter(None, s)) for s in fields]).encode('utf-8'))
+        print(u"\t".join([u'|'.join(filter(None, s)) for s in fields]))
 
 
 def make_lemmafunc(args):
@@ -86,7 +85,7 @@ def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
     if gt.type in ['Comment', '<s>', '<p>']:
         return
     if not gt.type == "w":
-        print(u"{0}\t".format(gt.token).encode('utf-8'),)
+        print(gt.token, end="\t")
     if gt.type == 'w':
         normalized = gt.glosslist[0].form
         if ' ' in normalized:
@@ -101,7 +100,7 @@ def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
                 token = detone(token)
         else:
             token = gt.token
-        print(u"{0}\t".format(token).encode('utf-8'),)
+        print(token, end="\t")
 
         tonals = []
         fields = []
@@ -218,16 +217,16 @@ def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
             ctag = args.senttag
         else:
             ctag = gt.type
-        print(u"\t".join([gt.token, ctag] + [gt.token]*(nfields-2)).encode('utf-8'))
+        print(u"\t".join([gt.token, ctag] + [gt.token]*(nfields-2)))
 
 
 def print_metafield(name, store):
     value = html.escape(store.setdefault(name, 'UNDEF'))
-    print(u'{0}="{1}"'.format(name.replace(':', '_'), value).encode('utf-8'),)
+    print(u'{0}="{1}"'.format(name.replace(':', '_'), value), end=" ")
 
 
 def reversedEnumerate(l):
-    return itertools.izip(xrange(len(l)-1, -1, -1), l)
+    return zip(range(len(l)-1, -1, -1), l)
 
 
 def main():
@@ -248,7 +247,7 @@ def main():
     oparser.add_argument("-s", "--senttag", action="store", default="c", help="Tag to use for SentPunct tokens")
     args = oparser.parse_args()
 
-    reader = daba.formats.HtmlReader(args.infile.decode("utf-8"))
+    reader = daba.formats.HtmlReader(args.infile)
 
     if args.variants:
         vardict, polidict = VariantsLoader(args.variants).get()
@@ -256,8 +255,8 @@ def main():
         vardict = None
         polidict = None
 
-    print("<doc ",)
-    print(u'id="{0}"'.format(os.path.basename(args.infile.decode("utf-8"))).encode('utf-8'),)
+    print("<doc", end=" ")
+    print(u'id="{0}"'.format(os.path.basename(args.infile)), end=" ")
     
     metad = dict(reader.metadata)
     for f in ['source:type', 'source:year', 'text:translation', 'text:medium', 'author:name']:
@@ -267,13 +266,13 @@ def main():
         hgenres = [g.split(' : ')[0] for g in genres] + genres
         hgenres.sort()
         metad['text:genre'] = u';'.join(hgenres)
-        print(u'text_genre="{0}"'.format(metad['text:genre']).encode('utf-8'),)
+        print(u'text_genre="{0}"'.format(metad['text:genre']), end=" ")
     except (KeyError):
-        print('text_genre="UNDEF"',)
+        print('text_genre="UNDEF"', end=" ")
     try:
         print_metafield('text:title', metad)
     except (KeyError):
-        print('text_title="UNDEF"',)
+        print('text_title="UNDEF"', end="")
     print(">")
 
     for par in reader.glosses:

@@ -195,20 +195,20 @@ class ScriptParser(object):
                 else:
                     result.append(self.parse_gloss(gexpr))
             except (LexerError, NoParseError, ValueError) as e:
-                sys.stderr.write(u'In rule: {0}'.format(gexpr).encode('utf-8'))
-                sys.stderr.write(u'{}\n'.format(e).encode('utf-8'))
+                sys.stderr.write(u'In rule: {0}'.format(gexpr))
+                sys.stderr.write(u'{}\n'.format(e))
                 return []
         return result
 
     def parse_command(self, command):
         command = u.normalize(
-            'NFKD', command.decode('utf8')
+            'NFKD', command
         ).strip('\n')
         m = re.match(r'\s*(.+?)\s*>>\s*(.+?)\s*$', command, re.U)
         try:
             source, target = m.groups()
         except (AttributeError):
-            sys.stderr.write(u'Malformed rule: {0}\n'.format(command).encode('utf-8'))
+            sys.stderr.write(u'Malformed rule: {0}\n'.format(command))
             return
         sourcelist = self.parse_expr(source)
         targetlist = self.parse_expr(target)
@@ -241,7 +241,7 @@ class StreamEditor(object):
         #             token.matches(intoken),
         #             token,
         #             intoken
-        #         ).encode('utf-8')
+        #         )
         #     )
         return all(
             token.matches(intoken)
@@ -318,23 +318,23 @@ class StreamEditor(object):
                     (domatch and self.match(tokens, rule.inlist))
             ):
                 # sys.stderr.write(
-                #     u'match: {}\n'.format(self.getstr(tokens)).encode('utf-8')
+                #     u'match: {}\n'.format(self.getstr(tokens))
                 # )
                 replacement = replace_func(tokens, rule)
                 # sys.stderr.write(
-                #     u'replacement: {}\n'.format(self.getstr(replacement)).encode('utf-8')
+                #     u'replacement: {}\n'.format(self.getstr(replacement))
                 # )
                 if not all(g == r for g, r
                            in zip_longest(
                                tokens,
                                replacement,
-                               fillvalue=formats.PlainToken())):
+                               fillvalue=daba.formats.PlainToken())):
                     self.dirty = True
                     if self.verbose:
                         sys.stderr.write(
                             u'{0} -> {1}\n'.format(
                                 self.getstr(tokens),
-                                self.getstr(replacement)).encode('utf-8')
+                                self.getstr(replacement))
                             )
                     tokens = replacement
                     success = pos
@@ -365,7 +365,7 @@ def main():
         args.outfile = args.infile
     # start processing
     if args.verbose:
-        sys.stderr.write(u'Processing {0} with rules from {1}...\n'.format(args.infile, args.script).encode('utf-8'))
+        sys.stderr.write(u'Processing {0} with rules from {1}...\n'.format(args.infile, args.script))
     sed = StreamEditor(verbose=args.verbose)
     script = ScriptParser(args.script)
     in_handler = daba.formats.HtmlReader(args.infile, compatibility_mode=False)
@@ -374,7 +374,7 @@ def main():
         out_handler = daba.formats.HtmlWriter((in_handler.metadata, in_handler.make_compatible_glosses(processed_tokens)), args.outfile)
         out_handler.write()
         if args.verbose:
-            sys.stderr.write(u'Written {0}\n'.format(args.outfile).encode('utf-8'))
+            sys.stderr.write(u'Written {0}\n'.format(args.outfile))
 
 
 if __name__ == '__main__':
