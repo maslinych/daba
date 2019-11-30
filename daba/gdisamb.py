@@ -717,7 +717,7 @@ class TokenInputDialog(wx.Dialog):
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.tokenfield = NormalizedTextCtrl(self, wx.ID_ANY, tokenstr)
         sizer.Add(self.tokenfield)
-        self.typefield = wx.RadioBox(self, wx.ID_ANY, "Token type", wx.DefaultPosition, wx.DefaultSize, self.typedict.keys(), 1)
+        self.typefield = wx.RadioBox(self, wx.ID_ANY, "Token type", wx.DefaultPosition, wx.DefaultSize, list(self.typedict.keys()), 1)
         self.typefield.SetStringSelection(dict((v,k) for k,v in self.typedict.items())[tokentype])
         sizer.Add(self.typefield)
         sizer.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.TOP | wx.BOTTOM, 10)
