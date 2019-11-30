@@ -40,14 +40,13 @@ Python 3.7.4
 c:\Users\User>
 ```
 
+If you have Python 2.7 installed on your system you either have to reinstall it
+before using daba, or make sure that you explicitly indicate what python
+version you run each time.
+
 Everything is OK and you can skip to the Step 2. If you see an
 error message that python is not a recognized command, you have two
-options: 
-
-1. Reinstall Python and enable "Add python.exe to Path"
-2. Follow the instructions
-   [here](https://stackoverflow.com/questions/6318156/adding-python-path-on-windows-7#6318188)
-   to add Python to Path. Make sure that you add `C:\Python27;C:\Python27\Scripts`.
+Reinstall Python and enable "Add python.exe to Path".
    
 #### Step 2. Install daba
 
@@ -66,7 +65,7 @@ pip install -U https://github.com/maslinych/daba/archive/maint.zip
 If you see no error messages, you have daba successfully installed and
 can skip to Step 3.
 
-On some Windows versions there may be troubles with automatic wxPython
+On some older Windows versions there may be troubles with automatic wxPython
 installation. In that case refer to [wxPython installation
 documentation](https://www.wxpython.org/pages/downloads/). 
 When wxPython is successfully installed, just run daba installation
