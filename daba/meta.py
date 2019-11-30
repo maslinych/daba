@@ -227,7 +227,7 @@ class MetaDB(object):
         self.idcolumn = idcolumn
         self.keyfield = keyfield
         if os.path.exists(self.dbfile):
-            with open(dbfile, 'r') as csvfile:
+            with open(dbfile, 'r', encoding='utf-8') as csvfile:
                 dbreader = csv.DictReader(csvfile, restval='')
                 self.csvnames = dbreader.fieldnames
                 for row in dbreader:
@@ -340,7 +340,7 @@ class MetaDB(object):
 
     def write(self):
         if self._map:
-            with open(self.dbfile, 'w') as csvfile:
+            with open(self.dbfile, 'w', encoding='utf-8') as csvfile:
                 dbwriter = csv.DictWriter(csvfile, self.fieldnames, restval='')
                 dbwriter.writeheader()
                 rows = self._map.values()
@@ -651,7 +651,7 @@ class MainFrame(wx.Frame):
                 self.dirname = os.path.dirname(self.outfile)
                 if not os.path.splitext(self.filename)[1] == '.html':
                     self.filename = ''.join([self.filename, os.path.extsep, 'html'])
-                with open(os.path.join(self.dirname, self.filename), 'w') as xhtml:
+                with open(os.path.join(self.dirname, self.filename), 'w', encoding='utf-8') as xhtml:
                     self.write_xmldata()
             dlg.Destroy()
 

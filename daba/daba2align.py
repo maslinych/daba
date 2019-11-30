@@ -25,7 +25,7 @@ def main():
         return parser.parse_args()
     args = parse_arguments()
 
-    with open(args.outfile, 'w') as out:
+    with open(args.outfile, 'w', encoding='utf-8') as out:
         for n, t in enumerate(token_iterator(args.infile)):
             out.write(token_printer(t, n))
 

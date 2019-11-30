@@ -365,7 +365,7 @@ class TxtWriter(object):
         self.filename = filename
 
     def write(self):
-        with open(self.filename, 'w') as outfile:
+        with open(self.filename, 'w', encoding=self.encoding) as outfile:
             for p in self.para:
                 prevtype = None
                 for (senttoken, sentannot) in p:
@@ -399,7 +399,7 @@ class TokensWriter(object):
         self.filename = filename
 
     def write(self):
-        with open(self.filename, 'w') as outfile:
+        with open(self.filename, 'w', encoding=self.encoding) as outfile:
             outfile.write(u'# <doc path={}'.format(self.filename))
             for (name, content) in self.metadata.items():
                 outfile.write(u' {}={}'.format(name, content))
@@ -429,7 +429,7 @@ class SentenceListWriter(object):
         self.filename = filename
 
     def write(self):
-        with open(self.filename, 'w') as outfile:
+        with open(self.filename, 'w', encoding=self.encoding) as outfile:
             snum = 0
             for p in self.para:
                 for (senttoken, sentannot) in p:

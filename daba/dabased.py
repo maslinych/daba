@@ -157,7 +157,7 @@ class ReplaceRule(namedtuple('ReplaceRule', 'inlist outlist')):
 class ScriptParser(object):
     def __init__(self, scriptfile):
         self.commands_list = []
-        with open(scriptfile) as script:
+        with open(scriptfile, encoding='utf-8') as script:
             for command in script:
                 if not command.isspace() and not command.startswith('#'):
                     self.commands_list.append(self.parse_command(command))

@@ -391,7 +391,7 @@ def main():
         if not args.nolemmas:
             pp = Processor(dictloader=dl, grammarloader=gr, tokenizer=tkz, converters=args.script, detone=args.detone, normalize_orthography=args.convert)
         if args.list:
-            with open(args.list) as filelist:
+            with open(args.list, encoding='utf-8') as filelist:
                 for line in filelist:
                     infile = os.path.normpath(line.strip())
                     if os.path.exists(infile):
