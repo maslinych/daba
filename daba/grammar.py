@@ -90,7 +90,7 @@ despace = lambda s: [i for i in s if s is not ' ']
 
 def flatten_list(l):
     for el in l:
-        if isinstance(el, list) and not isinstance(el, basestring):
+        if isinstance(el, list) and not isinstance(el, str):
             for sub in flatten_list(el):
                 yield sub
         else:

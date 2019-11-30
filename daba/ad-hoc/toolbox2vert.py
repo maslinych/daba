@@ -156,7 +156,7 @@ class TokenConverter(object):
     def convert(self, token):
         fields = []
         for coltype in self.config.columns:
-            if isinstance(coltype, basestring):
+            if isinstance(coltype, str):
                 if coltype in self.config.annotlevels['token']:
                     fields.append(token.word[coltype])
                 elif coltype in self.config.annotlevels['morpheme']:
