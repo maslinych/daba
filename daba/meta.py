@@ -44,7 +44,7 @@ class MetaData(object):
             try:
                 section, name = mkey.split(self.namesep)
             except (ValueError):
-                print(u"Malformed meta field: {} {}".format(name, mvalue).encode('utf-8'))
+                print(u"Malformed meta field: {} {}".format(name, mvalue))
             values = mvalue.split(self.valuesep)
             self._data[section][name] = values
 
@@ -56,7 +56,7 @@ class MetaData(object):
 
     def getSection(self, section):
         fnames, fvalues = zip(*[(k,v) for k,v in self._data[section].items()])
-        return map(lambda vs: zip(fnames, vs), zip(*fvalues))
+        return list(map(lambda vs: zip(fnames, vs), zip(*fvalues)))
 
     def setSection(self, section, secdata):
         for name, values in  map(lambda x: (x[0][0], list(zip(*x))[1]), zip(*secdata)):
@@ -205,7 +205,7 @@ class DataPanel(wx.ScrolledWindow):
             try:
                 self.builder.setWidgetValue(wtype, widget, value)
             except (ValueError, TypeError):
-                print("Problem with setting value", u'{1}, {2}:{3}'.format(wtype, name, value).encode('utf-8'))
+                print("Problem with setting value", u'{1}, {2}:{3}'.format(wtype, name, value))
 
     def getPanelData(self):
         return [(name, self.getFieldValue(name)) for name in self.widgetlist.keys()]
@@ -227,7 +227,7 @@ class MetaDB(object):
         self.idcolumn = idcolumn
         self.keyfield = keyfield
         if os.path.exists(self.dbfile):
-            with open(dbfile, 'rb') as csvfile:
+            with open(dbfile, 'r') as csvfile:
                 dbreader = csv.DictReader(csvfile, restval='')
                 self.csvnames = dbreader.fieldnames
                 for row in dbreader:
@@ -251,16 +251,7 @@ class MetaDB(object):
         return mkey
 
     def _decode_row(self, row):
-        utf = {}
-        for k,v in row.items():
-            try:
-                utf[k.decode('utf-8')] = v.decode('utf-8')
-            except (AttributeError):
-                print("ERROR:", k, v)
-                print("ROW", row)
-                utf[k.decode('utf-8')] = ''
-        #utf = self._normalize_row(utf)
-        utf = dict((self._strip_secname(k),v) for k,v in utf.items())
+        utf = dict((self._strip_secname(k),v) for k,v in row.items())
         if self.idcolumn not in utf.keys():
             key = self._add_uuid(utf)
         return utf
@@ -279,7 +270,7 @@ class MetaDB(object):
     def _encode_row(self, row):
         utf = {}
         for k,v in row.items():
-            utf[self._add_secname(k).encode('utf-8')] = v.encode('utf-8')
+            utf[self._add_secname(k)] = v
         return utf
 
     def _normalize_row(self, row):
@@ -345,17 +336,17 @@ class MetaDB(object):
             return None
 
     def getList(self):
-        return self._strmap.keys()
+        return list(self._strmap.keys())
 
     def write(self):
         if self._map:
-            with open(self.dbfile, 'wb') as csvfile:
+            with open(self.dbfile, 'w') as csvfile:
                 dbwriter = csv.DictWriter(csvfile, self.fieldnames, restval='')
                 dbwriter.writeheader()
                 rows = self._map.values()
                 if self.keyfield:
                     try:
-                        rows.sort(key=lambda d: d[self.keyfield])
+                        rows = sorted(rows, key=lambda d: d[self.keyfield])
                     except(KeyError):
                         pass
                 for row in rows:
