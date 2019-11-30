@@ -25,7 +25,7 @@ disambiguation:
 
 ### Dependencies
 
-Daba is written in Python (currently requires Python 2.7) and uses
+Daba is written in Python (currently requires Python 3.6 or higher) and uses
 [wxPython](http://www.wxpython.org) (>= 4.0.0) cross-platform GUI library.
 
 Daba is available for Windows, MacOS and Linux. Python and pip are
