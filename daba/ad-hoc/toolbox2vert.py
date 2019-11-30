@@ -85,7 +85,7 @@ class ShGloss(collections.abc.Mapping):
     def __repr__(self):
         return repr(self._dict)
 
-    def __unicode__(self):
+    def __str__(self):
         return str(self._dict)
 
 
@@ -101,7 +101,7 @@ class Layers(collections.abc.Iterable):
     def __iter__(self):
         return iter(self.tokens)
 
-    def __unicode__(self):
+    def __str__(self):
         ' '.join(str(i) for i in self.tokens)
 
     def __len__(self):

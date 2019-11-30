@@ -51,7 +51,7 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
             for m in self.morphemes:
                 yield m
     
-    def __unicode__(self):
+    def __str__(self):
         def untuple(f):
             try:
                 return f.pattern

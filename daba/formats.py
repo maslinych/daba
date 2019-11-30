@@ -70,7 +70,7 @@ def glosstext_to_html(glosstext, variant=False, **kwargs):
 
 
 class BaseToken(object):
-    def __unicode__(self):
+    def __str__(self):
         return u' '.join([self.type, self.value or '', str(self.attrs)])
 
     def __repr__(self):
@@ -151,7 +151,7 @@ class WordToken(BaseToken):
             return self.glosslist == other.glosslist
         return False
 
-    def __unicode__(self):
+    def __str__(self):
         return u' '.join([self.type, self.stage, str(self.gloss)])
 
     def as_tuple(self):
