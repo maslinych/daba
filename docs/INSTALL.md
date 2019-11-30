@@ -5,11 +5,10 @@ instructions below for Windows, MacOS and Linux.
 
 Dependencies: 
 
-* Python 2.7
+* Python 3
  
-  Python 3.* is not yet supported, support for both Python 2 and 3
-  is planned.
-   
+  Currently tested with Python 3.6 and 3.7, later versions should work, too.
+
 * wxPython >= 4.0.0 
  
   Earlier versions of wxPython may work, but support is not
@@ -19,10 +18,10 @@ Dependencies:
 
 #### Step 1. Install Python
 
-If you do not have Python 2.7 installed, navigate to the [Python
+If you do not have Python installed, navigate to the [Python
    downloads page](https://www.python.org/downloads/windows/) and
-   choose the latest Python 2.7 distribution. Please note that daba
-   won't work with Python 3.*.
+   choose the latest Python 3 distribution. Please note that Python 2.7 
+   is no longer suported, and daba is now ported to Python 3.
    
 **Important note:** When running the Python installation wizard make
 sure that you do not skip the Customization screen. You need to enable
@@ -36,7 +35,7 @@ enabled: start command prompt (All programs > Run > cmd) and type
 
 ```
 C:\Users\User>python --version
-Python 2.7.14
+Python 3.7.4
 
 c:\Users\User>
 ```
@@ -96,13 +95,13 @@ a command:
 
 ```
 $ python --version
-Python 2.7.14
+Python 3.7.4
 $ pip --version
-pip 9.0.1 from /usr/lib/python2.7/site-packages (python 2.7)
+pip 19.3.1 from /usr/lib/python3/site-packages/pip (python 3.7)
 ```
 
-Please note that daba won't work with Python 3.*. If you need to
-install Python and/or pip, use standard package management system of
+Please note that daba won't work with Python 2.7 anymore. If you need to
+install Python3 and/or pip, use standard package management system of
 your distribution. 
 
 #### Step 2. Install daba
