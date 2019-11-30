@@ -835,7 +835,7 @@ class DictReader(object):
                         if store:
                             push_items(key, lemmalist)
                         if variants and len(lemmalist) > 1:
-                            self._variants.add(zip(*lemmalist)[1])
+                            self._variants.add(list(zip(*lemmalist))[1])
 
         with codecs.open(filename, 'r', encoding=encoding) as dictfile:
             for line in dictfile:

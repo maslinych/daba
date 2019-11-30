@@ -205,10 +205,9 @@ class Pattern(object):
                     if om.matches(sm):
                         smpattern.append(i+shift)
                         if k in self.splitterdict: 
-                            newmorphs = filter(lambda x: x[0].startswith('__group'), self.splitterdict[k].search(om.form).groupdict().items())
-                            newmorphs.sort()
+                            newmorphs = sorted(filter(lambda x: x[0].startswith('__group'), self.splitterdict[k].search(om.form).groupdict().items()))
                             try:
-                                newmorphs = list(zip(*newmorphs)[1])
+                                newmorphs = list(list(zip(*newmorphs))[1])
                             except IndexError:
                                 #FIXME: should not happen, add proper error handling
                                 print("Error matching pattern:", newmorphs)

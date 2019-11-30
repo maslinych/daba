@@ -59,7 +59,7 @@ class MetaData(object):
         return map(lambda vs: zip(fnames, vs), zip(*fvalues))
 
     def setSection(self, section, secdata):
-        for name, values in  map(lambda x: (x[0][0], zip(*x)[1]), zip(*secdata)):
+        for name, values in  map(lambda x: (x[0][0], list(zip(*x))[1]), zip(*secdata)):
             self._data[section][name] = values
 
     def sections(self):

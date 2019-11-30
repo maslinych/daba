@@ -281,7 +281,7 @@ class Processor(object):
         for r in filter(lambda s: str(s[0]) >= '0', results):
             filtered.extend(r[1])
         if not filtered:
-            filtered = [g for glosslist in zip(*results)[1] for g in glosslist]
+            filtered = [g for glosslist in list(zip(*results))[1] for g in glosslist]
         filtered = list(filter(lambda g: any(tones_match(s, g.form) for s in forms), filtered))
         if not filtered:
             filtered = [emptyGloss._replace(form=w) for w in forms]
@@ -313,7 +313,7 @@ class Processor(object):
                                     self.parser.lemmatize(w.lower())
                                 )
                             try:
-                                stage, glosslist = self.filter_parsed(converts, filter(None, wlist))
+                                stage, glosslist = self.filter_parsed(converts, list(filter(None, wlist)))
                             except ValueError:
                                 print("WARNING: invalid orthographic conversion result, skippig token:", token.type, token.value, converts)
                         else:

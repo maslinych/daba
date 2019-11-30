@@ -41,7 +41,7 @@ unfold = lambda l: [j for i in l for j in i]
 unknown = lambda g: not bool(g.gloss)
 def parsed(g):
     if g.morphemes:
-        return len([m for m in g.morphemes if m.gloss]) == len(g.morphemes)
+        return sum(1 for m in g.morphemes if m.gloss) == len(list(g.morphemes))
     else:
         return bool(g.gloss)
 
