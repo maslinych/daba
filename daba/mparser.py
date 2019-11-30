@@ -276,7 +276,7 @@ class Processor(object):
         return wlist or [word]
     
     def filter_parsed(self, results, forms):
-        stage = max([c[0] for c in results])
+        stage = max([str(c[0]) for c in results])
         filtered = []
         for r in filter(lambda s: str(s[0]) >= '0', results):
             filtered.extend(r[1])
