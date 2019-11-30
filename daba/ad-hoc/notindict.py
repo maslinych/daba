@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 from bamana import test
 from orthography import *
 from morphology import *
@@ -13,6 +13,6 @@ for w in test.words():
             wordindict =True
     else:
         if not wordindict:
-            print " ".join(res).encode('utf-8')
+            print(" ".join(res))
 
 

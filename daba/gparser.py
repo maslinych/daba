@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 # Graphical interface for the morphological parser
@@ -18,11 +18,11 @@
 
 import wx
 import os
-import mparser
-import formats
 from contextlib import contextmanager
-from plugins import OrthographyConverter
 
+import daba.mparser
+import daba.formats
+from daba.plugins import OrthographyConverter
 
 def get_outdir(fname):
     dirname = os.path.dirname(fname)
@@ -33,7 +33,7 @@ def get_outdir(fname):
             try:
                 os.mkdir(dirname)
             except OSError:
-                print "Could not create output directory, please do it manually"
+                print("Could not create output directory, please do it manually")
     return dirname
 
 def get_outfile(fname):
@@ -147,11 +147,10 @@ class ConverterLister(wx.Panel):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         #FIXME: make default plugins configurable from config file
         self.selection = ('apostrophe',)
-        mparser.load_plugins()
-        self.converters = OrthographyConverter.get_plugins().keys()
+        daba.mparser.load_plugins()
         converterbox = wx.StaticBox(self, -1, "Available Orthographic Converters")
         self.csizer = wx.StaticBoxSizer(converterbox, wx.VERTICAL)
-        self.converterlist = wx.CheckListBox(self, wx.ID_ANY, choices=self.converters)
+        self.converterlist = wx.CheckListBox(self, wx.ID_ANY, choices=OrthographyConverter.converters)
         self.converterlist.SetCheckedStrings(self.selection)
         self.Bind(wx.EVT_CHECKLISTBOX, self.OnSelection, self.converterlist)
         self.csizer.Add(self.converterlist, 0, wx.TOP|wx.LEFT, 10)
@@ -166,7 +165,7 @@ class TokenizerLister(wx.Panel):
     def __init__(self, parent, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.selection = 'default'
-        self.tkz = mparser.Tokenizer()
+        self.tkz = daba.mparser.Tokenizer()
         self.tokenizers = self.tkz.methods
         tokenizerbox = wx.StaticBox(self, wx.ID_ANY, "Available Tokenizers")
         self.tsizer = wx.StaticBoxSizer(tokenizerbox, wx.VERTICAL)
@@ -210,8 +209,8 @@ class MainFrame(wx.Frame):
         self.InitValues()
         # setup Resources
         self.dirname = os.curdir
-        self.dl = mparser.DictLoader()
-        self.gr = mparser.GrammarLoader()
+        self.dl = daba.mparser.DictLoader()
+        self.gr = daba.mparser.GrammarLoader()
         self.resourcepanel = ResourcePanel(self, self.dl, self.gr)
         self.filepanel = FilePanel(self)
 
@@ -240,13 +239,13 @@ class MainFrame(wx.Frame):
     def InitValues(self):
         self.infile = None
         self.outfile = None
-        self.io = formats.FileWrapper()
+        self.io = daba.formats.FileWrapper()
         self.parsed = False
 
     def OnParse(self,e):
         @contextmanager
         def wait_for_parser():
-            self.processor = mparser.Processor(self.dl, self.gr,
+            self.processor = daba.mparser.Processor(self.dl, self.gr,
                                                tokenizer=self.resourcepanel.toklist.tkz,
                                                converters=self.resourcepanel.convlist.selection)
             yield self.processor.parse(self.io.para)
@@ -261,7 +260,7 @@ class MainFrame(wx.Frame):
                 self.FinishedParsing(e)
         else:
             #FIXME: proper error message or better avoid this case!
-            print "File already parsed!"
+            print("File already parsed!")
 
     def NoFileError(self,e):
         dlg = wx.MessageDialog(self, 'Error: no file opened!', 'No file opened', wx.OK)

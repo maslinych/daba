@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 r"""Dabased is a stream editor (sed) for files with linguistic
@@ -132,13 +132,14 @@ right side.
 import sys
 import re
 import argparse
-import formats
-import grammar
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
 from collections import namedtuple
-from itertools import islice, izip_longest
+from itertools import islice, zip_longest
 import unicodedata as u
+
+import daba.formats
+import daba.grammar
 
 
 class ReplaceRule(namedtuple('ReplaceRule', 'inlist outlist')):
@@ -167,10 +168,10 @@ class ScriptParser(object):
             yield rule
 
     def parse_gloss(self, gloss_string):
-        gloss = grammar.fullgloss_parser().parse(
-            grammar.tokenize(gloss_string)
+        gloss = daba.grammar.fullgloss_parser().parse(
+            daba.grammar.tokenize(gloss_string)
         )
-        gt = formats.WordToken([gloss], stage='dabased')
+        gt = daba.formats.WordToken([gloss], stage='dabased')
         return gt
 
     def parse_token(self, token_expression):
@@ -180,7 +181,7 @@ class ScriptParser(object):
         except (ValueError):
             toktype = token_expression[1:]
             tokvalue = ''
-        return formats.PlainToken((toktype, tokvalue))
+        return daba.formats.PlainToken((toktype, tokvalue))
 
     def parse_expr(self, expr):
         glosslist = [i.strip()
@@ -194,20 +195,20 @@ class ScriptParser(object):
                 else:
                     result.append(self.parse_gloss(gexpr))
             except (LexerError, NoParseError, ValueError) as e:
-                sys.stderr.write(u'In rule: {0}'.format(gexpr).encode('utf-8'))
-                sys.stderr.write(u'{}\n'.format(e).encode('utf-8'))
+                sys.stderr.write(u'In rule: {0}'.format(gexpr))
+                sys.stderr.write(u'{}\n'.format(e))
                 return []
         return result
 
     def parse_command(self, command):
         command = u.normalize(
-            'NFKD', command.decode('utf8')
+            'NFKD', command
         ).strip('\n')
         m = re.match(r'\s*(.+?)\s*>>\s*(.+?)\s*$', command, re.U)
         try:
             source, target = m.groups()
         except (AttributeError):
-            sys.stderr.write(u'Malformed rule: {0}\n'.format(command).encode('utf-8'))
+            sys.stderr.write(u'Malformed rule: {0}\n'.format(command))
             return
         sourcelist = self.parse_expr(source)
         targetlist = self.parse_expr(target)
@@ -220,7 +221,7 @@ class StreamEditor(object):
         self.verbose = verbose
 
     def getstr(self, tokens):
-        return u' ++ '.join([unicode(token) for token in tokens])
+        return u' ++ '.join([str(token) for token in tokens])
 
     def feed_tokens(self, winsize, stream=()):
         pos = 0
@@ -240,7 +241,7 @@ class StreamEditor(object):
         #             token.matches(intoken),
         #             token,
         #             intoken
-        #         ).encode('utf-8')
+        #         )
         #     )
         return all(
             token.matches(intoken)
@@ -281,7 +282,7 @@ class StreamEditor(object):
                         target = rule.outlist[0]
                         gt = self.replace(token, target)
                         outgloss = gt.gloss._replace(morphemes=target.gloss.morphemes)
-                        gt = formats.WordToken([outgloss], token=tokens[0].token, stage='dabased')
+                        gt = daba.formats.WordToken([outgloss], token=tokens[0].token, stage='dabased')
                         return [gt]
                     domatch = True
                 else:
@@ -290,7 +291,7 @@ class StreamEditor(object):
                         pattern = rule.inlist[0].gloss
                         target = rule.outlist[0].gloss
                         outgloss = self.recursive_replace(token, pattern, target)
-                        gt = formats.WordToken([outgloss], token=tokens[0].token, stage='dabased')
+                        gt = daba.formats.WordToken([outgloss], token=tokens[0].token, stage='dabased')
                         if pattern.ps == target.ps:
                             return [tokens[0].union(gt)]
                         else:
@@ -317,23 +318,23 @@ class StreamEditor(object):
                     (domatch and self.match(tokens, rule.inlist))
             ):
                 # sys.stderr.write(
-                #     u'match: {}\n'.format(self.getstr(tokens)).encode('utf-8')
+                #     u'match: {}\n'.format(self.getstr(tokens))
                 # )
                 replacement = replace_func(tokens, rule)
                 # sys.stderr.write(
-                #     u'replacement: {}\n'.format(self.getstr(replacement)).encode('utf-8')
+                #     u'replacement: {}\n'.format(self.getstr(replacement))
                 # )
                 if not all(g == r for g, r
-                           in izip_longest(
+                           in zip_longest(
                                tokens,
                                replacement,
-                               fillvalue=formats.PlainToken())):
+                               fillvalue=daba.formats.PlainToken())):
                     self.dirty = True
                     if self.verbose:
                         sys.stderr.write(
                             u'{0} -> {1}\n'.format(
                                 self.getstr(tokens),
-                                self.getstr(replacement)).encode('utf-8')
+                                self.getstr(replacement))
                             )
                     tokens = replacement
                     success = pos
@@ -364,16 +365,16 @@ def main():
         args.outfile = args.infile
     # start processing
     if args.verbose:
-        sys.stderr.write(u'Processing {0} with rules from {1}...\n'.format(args.infile, args.script).encode('utf-8'))
+        sys.stderr.write(u'Processing {0} with rules from {1}...\n'.format(args.infile, args.script))
     sed = StreamEditor(verbose=args.verbose)
     script = ScriptParser(args.script)
-    in_handler = formats.HtmlReader(args.infile, compatibility_mode=False)
+    in_handler = daba.formats.HtmlReader(args.infile, compatibility_mode=False)
     processed_tokens = list(sed.apply_script(script, in_handler))
     if sed.dirty:
-        out_handler = formats.HtmlWriter((in_handler.metadata, in_handler.make_compatible_glosses(processed_tokens)), args.outfile)
+        out_handler = daba.formats.HtmlWriter((in_handler.metadata, in_handler.make_compatible_glosses(processed_tokens)), args.outfile)
         out_handler.write()
         if args.verbose:
-            sys.stderr.write(u'Written {0}\n'.format(args.outfile).encode('utf-8'))
+            sys.stderr.write(u'Written {0}\n'.format(args.outfile))
 
 
 if __name__ == '__main__':

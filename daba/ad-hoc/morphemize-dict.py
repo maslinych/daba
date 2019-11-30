@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
 from bamana import bailleul
@@ -61,8 +61,8 @@ for (lemma,fields) in elist:
                         fields.insert(i+shift, (r'mm', u':'.join([morph[0], u'?', u'????'])))
                         shift = shift+1
 
-    print u'\\lx {0}'.format(lemma)
+    print(u'\\lx {0}'.format(lemma))
     for tag,value in fields:
-        print u'\\{0} {1}'.format(tag, value)
+        print(u'\\{0} {1}'.format(tag, value))
     print
 

@@ -1,14 +1,16 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import re
 import argparse
 import collections
+import collections.abc
 import codecs
 import json
 import sys
 import os
-from itertools import izip_longest
+from itertools import zip_longest
+from functools import reduce
 from nltk import toolbox
 from xml.sax.saxutils import quoteattr
 from daba.ntgloss import Gloss
@@ -54,7 +56,7 @@ class ShToken(collections.namedtuple('ShToken', 'type, word, morphemes')):
         return Gloss(*parts)
 
 
-class ShGloss(collections.Mapping):
+class ShGloss(collections.abc.Mapping):
     def __init__(self, tuples):
         self._dict = collections.OrderedDict()
         self.base = None
@@ -84,26 +86,26 @@ class ShGloss(collections.Mapping):
         return repr(self._dict)
 
     def __unicode__(self):
-        return unicode(self._dict)
+        return str(self._dict)
 
 
-class Layers(collections.Iterable):
+class Layers(collections.abc.Iterable):
     def __init__(self, tuples):
         self.names = []
         toks = []
         for name, value in tuples:
             self.names.append(name)
             toks.append(value)
-        self.tokens = map(lambda v: ShGloss(zip(self.names, v)), izip_longest(*toks, fillvalue=''))
+        self.tokens = map(lambda v: ShGloss(zip(self.names, v)), zip_longest(*toks, fillvalue=''))
 
     def __iter__(self):
         return iter(self.tokens)
 
     def __unicode__(self):
-        ' '.join(unicode(i) for i in self.tokens)
+        ' '.join(str(i) for i in self.tokens)
 
     def __len__(self):
-        return len(self.tokens)
+        return len(list(self.tokens))
 
 
 class TokenConverter(object):
@@ -154,7 +156,7 @@ class TokenConverter(object):
     def convert(self, token):
         fields = []
         for coltype in self.config.columns:
-            if isinstance(coltype, basestring):
+            if isinstance(coltype, str):
                 if coltype in self.config.annotlevels['token']:
                     fields.append(token.word[coltype])
                 elif coltype in self.config.annotlevels['morpheme']:
@@ -401,7 +403,7 @@ class BaseFormatter(object):
                     formatted = self.format_doc(self.docs[docid])
                     out.write(formatted)
         else:
-            with codecs.open(self.outfile, 'wb', encoding='utf-8') as out:
+            with codecs.open(self.outfile, 'w', encoding='utf-8') as out:
                 for docid in self.docs:
                     formatted = self.format_doc(self.docs[docid])
                     out.write(formatted)
@@ -451,7 +453,7 @@ class DabaFormatter(BaseFormatter):
             sentannot = [t.as_glosstoken(self.parser.config) for t in record.itokens()]
             para.append((senttoken, sentannot))
         ft = HtmlWriter((metadata, [para]))
-        return e.tostring(ft.xml, encoding='utf8').decode('utf8')
+        return e.tostring(ft.xml, encoding='unicode')
 
 
 class FilelistFormatter(BaseFormatter):
@@ -462,7 +464,7 @@ class FilelistFormatter(BaseFormatter):
         out = []
         for docid in self.docs:
             out.append(self.normalize_docpath(docid))
-        sys.stdout.write(u' '.join(out).encode('utf-8'))
+        sys.stdout.write(u' '.join(out))
         sys.stdout.write('\n')
 
 

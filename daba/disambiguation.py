@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Auteur : Elvis Mboning, Stagiaire 2016, INALCO
@@ -71,17 +71,17 @@ def csv_export(enc, filename, gold_tokens, test_tokens):
             token          = g[0]
             golden_code    = g[-1]
             predicted_code = t[-1]
-            golden_form    = enc.differential_decode(token, golden_code.decode('utf-8'))
-            predicted_form = enc.differential_decode(token, predicted_code.decode('utf-8'))
+            golden_form    = enc.differential_decode(token, golden_code)
+            predicted_form = enc.differential_decode(token, predicted_code)
             sameCodes = (golden_code == predicted_code)
             sameForms = (golden_form == predicted_form)
 
-            if not repr(token.encode('utf-8')) :
+            if not repr(token) :
                 sameCodes = u''
             row = [
-                repr(token.encode('utf-8')),
-                repr(golden_form.encode('utf-8')),
-                repr(predicted_form.encode('utf-8')),
+                repr(token),
+                repr(golden_form),
+                repr(predicted_form),
                 repr(golden_code, spaces=True),
                 repr(predicted_code, spaces=True),
                 sameCodes]
@@ -90,7 +90,7 @@ def csv_export(enc, filename, gold_tokens, test_tokens):
         csvfile.close()
     except:
         raise
-        print "unable to dump result in CSV file to create !"
+        print("unable to dump result in CSV file to create !")
 
 def sampling(allsents, p, ratio = 1):
     train_set, eval_set = [], []
@@ -130,15 +130,15 @@ def main():
 
     args = aparser.parse_args()
     if args.verbose:
-        print args
+        print(args)
 
     if args.learn and (args.pos or args.tone or args.gloss):
 
         if not (args.pos or args.tone or args.gloss):
-            print 'Choose pos, tone, gloss or combination of them'
+            print('Choose pos, tone, gloss or combination of them')
             exit(0)
 
-        print 'Make list of files'
+        print('Make list of files')
         allfiles = []
         with codecs.open(args.filelist, 'r', encoding="utf-8") as filelist:
             for line in filelist:
@@ -153,12 +153,12 @@ def main():
                 enc = encoder_tones()
             except:
                 enc = None
-                print ("Error : unable to initialize the tone encoder !")
+                print(("Error : unable to initialize the tone encoder !"))
 
-        print 'Open files and find features / supervision tags'
+        print('Open files and find features / supervision tags')
         for infile in allfiles:
             if(infile):
-                print '-', infile
+                print('-', infile)
                 sent = []
 
                 html_parser = FileParser()
@@ -170,7 +170,7 @@ def main():
                         if token.type == 'w' or token.type == 'c':
                             tags = ''
                             if args.pos:
-                                tags = '/'.join(token.gloss.ps).encode('utf-8')
+                                tags = '/'.join(token.gloss.ps)
                                 wordform = detone(token.gloss.form)
                                 sent.append((wordform, tags))
                             elif args.tone:
@@ -183,11 +183,11 @@ def main():
                                 if '|' not in token.gloss.form :
                                     [codes, chunks] = enc.differential_encode(token.token, token.gloss.form)
                                     for chunk, code in zip(chunks, codes) :
-                                        try : sent.append((chunk, code.encode('utf-8')))
+                                        try : sent.append((chunk, code))
                                         except LookupError: pass
                             """
                             elif args.gloss:
-                                tags += token.gloss.gloss.encode('utf-8')
+                                tags += token.gloss.gloss
                                 sent.append((token.token, tags))
                             """
 
@@ -201,9 +201,9 @@ def main():
         # Constitution des ensmebles d'entraînement de d'évaluation
         p = (1 - args.evalsize / 100.0)
         train_set, eval_set = sampling(allsents, p)
-        print 'Split the data in train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)'
+        print('Split the data in train (', len(train_set),' sentences) / test (', len(eval_set),' sentences)')
 
-        print 'Building classifier (CRF/NLTK)'
+        print('Building classifier (CRF/NLTK)')
         # Initialization
         t1 = time.time()
         if args.tone:
@@ -229,7 +229,7 @@ def main():
                 if num_phases > 1:
                     for lab in labels:
                         pass
-                    labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
+                    labels = [code_dispatcher(label)[phase] for label in labels]
                 features = [_get_features_customised_for_tones(tokens, i) for i in range(len(tokens))]
                 trainer.append(features, labels)
             trainer.train(model = model_name)
@@ -239,10 +239,10 @@ def main():
         if num_phases > 1:
             myzip.close()
 
-        print "... done in", get_duration(t1_secs=t1, t2_secs=time.time())
+        print("... done in", get_duration(t1_secs=t1, t2_secs=time.time()))
 
         # Evaluation
-        print 'Evaluating classifier'
+        print('Evaluating classifier')
         # gold_set, predicted_set : list(list((str, str)))
         # input_set, output_gold_set : list(list(str))
         gold_set = eval_set
@@ -264,7 +264,7 @@ def main():
                 features = [_get_features_customised_for_tones(sent,j) for j in range(len(sent))]
                 labels = tagger._tagger.tag(features)
                 if num_phases > 1:
-                    labels = [code_dispatcher(label.decode('utf-8'))[phase].encode('utf-8') for label in labels]
+                    labels = [code_dispatcher(label)[phase] for label in labels]
                 tagged_sent = list(zip(sent, labels))
                 if not predicted_set[i]:
                     predicted_set[i] = tagged_sent
@@ -280,7 +280,7 @@ def main():
         predicted_tokens = list(itertools.chain(*predicted_set))
         if num_phases > 1:
             predicted_tokens = [
-                tuple([pair[0], code_resort(pair[1].decode('utf-8')).encode('utf-8')])
+                tuple([pair[0], code_resort(pair[1])])
                 for pair in predicted_tokens]
         gold_tokens = list(itertools.chain(*gold_set))
         # gold_tokens_eval, predicted_tokens_eval : list(str)
@@ -295,10 +295,10 @@ def main():
             stored_filename = args.store
             csv_export(enc, stored_filename, gold_tokens, predicted_tokens)
 
-        print "Accuracy : {:>5.3f}".format(accuracy(gold_tokens_eval, predicted_tokens_eval))
+        print("Accuracy : {:>5.3f}".format(accuracy(gold_tokens_eval, predicted_tokens_eval)))
 
         if args.verbose and args.store:
-            print ("Tagged result is exported in {}".format(args.store))
+            print(("Tagged result is exported in {}".format(args.store)))
 
     elif args.disambiguate and args.infile and args.outfile:
         # Lecture de texte en .HTML
@@ -309,12 +309,12 @@ def main():
             try:
                 tagger.set_model_file(args.disambiguate)
             except IOError:
-                print "Error : unable to open the model {} !".format(args.infile)
+                print("Error : unable to open the model {} !".format(args.infile))
                 exit(1)
             try:
                 html_parser.read_file(args.infile)
             except IOError:
-                print "Error : unable to open the input file {} !".format(args.infile)
+                print("Error : unable to open the input file {} !".format(args.infile))
                 exit(1)
 
             # Exportation du résultat de désambiguïsation en .HTML
@@ -346,7 +346,7 @@ def main():
 
         try:
             html_parser.write(args.outfile)
-        except IOError: print "Error : unable to create the output file {}".format(args.outfile)
+        except IOError: print("Error : unable to create the output file {}".format(args.outfile))
 
     else:
         aparser.print_help()

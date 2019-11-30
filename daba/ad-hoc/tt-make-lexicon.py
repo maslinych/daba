@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import os
@@ -24,13 +24,13 @@ def deduplicate_lemmas(result):
     try:
         return list(dict(result).items())
     except ValueError:
-        print result
+        print(result)
         return result
 
 
 def print_line(form, result):
     result = deduplicate_lemmas(result)
-    sys.stdout.write(u'{}\t{}\n'.format(form, u'\t'.join([' '.join(r) for r in result])).encode('utf-8'))
+    sys.stdout.write(u'{}\t{}\n'.format(form, u'\t'.join([' '.join(r) for r in result])))
 
 
 def make_lemma(gloss):
@@ -76,7 +76,7 @@ def main():
         filelist = []
         with open(args.filelist, 'r') as f:
             for line in f:
-                filelist.append(line.decode('utf-8').strip())
+                filelist.append(line.strip())
         for filename in filelist:
             parsfile = os.path.join(args.corpus, filename)
             try:
@@ -118,8 +118,8 @@ def main():
                                 print_line(lastpunct.value.strip(), punct)
                             lastpunct = None
             except (cElementTree.ParseError) as e:
-                sys.stderr.write(u'File format error: {}\n'.format(filename).encode('utf-8'))
-                sys.stderr.write(u'ERR {}\n'.format(e).encode('utf-8'))
+                sys.stderr.write(u'File format error: {}\n'.format(filename))
+                sys.stderr.write(u'ERR {}\n'.format(e))
 
 
     if args.runtimedir:
@@ -131,7 +131,7 @@ def main():
                     form = detone(form)
                 if args.plain:
                     for gloss in dictionary[form]:
-                        print gloss
+                        print(gloss)
                         result = make_taglist([gloss], formforlemma=True, tonal=args.tonal)
                         for lemma in result:
                             print_line(form, [lemma])

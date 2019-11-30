@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 from bamana import lexicon, normalize_bailleul
 
@@ -13,4 +13,4 @@ for e in lexicon.findall('record'):
 
 for va,pair in vas.iteritems():
     if va in lxs:
-        print u'{0} -> {1}'.format(*pair)
+        print(u'{0} -> {1}'.format(*pair))

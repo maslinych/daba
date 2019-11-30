@@ -1,10 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import argparse
-import formats
 import sys
 from collections import defaultdict
+
+import daba.formats
 
 def main():
     aparser = argparse.ArgumentParser(description='Daba suite. Metadata pretty printer.')
@@ -17,22 +18,22 @@ def main():
     aparser.add_argument('-a', '--all', action='store_true', help='Print all metadata found in a file')
     args = aparser.parse_args()
 
-    reader = formats.HtmlReader(args.infile, onlymeta=True)
+    reader = daba.formats.HtmlReader(args.infile, onlymeta=True)
     meta = defaultdict(unicode)
     for k,v in reader.metadata.items():
         meta[k] = v
 
-    sys.stdout.write(unicode(args.infile).encode('utf-8'))
+    sys.stdout.write(str(args.infile))
 
     if args.all:
         sys.stdout.write('\n')
-        for name in sorted(meta.iterkeys()):
-            sys.stdout.write(u"\t".join([name, meta[name]]).encode('utf-8'))
+        for name in sorted(meta.keys()):
+            sys.stdout.write(u"\t".join([name, meta[name]]))
             sys.stdout.write('\n')
         sys.stdout.write('\n\n')
     else:
         sys.stdout.write(args.delimeter)
-        sys.stdout.write(args.delimeter.join([meta[field] for field in args.fields]).encode('utf-8'))
+        sys.stdout.write(args.delimeter.join([meta[field] for field in args.fields]))
         sys.stdout.write('\n')
 
 if __name__ == '__main__':

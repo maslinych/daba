@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
 import sys
@@ -11,5 +11,5 @@ lines = sys.stdin.readlines()
 lines = [l.decode(ioencoding).strip('\n') for l in lines]
 lines.sort(cmp=icu.Collator.createInstance(icu.Locale('bm_ML')).compare)
 for l in lines:
-    print l.encode(ioencoding)
+    print(l.encode(ioencoding))
 

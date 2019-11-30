@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf8 -*-
 
 from . import OrthographyConverter
@@ -23,13 +23,13 @@ class BambaraOldtoNew(OrthographyConverter):
             specs = [
                     ('NG', (r'ng', re.I | re.U)),
                     ('NY', (r'ny', re.I | re.U)),
-                    ('EE', (ur'è[eè]', re.I | re.U)),
-                    ('OO', (ur'ò[oò]', re.I | re.U)),
+                    ('EE', (r'è[eè]', re.I | re.U)),
+                    ('OO', (r'ò[oò]', re.I | re.U)),
                     ('ANY', (r'.', re.U)),
                     ]
             tok = funcparserlib.lexer.make_tokenizer(specs)
             r = [x.value for x in tok(unicodedata.normalize('NFKC', word))]
-            #print 'CW', string, ':', r
+            #print('CW', string, ':', r)
             return r
 
         def multiply_list(amblist):

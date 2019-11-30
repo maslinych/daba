@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 # Manual disambiguation editor
@@ -28,12 +28,13 @@ import wx.lib.newevent
 import wx.lib.scrolledpanel
 import wx.stc
 
-import formats
-import grammar
 from funcparserlib.lexer import LexerError
 from funcparserlib.parser import NoParseError
 from intervaltree import IntervalTree
-from ntgloss import Gloss
+
+import daba.formats
+import daba.grammar
+from daba.ntgloss import Gloss
 
 
 ## EVENTS 
@@ -55,7 +56,7 @@ LocaldictSaveEvent, EVT_LOCALDICT_SAVE = wx.lib.newevent.NewCommandEvent()
 ## UTILITY functions and no-interface classes
 
 def normalizeText(t):
-    return unicodedata.normalize('NFKD', unicode(t))
+    return unicodedata.normalize('NFKD', str(t))
 
 TokenEdit = namedtuple('TokenEdit', 'operation start end toklist')
 
@@ -89,7 +90,7 @@ def makeGlossString(gloss, morphemes=False):
     if not ''.join(gloss.ps) and not gloss.gloss and not gloss.morphemes:
         return gloss.form
     elif morphemes and gloss.morphemes:
-        return u'{0} ({1}){3}{2}{4}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep, '\n' + os.linesep.join([unicode(m) for m in gloss.morphemes]))
+        return u'{0} ({1}){3}{2}{4}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep, '\n' + os.linesep.join([str(m) for m in gloss.morphemes]))
     else:
         return u'{0} ({1}){3}{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep)
 
@@ -100,7 +101,7 @@ class FileParser(object):
         self.dirty = False
 
     def read_file(self, filename):
-        freader = formats.HtmlReader(filename)
+        freader = daba.formats.HtmlReader(filename)
         self.metadata = freader.metadata
         self.glosses = []
         for pnum, par in enumerate(freader.glosses):
@@ -125,7 +126,7 @@ class FileParser(object):
                         glosstoken.setGlosslist(selectlist)
                     outgloss.append(glosstoken)
             out[-1].append((sent[0], outgloss))
-        fwriter = formats.HtmlWriter((self.metadata, out), filename)
+        fwriter = daba.formats.HtmlWriter((self.metadata, out), filename)
         fwriter.write()
 
 
@@ -138,7 +139,7 @@ class EditLogger(object):
         return datetime.datetime.now().isoformat()
 
     def LogEdit(self, firstgloss, secondgloss):
-        self.fileobj.write(u'{0}\n'.format('\t'.join([self.timestamp, 'edit', unicode(firstgloss), unicode(secondgloss)])))
+        self.fileobj.write(u'{0}\n'.format('\t'.join([self.timestamp, 'edit', str(firstgloss), str(secondgloss)])))
 
     def LogSplit(self, srctoken, tokentuple):
         self.fileobj.write(u'{0}\n'.format('\t'.join([self.timestamp, 'split', srctoken, ''.join(tokentuple)])))
@@ -182,7 +183,7 @@ class SearchTool(object):
                             self.matches.append(match)
                     # FIXME: should not happen if all words are proper GlossTokens
                     except (AttributeError):
-                        print word
+                        print(word)
             elif searchtype == 'sentence part':
                 for matchobj in re.finditer(self.searchstr, sent[0].value):
                     self.matches.append((snum, matchobj))
@@ -314,7 +315,7 @@ class GlossInputDialog(wx.Dialog):
 
         vbox_top = wx.BoxSizer(wx.VERTICAL)
         vbox_top.Add(wx.StaticText(self, wx.ID_ANY, "Gloss string (edit inplace):"))
-        glossstring = unicode(self.as_gloss)
+        glossstring = str(self.as_gloss)
         self.glosstext = wx.ComboBox(self, wx.ID_ANY, glossstring,
                                      choices=[glossstring])
         vbox_top.Add(self.glosstext, 1, wx.EXPAND | wx.TOP | wx.BOTTOM, 10)
@@ -342,7 +343,7 @@ class GlossInputDialog(wx.Dialog):
 
     def UpdateInterface(self, gloss):
         self.freeze = True
-        glossstring = unicode(gloss)
+        glossstring = str(gloss)
         cursor = self.glosstext.GetInsertionPoint()
         self.glosstext.SetValue(glossstring)
         self.glosstext.SetInsertionPoint(cursor)
@@ -357,7 +358,7 @@ class GlossInputDialog(wx.Dialog):
     def ShowLocaldictVariants(self, savedglosses):
         for gloss in savedglosses:
             if not gloss == self.as_gloss:
-                self.glosstext.Append(unicode(gloss))
+                self.glosstext.Append(str(gloss))
     
     def SetGlossAttr(self, **kwargs):
         self.as_gloss._replace(**kwargs) 
@@ -371,8 +372,8 @@ class GlossInputDialog(wx.Dialog):
             glosstext = normalizeText(self.glosstext.GetValue())
             oldgloss = self.as_gloss
             try:
-                toks = grammar.str_tokenize(glosstext)
-                self.as_gloss = grammar.stringgloss_parser().parse(toks)
+                toks = daba.grammar.str_tokenize(glosstext)
+                self.as_gloss = daba.grammar.stringgloss_parser().parse(toks)
                 if not self.as_gloss == oldgloss:
                     self.glosstext.SetBackgroundColour(wx.NullColour)
                     self.glosstext.Refresh()
@@ -490,7 +491,7 @@ class GlossEditButton(wx.Panel):
             self.state = statecode
         except KeyError:
             #FIXME: proper error message
-            print 'Unknown state code:', statecode
+            print('Unknown state code:', statecode)
 
 
 class GlossSelector(wx.Panel):
@@ -633,7 +634,7 @@ class GlossSelector(wx.Panel):
                 self.gloss = Gloss(self.children[0].gloss.form, (), '', ())
                 self.stage = self.parserstage
             else:
-                print "Bug: Negative selection!", selected
+                print("Bug: Negative selection!", selected)
         else:
             self.gloss = gloss
             self.glosslist = [gloss]
@@ -643,7 +644,7 @@ class GlossSelector(wx.Panel):
         self.UpdateState(self.statecode, self.gloss)
 
     def GetWordToken(self):
-        return formats.WordToken(self.glosslist, self.form, self.stage)
+        return daba.formats.WordToken(self.glosslist, self.form, self.stage)
 
     def OnContextMenu(self, evt):
         if not hasattr(self, "joinfwID"):
@@ -924,7 +925,7 @@ class SentenceText(wx.stc.StyledTextCtrl):
         try:
             startchar, charlength = self.charspans[toknum]
         except (IndexError):
-            print toknum, token
+            print(toknum, token)
         bytepos = self.calcBytePos(self.text, startchar)
         bytelen = self.calcByteLen(token)
         self.StartStyling(bytepos, 0xff)
@@ -1330,9 +1331,9 @@ class MainFrame(wx.Frame):
 
     def SetLocaldict(self, dictfile):
         if os.path.exists(dictfile):
-            self.localdict = formats.DictReader(dictfile).get()
+            self.localdict = daba.formats.DictReader(dictfile).get()
         else:
-            self.localdict = formats.DabaDict()
+            self.localdict = daba.formats.DabaDict()
 
     def InitValues(self):
         self.infile = None
@@ -1444,7 +1445,7 @@ class MainFrame(wx.Frame):
         shift = 0
         for token in evt.result:
             self.processor.glosses[snum][1].insert(toknum+shift, [])
-            self.processor.glosses[snum][2].insert(toknum+shift, formats.WordToken([Gloss(token, (), '', ())], token, '-1'))
+            self.processor.glosses[snum][2].insert(toknum+shift, daba.formats.WordToken([Gloss(token, (), '', ())], token, '-1'))
             shift = shift+1
         self.processor.dirty = True
         wx.CallAfter(self.ShowSent, snum)
@@ -1460,7 +1461,7 @@ class MainFrame(wx.Frame):
         nexttoken = self.processor.glosses[snum][2][second]
         #FIXME: will break on non-word tokens
         newform = firsttoken.token + nexttoken.token
-        newtoken = formats.WordToken([Gloss(newform, (),'',())], newform, '-1')
+        newtoken = daba.formats.WordToken([Gloss(newform, (),'',())], newform, '-1')
         self.processor.glosses[snum][1][first] = []
         del self.processor.glosses[snum][1][second]
         self.processor.glosses[snum][2][first] = newtoken
@@ -1476,9 +1477,9 @@ class MainFrame(wx.Frame):
                 newtoken = savedtoken
                 newtoken.token = evt.token
             else:
-                newtoken = formats.WordToken([Gloss(evt.token, (), '', ())], evt.token, '-1')
+                newtoken = daba.formats.WordToken([Gloss(evt.token, (), '', ())], evt.token, '-1')
         else:
-            newtoken = formats.PlainToken((evt.toktype, evt.token))
+            newtoken = daba.formats.PlainToken((evt.toktype, evt.token))
         self.processor.glosses[snum][2][toknum] = newtoken
         self.processor.dirty = True
         wx.CallAfter(self.ShowSent, snum)
@@ -1524,7 +1525,7 @@ class MainFrame(wx.Frame):
             elif savedstate.operation == 'join':
                 self.processor.glosses[snum][2][savedstate.start:savedstate.end] = savedstate.toklist
             else:
-                print "Unimplemented undo operation!"
+                print("Unimplemented undo operation!")
             self.ShowSent(snum)
 
     def OnMenuSearch(self,e):
@@ -1646,7 +1647,7 @@ class MainFrame(wx.Frame):
 
     def SaveFiles(self):
         if self.localdict:
-            formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict',ver='0').write()
+            daba.formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict',ver='0').write()
         self.processor.write(self.outfile)
         self.config.Flush()
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 import sys
 import re
@@ -7,7 +7,7 @@ from collections import namedtuple
 Field = namedtuple('Field', 'tag value')
 
 def parse_line(line):
-    line = line.decode('utf-8').strip()
+    line = line.strip()
     if line.startswith("\\"):
         tag, space, value = line[1:].partition(" ")
         value = value.strip()
@@ -298,7 +298,7 @@ def cleanup_record(record):
 
 def serialize_record(record):
     for field in record:
-        line = u'\\{0} {1}\n'.format(*field).encode('utf-8')
+        line = u'\\{0} {1}\n'.format(*field)
         sys.stdout.write(line)
     sys.stdout.write("\n")
 
@@ -323,7 +323,7 @@ for record in records:
         record = cleanup_record(record)
 #        serialize_record(record)
         record = split_variants(record)
-#        print "BEFORE"
+#        print("BEFORE")
 #        serialize_record(record)
         record = replace_bamana_lx(record)
 #        serialize_record(record)
@@ -337,7 +337,7 @@ for record in records:
 
 for record in preprocessed:
     if headword_is_maninka(record):
-#        print "RECORDS"
+#        print("RECORDS")
 #        serialize_record(record)
         record = cut_bamana_variants(record)
 #        serialize_record(record)

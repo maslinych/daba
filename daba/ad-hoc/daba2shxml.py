@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import sys
 import os
@@ -7,7 +7,8 @@ import formats
 import xml.etree.ElementTree as e
 
 class SHXmlWriter(object):
-    def __init__(self, (metadata, para), filename, encoding="utf-8"):
+    def __init__(self, metadata_para, filename, encoding="utf-8"):
+        metadata, para = metadata_para
         self.encoding = encoding
         self.metadata = dict(metadata)
         self.para = para
@@ -76,7 +77,7 @@ class SHXmlWriter(object):
                 st = e.SubElement(ph, 'phrase')
                 st.tail = '\n'
                 ref = e.SubElement(st, 'item', {'type': 'ref', 'lang': 'en'})
-                ref.text = u'-'.join([title.text, unicode(pn), unicode(sn)])
+                ref.text = u'-'.join([title.text, str(pn), str(sn)])
                 ref.tail = '\n'
                 nt = e.SubElement(st,'item', {'type': 'nt', 'lang': 'bam'})
                 nt.text = senttoken.value

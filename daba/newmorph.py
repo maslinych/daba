@@ -1,9 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import re
-from ntgloss import Gloss, CompactGloss, emptyGloss, Pattern, Dictionary
-from orthography import detone, tones_match
+from daba.ntgloss import Gloss, CompactGloss, emptyGloss, Pattern, Dictionary
+from daba.orthography import detone, tones_match
 
 
 def nullgloss(word):
@@ -41,7 +41,7 @@ unfold = lambda l: [j for i in l for j in i]
 unknown = lambda g: not bool(g.gloss)
 def parsed(g):
     if g.morphemes:
-        return len([m for m in g.morphemes if m.gloss]) == len(g.morphemes)
+        return sum(1 for m in g.morphemes if m.gloss) == len(list(g.morphemes))
     else:
         return bool(g.gloss)
 
@@ -172,7 +172,7 @@ class Parser(object):
                 return ()
         except (KeyError,AttributeError):
             if gloss.form in gdict:
-                print 'PP', gloss.form, gdict[gloss.form]
+                print('PP', gloss.form, gdict[gloss.form])
             return ()
 
     def lookup(self, lemma, make_lemma=False):
@@ -226,7 +226,7 @@ class Parser(object):
         try:
             parts = len(pattern.select.morphemes)
         except (TypeError):
-            #FIXME: morphemes=None case. Print some error message?
+            #FIXME: morphemes=None case. print(some error message?)
             parts = 0
         result = []
         if  parts < 2:
@@ -295,8 +295,8 @@ class Parser(object):
                     stage = step
                     parsedword = newparsed
                 if debug:
-                    print stagestr
-                    print stage, '\n'.join(unicode(p) for p in newparsed)
+                    print(stagestr)
+                    print(stage, '\n'.join(str(p) for p in newparsed))
         filtered = self.filter_duplicates(parsedword)
         return (stage, filtered)
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 from __future__ import division
 from bamana import test,wordlist,propernames
@@ -31,6 +31,6 @@ for w in all:
             notindict.add(w)
 
 
-print 'Покрытие словарей:\nБайоль: {0:.2f}\nСобственные: {1:.2f}\nНет в словарях: {2:.2f}'.format(len(indict)/len(all),len(inproper)/len(all),len(notindict)/len(all))
+print('Покрытие словарей:\nБайоль: {0:.2f}\nСобственные: {1:.2f}\nНет в словарях: {2:.2f}'.format(len(indict)/len(all),len(inproper)/len(all),len(notindict)/len(all)))
 
-print 'Объем:\nТекст: {0}\nНайденных у Байоля: {1}\nНайденных в собственных: {2}\nНе найденных: {3}'.format(len(all),len(indict),len(inproper),len(notindict))
+print('Объем:\nТекст: {0}\nНайденных у Байоля: {1}\nНайденных в собственных: {2}\nНе найденных: {3}'.format(len(all),len(indict),len(inproper),len(notindict)))

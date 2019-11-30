@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
 from bamana import test,wl,wl_detone
@@ -14,7 +14,7 @@ types.sort()
 for word in types:
     if not re.search(r'[0-9.,;:!?]', word):
         ci.print_concordance(word, lines=15)
-        print 
+        print()
         nw = convertw(word)
         nwl = [w for w in nw if w in wl]
         if nwl:
@@ -31,7 +31,7 @@ for word in types:
 
         glstr = [print_gloss(g) for g in dict_disambiguate(result)]
         for gs in glstr:
-            print "    ", gs.encode('utf-8')
+            print("    ", gs)
         print
 
 

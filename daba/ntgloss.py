@@ -4,7 +4,7 @@
 from collections import namedtuple
 from contextlib import closing
 import re
-import cPickle
+import pickle
 import itertools
 import xml.etree.cElementTree as e
 
@@ -20,8 +20,8 @@ def unwrap_re(tupl):
         #    part = part[4:-5]
         if not part:
             part = '.+'
-        unfolded.append(ur'(?P<__group{0}>{1})'.format(i,part))
-    return re.compile(ur'^{0}$'.format(''.join(unfolded)))
+        unfolded.append(r'(?P<__group{0}>{1})'.format(i,part))
+    return re.compile(r'^{0}$'.format(''.join(unfolded)))
 
 def match_any(my, other):
     try:
@@ -61,7 +61,7 @@ class Gloss(namedtuple('Gloss', 'form ps gloss morphemes')):
         gloss = untuple(self.gloss)
         gstring = u':'.join([i if i else '' for i in [form,'/'.join(self.ps),gloss]])
         if self.morphemes:
-            return u'{0} [{1}]'.format(gstring, u' '.join(unicode(g) if g else '' for g in self.morphemes))
+            return u'{0} [{1}]'.format(gstring, u' '.join(str(g) if g else '' for g in self.morphemes))
         else:
             return gstring
    
@@ -205,13 +205,12 @@ class Pattern(object):
                     if om.matches(sm):
                         smpattern.append(i+shift)
                         if k in self.splitterdict: 
-                            newmorphs = filter(lambda x: x[0].startswith('__group'), self.splitterdict[k].search(om.form).groupdict().items())
-                            newmorphs.sort()
+                            newmorphs = sorted(filter(lambda x: x[0].startswith('__group'), self.splitterdict[k].search(om.form).groupdict().items()))
                             try:
-                                newmorphs = list(zip(*newmorphs)[1])
+                                newmorphs = list(list(zip(*newmorphs))[1])
                             except IndexError:
                                 #FIXME: should not happen, add proper error handling
-                                print "Error matching pattern:", newmorphs
+                                print("Error matching pattern:", newmorphs)
                             target = target._replace(morphemes = tuple(unfold([[emptyGloss._replace(form=newform) for newform in newmorphs] if j==i else [tm] for j,tm in enumerate(target.morphemes)])))
                             for m in newmorphs[1:]:
                                 shift += 1
@@ -235,7 +234,7 @@ class Dictionary(object):
             self.lexicon = {}
         else:
             with closing(open(filename, 'rb')) as dictfile:
-                self.lexicon = cPickle.load(dictfile)
+                self.lexicon = pickle.load(dictfile)
 
     def __contains__(self,item):
         return item in self.lexicon
@@ -266,8 +265,8 @@ class TestObjects(unittest.TestCase):
         # test gloss creation
         #self.assertRaises(GlossError, Gloss, u'')
         # test gloss return value
-        self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a',tuple(['ps']),'gloss',())))
-        self.assertEquals(u'a:adj/n:gloss', unicode(Gloss(u'a',tuple(['n','adj']),'gloss',())))
+        self.assertEquals(u'a:ps:gloss', str(Gloss(u'a',tuple(['ps']),'gloss',())))
+        self.assertEquals(u'a:adj/n:gloss', str(Gloss(u'a',tuple(['n','adj']),'gloss',())))
         # test equality comparison
         self.assertEquals(True, emptyGloss == emptyGloss)
         self.assertEquals(True, Gloss(u'a',tuple(['n','adj']),'gloss',()) == Gloss(u'a',tuple(['adj','n']),'gloss',()))
@@ -325,21 +324,21 @@ class TestObjects(unittest.TestCase):
         # test gloss union (typical use: union with pattern data)
         # NB: empty gloss always returns empty union
         self.assertEquals(None, emptyGloss.union(emptyGloss))
-        self.assertEquals(u'á:ps:gloss', unicode(Gloss(u'a',tuple([]),'',()).union(Gloss(u'á',tuple(['ps']),'gloss',()))))
-        self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a',tuple(['ps']),'gloss',()).union(emptyGloss)))
-        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'a',tuple(['n']),'',()))))
-        self.assertEquals(u'a:ps:gloss', unicode(Gloss(u'a',tuple(['ps']),'',()).union(Gloss(u'',tuple([]),'gloss',()))))
-        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',tuple(['n','adj']),'',()).union(Gloss(u'',tuple(['n']),'gloss',()))))
-        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',tuple([]),'',()).union(Gloss(u'',tuple(['n']),'gloss',()))))
-        self.assertEquals(u'None', unicode(emptyGloss.union(Gloss(u'a',tuple([]),'',()))))
-        self.assertEquals(u'b:n:gloss', unicode(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'b',tuple(['n']),'',()))))
-        self.assertEquals(u'None', unicode(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'b',tuple(['v']),'',()))))
-        self.assertEquals(u'ab:n:gloss, [a:n:gloss, b:mrph:ge]', unicode(self.gam.union(self.ga)))
-        self.assertEquals(u'ab:n:gloss, [a:n:gloss, b:mrph:ge]', unicode(self.gam.union(self.m)))
+        self.assertEquals(u'á:ps:gloss', str(Gloss(u'a',tuple([]),'',()).union(Gloss(u'á',tuple(['ps']),'gloss',()))))
+        self.assertEquals(u'a:ps:gloss', str(Gloss(u'a',tuple(['ps']),'gloss',()).union(emptyGloss)))
+        self.assertEquals(u'a:n:gloss', str(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'a',tuple(['n']),'',()))))
+        self.assertEquals(u'a:ps:gloss', str(Gloss(u'a',tuple(['ps']),'',()).union(Gloss(u'',tuple([]),'gloss',()))))
+        self.assertEquals(u'a:n:gloss', str(Gloss(u'a',tuple(['n','adj']),'',()).union(Gloss(u'',tuple(['n']),'gloss',()))))
+        self.assertEquals(u'a:n:gloss', str(Gloss(u'a',tuple([]),'',()).union(Gloss(u'',tuple(['n']),'gloss',()))))
+        self.assertEquals(u'None', str(emptyGloss.union(Gloss(u'a',tuple([]),'',()))))
+        self.assertEquals(u'b:n:gloss', str(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'b',tuple(['n']),'',()))))
+        self.assertEquals(u'None', str(Gloss(u'a',tuple(['n','adj']),'gloss',()).union(Gloss(u'b',tuple(['v']),'',()))))
+        self.assertEquals(u'ab:n:gloss, [a:n:gloss, b:mrph:ge]', str(self.gam.union(self.ga)))
+        self.assertEquals(u'ab:n:gloss, [a:n:gloss, b:mrph:ge]', str(self.gam.union(self.m)))
         # test morphemes union by pattern
-        self.assertEquals(u'ab::, [a::1, b::2]', unicode(Gloss('ab',tuple([]),'', (Gloss('a',tuple([]),'',()), Gloss('b',tuple([]),'',()))).union(Gloss('',tuple([]),'', (Gloss('',tuple([]),'2',()), Gloss('',tuple([]),'1',()))), pattern=(1,0))))
+        self.assertEquals(u'ab::, [a::1, b::2]', str(Gloss('ab',tuple([]),'', (Gloss('a',tuple([]),'',()), Gloss('b',tuple([]),'',()))).union(Gloss('',tuple([]),'', (Gloss('',tuple([]),'2',()), Gloss('',tuple([]),'1',()))), pattern=(1,0))))
         # test regex capabilities
-        self.assertEquals(u'a:n:gloss', unicode(Gloss(u'a',tuple(['n']),'gloss',()).union(self.gre)))
+        self.assertEquals(u'a:n:gloss', str(Gloss(u'a',tuple(['n']),'gloss',()).union(self.gre)))
 
     def test_gloss_html(self):
         # text Gloss coercing to html
@@ -351,7 +350,7 @@ class TestObjects(unittest.TestCase):
     def test_pattern(self):
         self.assertEquals(True, self.pat.matches(self.ga))
         self.assertEquals(False, self.pat.matches(self.gam))
-        self.assertEquals(unicode(self.gam), unicode(self.pat.apply(self.ga)))
+        self.assertEquals(str(self.gam), str(self.pat.apply(self.ga)))
 
 
 if __name__ == '__main__':

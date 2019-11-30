@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright (C) 2010—2019  Kirill Maslinsky <kirill@altlinux.org>
 #
@@ -13,20 +13,20 @@
 # GNU General Public License for more details.
 #
 
-import newmorph
-import grammar
-from ntgloss import Gloss, emptyGloss
 import os
 import argparse
 import sys
-import cPickle
+import pickle
 import funcparserlib.lexer
-import formats
-from plugins import OrthographyConverter
 import pkg_resources
-from plugins.tokenizer import TokenizerData
-from orthography import tones_match, detone
 
+import daba.formats
+import daba.newmorph
+import daba.grammar
+from daba.ntgloss import Gloss, emptyGloss
+from daba.plugins import OrthographyConverter
+from daba.plugins.tokenizer import TokenizerData
+from daba.orthography import tones_match, detone
 
 class Tokenizer(object):
     def __init__(self):
@@ -41,7 +41,7 @@ class Tokenizer(object):
         'unicode -> Sequence(Token)'
         tok = funcparserlib.lexer.make_tokenizer(self.specs)
         r = tok(string)
-        # print "TKS", [t for t in r]
+        # print("TKS", [t for t in r])
         return r
 
     def split_sentences(self, toklist):
@@ -68,11 +68,11 @@ class ChainDict(object):
 
     @property
     def ids(self):
-        return self._maps.viewkeys()
+        return self._maps.keys()
 
     @property
     def dictlist(self):
-        return self._maps.viewvalues()
+        return self._maps.values()
 
     def __len__(self):
         return sum([len(dic) for dic in self.dictlist])
@@ -107,7 +107,7 @@ class ChainDict(object):
                 result.add(prefix)
         return result
 
-    def iteritems(self):
+    def items(self):
         result = []
         keysseen = []
         for mapping in self.dictlist:
@@ -148,9 +148,9 @@ class DictLoader(object):
             for f in os.listdir(self.runtimedir):
                 name, ext = os.path.splitext(f)
                 if ext in ['.bdi']:
-                    with open(os.path.join(self.runtimedir, f)) as bdi:
-                        dic = cPickle.load(bdi)
-                        assert isinstance(dic, formats.DabaDict)
+                    with open(os.path.join(self.runtimedir, f), 'rb') as bdi:
+                        dic = pickle.load(bdi)
+                        assert isinstance(dic, daba.formats.DabaDict)
                         self.load(dic)
 
     def filepath(self, dic):
@@ -158,11 +158,11 @@ class DictLoader(object):
 
     def load(self, dic):
         if self.verbose:
-            sys.stderr.write(u'LOADED DICT {}\n'.format(dic).encode('utf-8'))
+            sys.stderr.write(u'LOADED DICT {}\n'.format(dic))
         self.dictionary.add(dic)
 
     def addfile(self, dictfile):
-        dic = formats.DictReader(dictfile).get()
+        dic = daba.formats.DictReader(dictfile).get()
         if not dic.hash in self.dictionary.ids:
             self.add(dic)
             return dic.hash
@@ -188,16 +188,16 @@ class DictLoader(object):
                 dic = d
                 break
         if self.verbose:
-            sys.stderr.write(u'REMOVED DICT {}\n'.format(dic).encode('utf-8'))
+            sys.stderr.write(u'REMOVED DICT {}\n'.format(dic))
         self.dictionary.remove(dic.hash)
         os.unlink(self.filepath(dic))
 
     def save(self, dic):
         if self.verbose:
-            sys.stderr.write(u'DICT saved {}\n'.format(dic).encode('utf-8'))
+            sys.stderr.write(u'DICT saved {}\n'.format(dic))
         self.load(dic)
         with open(self.filepath(dic), 'wb') as o:
-            cPickle.dump(dic, o)
+            pickle.dump(dic, o)
 
 
 class GrammarLoader(object):
@@ -205,22 +205,21 @@ class GrammarLoader(object):
         self.runtimedir = runtimedir
         self.gramlist = []
         self.grammar = None
-        root = os.getcwdu()
         for f in os.listdir(self.runtimedir):
             name, ext = os.path.splitext(f)
             if ext in ['.bgr']:
                 try:
                     with open(os.path.join(self.runtimedir, f), 'rb') as gram:
-                        g = cPickle.load(gram)
-                    assert isinstance(g, grammar.Grammar)
+                        g = pickle.load(gram)
+                    assert isinstance(g, daba.grammar.Grammar)
                     self.gramlist = [name]
                     self.grammar = g
-                except (cPickle.UnpicklingError, ImportError, AssertionError):
+                except (pickle.UnpicklingError, ImportError, AssertionError):
                     #FIXME: raise an exception with error message
-                    print "Invalid binary grammar file:", f
+                    print("Invalid binary grammar file:", f)
     
     def load(self, gramfile):
-        self.grammar = grammar.Grammar(gramfile)
+        self.grammar = daba.grammar.Grammar(gramfile)
         self.gramlist = [os.path.basename(gramfile)]
         # take basename of the gramfile as a 
         for f in os.listdir(self.runtimedir):
@@ -228,7 +227,7 @@ class GrammarLoader(object):
             if ext in ['.bgr']:
                 os.unlink(os.path.join(self.runtimedir, f))
         with open(os.path.join(self.runtimedir, os.path.extsep.join([os.path.basename(gramfile), 'bgr'])), 'wb') as o:
-            cPickle.dump(self.grammar, o)
+            pickle.dump(self.grammar, o)
 
 
 class Processor(object):
@@ -251,7 +250,7 @@ class Processor(object):
         else:
             self.dictloader = dictloader
             self.grammar = grammarloader.grammar
-            self.parser = newmorph.Parser(self.dictloader.dictionary,
+            self.parser = daba.newmorph.Parser(self.dictloader.dictionary,
                                           self.grammar, detone=self.detone)
 
     def get_case(self, string):
@@ -265,7 +264,7 @@ class Processor(object):
         return case
 
     def convert_orthography(self, word):
-        # print "GOT", word,
+        # print("GOT", word,)
         wlist = [word]
         for plugin in self.converters:
             converted = []
@@ -273,17 +272,17 @@ class Processor(object):
                 for result in plugin.convert(w):
                     converted.append(result)
             wlist = converted
-        # print "->", u'/'.join(wlist).encode('utf-8')
+        # print("->", u'/'.join(wlist))
         return wlist or [word]
     
     def filter_parsed(self, results, forms):
         stage = max([c[0] for c in results])
         filtered = []
-        for r in filter(lambda s: s[0] >= 0, results):
+        for r in filter(lambda s: str(s[0]) >= '0', results):
             filtered.extend(r[1])
         if not filtered:
-            filtered = [g for glosslist in zip(*results)[1] for g in glosslist]
-        filtered = filter(lambda g: any(tones_match(s, g.form) for s in forms), filtered)
+            filtered = [g for glosslist in list(zip(*results))[1] for g in glosslist]
+        filtered = list(filter(lambda g: any(tones_match(s, g.form) for s in forms), filtered))
         if not filtered:
             filtered = [emptyGloss._replace(form=w) for w in forms]
         return stage, filtered
@@ -293,18 +292,18 @@ class Processor(object):
         for para in txt:
             par = []
             for sent in self.tokenizer.split_sentences(self.tokenizer.tokenize(para)):
-                sttoken = formats.PlainToken(('</s>', ''.join(t.value for t in sent)))
+                sttoken = daba.formats.PlainToken(('</s>', ''.join(t.value for t in sent)))
                 st = (sttoken, [])
                 par.append(st)
                 annot = st[1]
                 for token in sent:
                     if token.type in ['Comment', 'Tag']:
-                        annot.append(formats.PlainToken((token.type, token.value)))
+                        annot.append(daba.formats.PlainToken((token.type, token.value)))
                     elif token.type in ['Punct', 'SentPunct', 'Nonword']:
-                        annot.append(formats.PlainToken(('c', token.value)))
+                        annot.append(daba.formats.PlainToken(('c', token.value)))
                     elif token.type in ['Cardinal']:
                         gloss = Gloss(token.value, ('num',), 'CARDINAL', ())
-                        annot.append(formats.WordToken([gloss], token.value, 'tokenizer'))
+                        annot.append(daba.formats.WordToken([gloss], token.value, 'tokenizer'))
                     elif token.type in ['Word']:
                         if self.converters:
                             wlist = self.convert_orthography(token.value)
@@ -314,9 +313,9 @@ class Processor(object):
                                     self.parser.lemmatize(w.lower())
                                 )
                             try:
-                                stage, glosslist = self.filter_parsed(converts, filter(None, wlist))
+                                stage, glosslist = self.filter_parsed(converts, list(filter(None, wlist)))
                             except ValueError:
-                                print "WARNING: invalid orthographic conversion result, skippig token:", token.type, token.value, converts
+                                print("WARNING: invalid orthographic conversion result, skippig token:", token.type, token.value, converts)
                         else:
                             stage, glosslist = self.parser.lemmatize(token.value.lower())
 
@@ -330,9 +329,9 @@ class Processor(object):
                                     normform = normforms[0]
                                 else:
                                     normform = u'*{}*'.format(u'/'.join(normforms))
-                            annot.append(formats.WordToken(glosslist, normform, unicode(stage)))
+                            annot.append(daba.formats.WordToken(glosslist, normform, str(stage)))
                         else:
-                            annot.append(formats.WordToken(glosslist, token.value, unicode(stage)))
+                            annot.append(daba.formats.WordToken(glosslist, token.value, str(stage)))
 
             self.parsed.append(par)
         return self.parsed
@@ -348,11 +347,11 @@ def load_plugins():
 
 
 def parse_file(infile, outfile, pp, args):
-    print 'Processing', infile
-    io = formats.FileWrapper()
+    print('Processing', infile)
+    io = daba.formats.FileWrapper()
     io.read(infile)
     io.write(outfile, pp.parse(io.para), parsed=True, format=args.format)
-    print 'Finished', outfile
+    print('Finished', outfile)
 
 
 def main():
@@ -372,8 +371,8 @@ def main():
     aparser.add_argument("-l", "--list", help="Read input filenames list from file")
     aparser.add_argument("-t", "--detone", action='store_true', help="Ignore tones in dictionary lookups")
     aparser.add_argument("-z", "--tokenizer", action='store', choices=tkz.methods, default="default", help="Tokenizer to use")
-    aparser.add_argument("-f", "--format", action='store', choices=formats.FileWrapper().output_formats, default="html", help="Output file format")
-    aparser.add_argument("-v", "--verbose", action='store_true', help="Print info messages on loaded dictionaries")
+    aparser.add_argument("-f", "--format", action='store', choices=daba.formats.FileWrapper().output_formats, default="html", help="Output file format")
+    aparser.add_argument("-v", "--verbose", action='store_true', help="print info messages on loaded dictionaries")
     args = aparser.parse_args()
 
     tkz.use_method(args.tokenizer)
@@ -394,7 +393,7 @@ def main():
         if args.list:
             with open(args.list) as filelist:
                 for line in filelist:
-                    infile = os.path.normpath(line.decode('utf-8').strip())
+                    infile = os.path.normpath(line.strip())
                     if os.path.exists(infile):
                         outfile = os.path.splitext(infile)[0] + '.pars.html'
                         parse_file(infile, outfile, pp, args)

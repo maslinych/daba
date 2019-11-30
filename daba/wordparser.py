@@ -1,6 +1,6 @@
 import readline
 import sys
-from mparser import DictLoader, GrammarLoader, Processor
+from daba.mparser import DictLoader, GrammarLoader, Processor
 from pprint import pprint
 
 def main():
@@ -8,9 +8,9 @@ def main():
     gr = GrammarLoader()
     pp = Processor(dl, gr)
     while True:
-        word = raw_input('Enter word:').decode(sys.stdin.encoding)
+        word = input('Enter word:')
         result = pp.parser.lemmatize(word, debug=True)
-        print 'Final result::'
+        print('Final result::')
         pprint(result)
 
 if __name__ == '__main__':

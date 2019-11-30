@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import re
@@ -27,7 +27,7 @@ class Syllabify(MutableSequence):
         nword = unicodedata.normalize('NFKD', word)        
         self._syllables = []
         index = 0
-        syllable = re.compile(ur"""
+        syllable = re.compile(r"""
                 (                                           # raw: whole syllable group
                     ([^auieoɛɔƐƆ\u030c\u0300\u0301\u0302]*)   # consonant: optional initiale
                     (?P<v>[auieoɛɔwnŋɲƐƆ'])                      # vowel: syllable core, obligatory
@@ -44,7 +44,7 @@ class Syllabify(MutableSequence):
                 try:
                     self._syllables.append(Syllable(*syl.groups()))
                 except (TypeError):
-                    print syl.groups()
+                    print(syl.groups())
         if index < len(nword):
             raise ValueError(u"Nonconforming syllabic structure: {0}, at pos: {1}-".format(nword, nword[:index]))
 
@@ -100,7 +100,7 @@ def orth_compliant(word):
 
 def detone(string):
     # remove all tonemarking from string
-    return "".join([c for c in unicodedata.normalize('NFD', unicode(string)) if not unicodedata.category(c) == 'Mn'])
+    return "".join([c for c in unicodedata.normalize('NFD', str(string)) if not unicodedata.category(c) == 'Mn'])
 
 
 def tones_match(source, tonalized):

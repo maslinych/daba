@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
 from __future__ import division
@@ -44,13 +44,13 @@ for ct,lt in [(ctypes,types),(twords,test.words())]:
     reduptypes = [i for i in ct if i[0]==2]
     comptypes = [i for i in ct if i[0]==3]
 
-    print 'Всего в корпусе разных словоформ: {0}\n'.format(len(lt))
-    print 'Из них несловарных (числа, пунктуация): {0} ({1:.2f}%)\n'.format(len(types)-len(ct), 100*(len(types)-len(ct))/len(lt))
-    print 'Нераспознанных словоформ: {0} ({1:.2f}%) {2:.2f}\n'.format(len(nottypes),100*len(nottypes)/len(ct), mean(nottypes))
-    print 'Распознанных словоформ: {0} ({1:.2f}%) {2:.2f}\n'.format(len(yestypes),100*len(yestypes)/len(ct),mean(yestypes))
-    print 'Из них:\n'
-    print 'Словарь и словоизменительный анализ: {0} ({1:.2f}%) {2:.2f}\n'.format(len(infltypes),100*len(infltypes)/len(ct),mean(infltypes))
-    print 'Словообразовательный анализ: {0} ({1:.2f}%) {2}\n'.format(len(dervtypes),len(dervtypes)/len(ct),mean(dervtypes))
-    print 'Анализ редупликации: {0} ({1:.2f}%) {2:.2f}\n'.format(len(reduptypes),100*len(reduptypes)/len(ct),mean(reduptypes))
-    print 'Анализ композитов: {0} ({1:.2f}) {2:.2f}\n'.format(len(comptypes),100*len(comptypes)/len(ct),mean(comptypes))
+    print('Всего в корпусе разных словоформ: {0}\n'.format(len(lt)))
+    print('Из них несловарных (числа, пунктуация): {0} ({1:.2f}%)\n'.format(len(types)-len(ct), 100*(len(types)-len(ct))/len(lt)))
+    print('Нераспознанных словоформ: {0} ({1:.2f}%) {2:.2f}\n'.format(len(nottypes),100*len(nottypes)/len(ct), mean(nottypes)))
+    print('Распознанных словоформ: {0} ({1:.2f}%) {2:.2f}\n'.format(len(yestypes),100*len(yestypes)/len(ct),mean(yestypes)))
+    print('Из них:\n')
+    print('Словарь и словоизменительный анализ: {0} ({1:.2f}%) {2:.2f}\n'.format(len(infltypes),100*len(infltypes)/len(ct),mean(infltypes)))
+    print('Словообразовательный анализ: {0} ({1:.2f}%) {2}\n'.format(len(dervtypes),len(dervtypes)/len(ct),mean(dervtypes)))
+    print('Анализ редупликации: {0} ({1:.2f}%) {2:.2f}\n'.format(len(reduptypes),100*len(reduptypes)/len(ct),mean(reduptypes)))
+    print('Анализ композитов: {0} ({1:.2f}) {2:.2f}\n'.format(len(comptypes),100*len(comptypes)/len(ct),mean(comptypes)))
 

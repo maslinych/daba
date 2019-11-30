@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 """Daba — Pattern-based morphemic analysis toolkit
 """
@@ -20,7 +20,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='daba',  # Required
-    version='0.8.0',  # Required
+    version='0.9.0',  # Required
     description='Pattern-based morphemic analysis toolkit',  # Required
     long_description=long_description,  # Optional
     url='https://github.com/maslinych/daba',  # Optional
@@ -55,17 +55,12 @@ setup(
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 2 :: Only'
-        # FIXME: support for python3 not yet ready
-        # 'Programming Language :: Python :: 3',
-        # 'Programming Language :: Python :: 3.4',
-        # 'Programming Language :: Python :: 3.5',
-        # 'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
     # supprted python versions
-    python_requires='>=2.6, <3',
+    python_requires='>=3.6',
     # This field adds keywords for your project which will appear on the
     # project page. What does your project relate to?
     #

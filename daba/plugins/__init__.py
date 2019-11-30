@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os,sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
@@ -26,8 +26,12 @@ class PluginMount(type):
             plugin_dict[obj.title] = obj
         return plugin_dict
 
+    @property
+    def converters(self):
+        """List of all installed orthography converters"""
+        return list(self.get_plugins().keys())
 
-class OrthographyConverter(object):
+class OrthographyConverter(metaclass=PluginMount):
     """
     Mount point for orthography conversion plugins.
 
@@ -39,7 +43,7 @@ class OrthographyConverter(object):
     @convert    Main conversion method. Takes single token as input, returns
     list of possible conversions
     """
-    __metaclass__ = PluginMount
+    #__metaclass__ = PluginMount
 
 
 class TonesConverter(object):
@@ -55,7 +59,7 @@ class TonesConverter(object):
             return True
         except (ValueError) as e:
             if self.debug:
-                print unicode(e).encode('utf-8')
+                print(str(e))
             self.invalid = True
             return False
 
@@ -68,11 +72,11 @@ class TonesConverter(object):
                     self.syllabic.set_tone(j, tones[0])
                 else:
                     if self.debug:
-                        print 'Conflicting conversion rules:', u' '.join([self.word, self.syllabic.base(j), u' '.join(tones)]).encode('utf-8')
+                        print('Conflicting conversion rules:', u' '.join([self.word, self.syllabic.base(j), u' '.join(tones)]))
 
             if self.toreplace:
                 if self.debug:
-                    print u' '.join([self.word, '->', self.syllabic.form()]).encode('utf-8')
+                    print(u' '.join([self.word, '->', self.syllabic.form()]))
                 return [self.syllabic.form()]
             else:
                 return [self.word]

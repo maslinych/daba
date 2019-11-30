@@ -1,8 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
 import re
-from ntgloss import Pattern, Gloss
+from daba.ntgloss import Pattern, Gloss
 from funcparserlib.parser import *
 from funcparserlib.lexer import make_tokenizer, Token, LexerError
 
@@ -44,21 +44,21 @@ def tokenize(string):
             ('Op', (r'[\[\]|:{}]',)),
             #('Regex', (r'<(\w|[-={}\[\]|().,^$+*?:\\])*>', re.UNICODE)),
             ('Regex', (r'<re>.*?</re>', re.UNICODE)),
-            ('QuotedName', (ur'"[^"\n]+"', re.UNICODE)),
-            ('Name', (ur'[^:<>\[\]{}| \n]+', re.UNICODE)),
-            #('Name', (ur"(\w[\u0300\u0301\u0302]?)+([-./](\w[\u0300\u0301\u0302]?)+)*['\u2019]?",re.UNICODE)),
-            #('Name', (ur'(\w[\u0300\u0301]?([-./](\w[\u0300\u0301]?)+)*|[-0-9][-0-9]*)',re.UNICODE))
+            ('QuotedName', (r'"[^"\n]+"', re.UNICODE)),
+            ('Name', (r'[^:<>\[\]{}| \n]+', re.UNICODE)),
+            #('Name', (r"(\w[\u0300\u0301\u0302]?)+([-./](\w[\u0300\u0301\u0302]?)+)*['\u2019]?",re.UNICODE)),
+            #('Name', (r'(\w[\u0300\u0301]?([-./](\w[\u0300\u0301]?)+)*|[-0-9][-0-9]*)',re.UNICODE))
             ]
     useless = ['Comment', 'NL', 'JunkSpace']
     tok = make_tokenizer(specs)
-    #print "DEBUG TOKENIZER: ", [x for x in tok(string)]
+    #print("DEBUG TOKENIZER: ", [x for x in tok(string)])
     return [x for x in tok(string) if x.type not in useless]
     
 
 def unwrap_re(tupl):
     unre = lambda s: s[4:-5]
     if not isinstance(tupl, tuple):
-        return re.compile(ur'^(?P<__group0>{0})$'.format(unre(tupl)))
+        return re.compile(r'^(?P<__group0>{0})$'.format(unre(tupl)))
     unfolded = []
     for i,part in enumerate(tupl):
         # FIXME: to be done by formparser
@@ -68,8 +68,8 @@ def unwrap_re(tupl):
             part = '.+'
         elif part.startswith('<re>'):
             part = unre(part)
-        unfolded.append(ur'(?P<__group{0}>{1})'.format(i,part))
-    return re.compile(ur'^{0}$'.format(''.join(unfolded)))
+        unfolded.append(r'(?P<__group{0}>{1})'.format(i,part))
+    return re.compile(r'^{0}$'.format(''.join(unfolded)))
 
 tokval = lambda x: x.value
 unquote = lambda s: s.strip('"')
@@ -90,7 +90,7 @@ despace = lambda s: [i for i in s if s is not ' ']
 
 def flatten_list(l):
     for el in l:
-        if isinstance(el, list) and not isinstance(el, basestring):
+        if isinstance(el, list) and not isinstance(el, str):
             for sub in flatten_list(el):
                 yield sub
         else:
@@ -102,7 +102,7 @@ def str_tokenize(string):
             ('JunkSpace', (r'[\r\n\t]+',)),
             ('Space', (r'[ ]+',)),
             ('Op', (r'[:/\[\]]',)),
-            ('Name', (ur'[^:/ \[\]\r\t\n]+', re.UNICODE)),
+            ('Name', (r'[^:/ \[\]\r\t\n]+', re.UNICODE)),
             ]
     useless = ['JunkSpace']
     tok = make_tokenizer(specs)
@@ -171,15 +171,15 @@ def preprocess(gstring):
             fields = line.split()
             mdict[fields[1]] = fields[2]
     filtered = '\n'.join(filter(lambda i: not i.startswith('macro'), lines))
-    for macro,replacement in mdict.iteritems():
+    for macro,replacement in mdict.items():
         filtered = filtered.replace(macro, replacement)
     return filtered
 
 
 class Grammar(object):
     def __init__(self,filename,encoding='utf-8'):
-        with open(filename, 'r') as gf:
-            text = preprocess(gf.read().decode(encoding))
+        with open(filename, 'r', encoding=encoding) as gf:
+            text = preprocess(gf.read())
             gdict = parse(tokenize(text))
             self.plan = gdict['plan']
             self.patterns = gdict['patterns']
@@ -221,8 +221,8 @@ pattern :: [ la::] | :v: [:v: ::PROG]
         self.assertEquals(fullgloss_parser().parse(tokenize(fg6)), pg1) 
         
     def test_parser(self):
-        self.assertEquals(unicode(self.gmin), unicode(parse(tokenize(self.minimal))))
-        self.assertEquals(unicode(self.greal), unicode(parse(tokenize(self.real))))
+        self.assertEquals(str(self.gmin), str(parse(tokenize(self.minimal))))
+        self.assertEquals(str(self.greal), str(parse(tokenize(self.real))))
 
 if __name__ == '__main__':
     unittest.main()

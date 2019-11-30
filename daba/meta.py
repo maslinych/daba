@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 # Corpus metadata metaeditor
@@ -28,7 +28,7 @@ import tempfile
 import shutil
 import csv
 import uuid
-import formats
+import daba.formats
 
 
 class MetaData(object):
@@ -40,30 +40,30 @@ class MetaData(object):
             self.fromPlain(metadict)
 
     def fromPlain(self, metadict):
-        for mkey, mvalue in metadict.iteritems():
+        for mkey, mvalue in metadict.items():
             try:
                 section, name = mkey.split(self.namesep)
             except (ValueError):
-                print u"Malformed meta field: {} {}".format(name, mvalue).encode('utf-8')
+                print(u"Malformed meta field: {} {}".format(name, mvalue))
             values = mvalue.split(self.valuesep)
             self._data[section][name] = values
 
     def toPlain(self):
         return dict(
                 (self.namesep.join([section, name]), self.valuesep.join(values)) 
-                for section, d in self._data.iteritems() for name, values in d.iteritems()
+                for section, d in self._data.items() for name, values in d.items()
                 )
 
     def getSection(self, section):
-        fnames, fvalues = zip(*[(k,v) for k,v in self._data[section].iteritems()])
-        return map(lambda vs: zip(fnames, vs), zip(*fvalues))
+        fnames, fvalues = zip(*[(k,v) for k,v in self._data[section].items()])
+        return list(map(lambda vs: zip(fnames, vs), zip(*fvalues)))
 
     def setSection(self, section, secdata):
-        for name, values in  map(lambda x: (x[0][0], zip(*x)[1]), zip(*secdata)):
+        for name, values in  map(lambda x: (x[0][0], list(zip(*x))[1]), zip(*secdata)):
             self._data[section][name] = values
 
-    def itersections(self):
-        for secname in self._data.iterkeys():
+    def sections(self):
+        for secname in self._data.keys():
             if secname != "_auto":
                 yield (secname, self.getSection(secname))
 
@@ -106,7 +106,7 @@ class MetaConfig(object):
         return self._data[section][0]
 
     def sections(self):
-        return self._data.iterkeys()
+        return self._data.keys()
 
 
 class GUIBuilder(object):
@@ -128,21 +128,21 @@ class GUIBuilder(object):
             return d
         self.wvalues = {
                 'text': operate(wx.TextCtrl.GetValue, 
-                    lambda w,t: wx.TextCtrl.SetValue(w, unicode(t))),
+                    lambda w,t: wx.TextCtrl.SetValue(w, str(t))),
                 'long_text': operate(wx.TextCtrl.GetValue, 
-                    lambda w,t: wx.TextCtrl.SetValue(w, unicode(t))),
+                    lambda w,t: wx.TextCtrl.SetValue(w, str(t))),
                 'int': operate(wx.lib.intctrl.IntCtrl.GetValue, 
                     lambda w,t: wx.lib.intctrl.IntCtrl.SetValue(w,int(t) if t else 0)),
                 'closed_list': operate(wx.Choice.GetStringSelection, 
-                    lambda w,t: wx.Choice.SetStringSelection(w, unicode(t) if t else u'inconnu')),
+                    lambda w,t: wx.Choice.SetStringSelection(w, str(t) if t else u'inconnu')),
                 'open_list': operate(wx.ComboBox.GetValue, 
-                    lambda w,t: wx.ComboBox.SetValue(w, unicode(t))),
+                    lambda w,t: wx.ComboBox.SetValue(w, str(t))),
                 'checklist': operate(lambda t: ';'.join(wx.CheckListBox.GetCheckedStrings(t)), 
                     lambda w,t: wx.CheckListBox.SetCheckedStrings(w, t.split(';'))),
                 'date': operate(lambda t: wx.adv.DatePickerCtrl.GetValue(t).FormatDate(),
                     lambda w,t: wx.adv.DatePickerCtrl.SetValue(w, parse_date(t))),
                 'datetext': operate(wx.lib.masked.TextCtrl.GetValue,
-                    lambda w,t: wx.lib.masked.BaseMaskedTextCtrl.SetValue(w, unicode(t))),
+                    lambda w,t: wx.lib.masked.BaseMaskedTextCtrl.SetValue(w, str(t))),
                 }
 
     def makeLabel(self, parent, field):
@@ -160,14 +160,14 @@ class GUIBuilder(object):
         return result
 
     def getWidgetValue(self, wtype, widget):
-        return unicode(self.wvalues[wtype].get(widget))
+        return str(self.wvalues[wtype].get(widget))
 
     def setWidgetValue(self, wtype, widget, value):
         try:
             self.wvalues[wtype].set(widget, value)
         except (AssertionError):
             if value:
-                print u"Incorrect value '{0}' for field '{1}' will be ignored".format(widget, value)
+                print(u"Incorrect value '{0}' for field '{1}' will be ignored".format(widget, value))
                 return False
         return True
 
@@ -205,10 +205,10 @@ class DataPanel(wx.ScrolledWindow):
             try:
                 self.builder.setWidgetValue(wtype, widget, value)
             except (ValueError, TypeError):
-                print "Problem with setting value", u'{1}, {2}:{3}'.format(wtype, name, value).encode('utf-8')
+                print("Problem with setting value", u'{1}, {2}:{3}'.format(wtype, name, value))
 
     def getPanelData(self):
-        return [(name, self.getFieldValue(name)) for name in self.widgetlist.iterkeys()]
+        return [(name, self.getFieldValue(name)) for name in self.widgetlist.keys()]
 
     def getFieldValue(self, name):
         widget, wtype = self.widgetlist[name]
@@ -227,7 +227,7 @@ class MetaDB(object):
         self.idcolumn = idcolumn
         self.keyfield = keyfield
         if os.path.exists(self.dbfile):
-            with open(dbfile, 'rb') as csvfile:
+            with open(dbfile, 'r') as csvfile:
                 dbreader = csv.DictReader(csvfile, restval='')
                 self.csvnames = dbreader.fieldnames
                 for row in dbreader:
@@ -251,16 +251,7 @@ class MetaDB(object):
         return mkey
 
     def _decode_row(self, row):
-        utf = {}
-        for k,v in row.iteritems():
-            try:
-                utf[k.decode('utf-8')] = v.decode('utf-8')
-            except (AttributeError):
-                print "ERROR:", k, v
-                print "ROW", row
-                utf[k.decode('utf-8')] = ''
-        #utf = self._normalize_row(utf)
-        utf = dict((self._strip_secname(k),v) for k,v in utf.iteritems())
+        utf = dict((self._strip_secname(k),v) for k,v in row.items())
         if self.idcolumn not in utf.keys():
             key = self._add_uuid(utf)
         return utf
@@ -271,19 +262,19 @@ class MetaDB(object):
         return key
 
     def _remove_uuid(self, mdict):
-        return dict((k,v) for k,v in mdict.iteritems() if k != self.idcolumn)
+        return dict((k,v) for k,v in mdict.items() if k != self.idcolumn)
 
     def _add_secname(self, key):
         return self.namesep.join([self.secname, key])
     
     def _encode_row(self, row):
         utf = {}
-        for k,v in row.iteritems():
-            utf[self._add_secname(k).encode('utf-8')] = v.encode('utf-8')
+        for k,v in row.items():
+            utf[self._add_secname(k)] = v
         return utf
 
     def _normalize_row(self, row):
-        for k,v in row.iteritems():
+        for k,v in row.items():
             if row[k] in [0, "0", 'inconnu']:
                 row[k] = ""
         return row
@@ -292,7 +283,7 @@ class MetaDB(object):
         try:
             return u' '.join([row[self._strip_secname(field)] for field in self.csvnames if self._strip_secname(field) != self.idcolumn])
         except (KeyError, TypeError):
-            print self.csvnames, row
+            print(self.csvnames, row)
     
     def _make_keystring(self, mdict):
         return self._row_as_string(self._normalize_row(mdict))
@@ -313,7 +304,7 @@ class MetaDB(object):
         return self._normalize_row(mdict) == self._remove_uuid(dbentry)
 
     def content_matches(self, mdict):
-        return any([self._match_content(mdict, dbentry) for dbentry in self._map.itervalues()])
+        return any([self._match_content(mdict, dbentry) for dbentry in self._map.values()])
 
     def append(self, mdict):
         key = self._add_uuid(mdict)
@@ -338,24 +329,24 @@ class MetaDB(object):
             if self.is_known_by_key(mdict):
                 return mdict[self.idcolumn]
             elif self.content_matches(mdict):
-                for key, dbentry in self._map.iteritems():
+                for key, dbentry in self._map.items():
                     if self._match_content(mdict, dbentry):
                         return key
         else:
             return None
 
     def getList(self):
-        return self._strmap.keys()
+        return list(self._strmap.keys())
 
     def write(self):
         if self._map:
-            with open(self.dbfile, 'wb') as csvfile:
+            with open(self.dbfile, 'w') as csvfile:
                 dbwriter = csv.DictWriter(csvfile, self.fieldnames, restval='')
                 dbwriter.writeheader()
                 rows = self._map.values()
                 if self.keyfield:
                     try:
-                        rows.sort(key=lambda d: d[self.keyfield])
+                        rows = sorted(rows, key=lambda d: d[self.keyfield])
                     except(KeyError):
                         pass
                 for row in rows:
@@ -459,7 +450,7 @@ class MetaPanel(wx.Panel):
         if self.selector.IsModified():
             try:
                 dbentry = self.db.getEntryByKey(self.selector.GetValue())
-                self.setCurrentPanelData(dbentry.iteritems())
+                self.setCurrentPanelData(dbentry.items())
             except KeyError:
                 pass
 
@@ -570,18 +561,18 @@ class MainFrame(wx.Frame):
         self.Layout()
 
     def parse_file(self, ifile):
-        self.io = formats.FileWrapper()
+        self.io = daba.formats.FileWrapper()
         self.io.read(ifile)
         self.metadata = MetaData(self.io.metadata)
         self.txt = u''.join([p for p in self.io.para if p is not None])
 
     def update_interface(self):
-        for secname, secdata in self.metadata.itersections():
+        for secname, secdata in self.metadata.sections():
             self.metapanels[secname].setSectionData(secdata)
 
     def update_metadata(self):
         # collect all metadata given
-        for secname, mp in self.metapanels.iteritems():
+        for secname, mp in self.metapanels.items():
             self.metadata.setSection(secname, mp.getSectionData())
 
     def write_xmldata(self):

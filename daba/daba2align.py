@@ -1,12 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import argparse
-import formats
+import daba.formats
 
 
 def token_iterator(infile, select_types=('</s>',)):
-    reader = formats.HtmlReader(infile)
+    reader = daba.formats.HtmlReader(infile)
     for token in reader:
         if token.type in select_types:
             yield token
@@ -27,7 +27,7 @@ def main():
 
     with open(args.outfile, 'w') as out:
         for n, t in enumerate(token_iterator(args.infile)):
-            out.write(token_printer(t, n).encode('utf-8'))
+            out.write(token_printer(t, n))
 
 
 if __name__ == '__main__':

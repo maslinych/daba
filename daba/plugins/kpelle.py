@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 
 from daba.plugins import OrthographyConverter
@@ -99,7 +99,7 @@ class KpelleEvangelieToPract(OrthographyConverter):
                 ]
         tok = funcparserlib.lexer.make_tokenizer(specs)
         r = [x for x in tok(unicodedata.normalize('NFKD', word))]
-        # print 'CW', word, ':', r
+        # print('CW', word, ':', r)
         return r
 
     def convertg(self, grapheme):

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
 from orthograph import convertw
@@ -13,7 +13,7 @@ words = [[w for w in wlist if w] for wlist in ww]
 
 for sentence in words:
     i = 0
-    print ' '.join(sentence).strip('\n\t').encode('utf-8')
+    print(' '.join(sentence).strip('\n\t'))
     for word in sentence:
         nw = convertw(word)
         nwl = [w for w in nw if w in wl]
@@ -22,18 +22,18 @@ for sentence in words:
         else:
             formlist = nw
 
-        print '/'.join(formlist).encode('utf-8'), "\t(",
+        print('/'.join(formlist), "\t(",)
         for j in range(len(sentence)):
             if j == i:
-                print sentence[j].upper().encode('utf-8') + " ",
+                print(sentence[j].upper() + " ",)
             else:
-                print sentence[j].encode('utf-8') + " ",
-        print ")"
+                print(sentence[j] + " ",)
+        print(")")
         for form in formlist:
             gl = dict_disambiguate(lemmatize(form, wl))
             glstr = [print_gloss(g) for g in gl]
             for gs in glstr:
-                print "    ", gs.encode('utf-8')
+                print("    ", gs)
         i += 1
         print
     print

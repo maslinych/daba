@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 
 import sys
@@ -11,18 +11,18 @@ from daba.ntgloss import Gloss
 
 def print_field(tag, value):
     if not value:
-        print u"\\{}".format(tag).encode("utf-8")
+        print(u"\\{}".format(tag))
     elif not tag:
-        print value.encode("utf-8")
+        print(value)
     else:
-        print u"\\{} {}".format(tag, value).encode("utf-8")
+        print(u"\\{} {}".format(tag, value))
 
 
 def strip_lemma(lemma):
     try:
-        u = unicode(lemma)
+        u = str(lemma)
     except TypeError:
-        print "ERR: {}".format(repr(lemma)).encode('utf8')
+        print("ERR: {}".format(repr(lemma)))
     if u.startswith('-'):
         return(u[1:])
     else:
@@ -125,7 +125,7 @@ def main():
                 gloss = make_gloss(record, args.glossfields)
                 make_mm(record, gloss, dic)
                 record = []
-                print ""
+                print("")
             elif line.startswith('\\'):
                 tag, space, value = line[1:].strip().partition(' ')
                 record.append((tag, value))

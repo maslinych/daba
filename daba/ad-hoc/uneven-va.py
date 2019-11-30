@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
 import bamana
@@ -18,5 +18,5 @@ for entry in bamana.lexicon.findall('record'):
             c.setdefault((lx, ge), []).append(va.text)
 
 for (lx, ge), vas in c.iteritems():
-    print u'{0} ‘{1}’ : {2}'.format(lx, ge, u', '.join(vas))
+    print(u'{0} ‘{1}’ : {2}'.format(lx, ge, u', '.join(vas)))
 

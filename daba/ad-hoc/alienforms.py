@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
 from __future__ import division
@@ -17,7 +17,7 @@ for i in d:
 d.close()
 
 for line in sys.stdin:
-    word = unicodedata.normalize('NFC', unicode(line.strip('\n').decode('utf-8')))
+    word = unicodedata.normalize('NFC', unicode(line.strip('\n')))
     c = 0
     max = ((len(word)+2)*2)-3
     positive = []
@@ -29,4 +29,4 @@ for line in sys.stdin:
                 positive.append(ngram)
             else:
                 negative.append(ngram)
-    print u'{1:.2f}\t{0}\t{2} | {3}'.format(word, c/max, ';'.join(positive), ' '.join(negative))
+    print(u'{1:.2f}\t{0}\t{2} | {3}'.format(word, c/max, ';'.join(positive), ' '.join(negative)))
