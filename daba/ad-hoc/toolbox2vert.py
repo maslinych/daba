@@ -287,8 +287,6 @@ class Record(object):
 
         blockdata = []
         for marker, value in fields:
-            marker = marker.decode('utf-8')
-            value = value.decode('utf-8')            
             if marker in config.annotlevels['sentence']:
                 self.metadata.append((marker, value))
             elif marker in config.annotlevels['document']:
@@ -325,9 +323,9 @@ class Record(object):
                     ref = dict(self.metadata)[self.config.reclabel]
                 except KeyError:
                     ref = '\n'.join(u'\\{} {}'.format(k, v) for k, v in self.metadata)
-                warn = '\n'.join([u'\\{} {}'.format(m, v) for m, v in b.fields]).encode("utf-8")
-                sys.stderr.write('Misaligned morphemes:\n'.encode("utf-8"))
-                sys.stderr.write(u'{}\n'.format(ref).encode("utf-8"))
+                warn = '\n'.join([u'\\{} {}'.format(m, v) for m, v in b.fields])
+                sys.stderr.write('Misaligned morphemes:\n')
+                sys.stderr.write(u'{}\n'.format(ref))
                 sys.stderr.write('{}\n\n'.format(warn))
         for t in tokens:
             yield t
