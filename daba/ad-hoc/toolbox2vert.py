@@ -105,7 +105,7 @@ class Layers(collections.abc.Iterable):
         ' '.join(str(i) for i in self.tokens)
 
     def __len__(self):
-        return len(self.tokens)
+        return len(list(self.tokens))
 
 
 class TokenConverter(object):
@@ -360,7 +360,7 @@ class BaseFormatter(object):
                     formatted = self.format_doc(self.docs[docid])
                     out.write(formatted)
         else:
-            with codecs.open(self.outfile, 'wb', encoding='utf-8') as out:
+            with codecs.open(self.outfile, 'w', encoding='utf-8') as out:
                 for docid in self.docs:
                     formatted = self.format_doc(self.docs[docid])
                     out.write(formatted)
