@@ -10,6 +10,7 @@ import json
 import sys
 import os
 from itertools import zip_longest
+from functools import reduce
 from nltk import toolbox
 from xml.sax.saxutils import quoteattr
 from daba.ntgloss import Gloss
@@ -230,8 +231,8 @@ class Record(object):
         self.config = config
 
         for marker, value in fields:
-            marker = marker.decode('utf-8')
-            value = value.decode('utf-8')
+            marker = marker
+            value = value
             if marker in config.annotlevels['sentence']:
                 self.metadata.append((marker, value))
             elif marker in config.annotlevels['token']:
@@ -409,7 +410,7 @@ class DabaFormatter(BaseFormatter):
             sentannot = [t.as_glosstoken(self.parser.config) for t in record.itokens()]
             para.append((senttoken, sentannot))
         ft = HtmlWriter((metadata, [para]))
-        return e.tostring(ft.xml, encoding='utf8').decode('utf8')
+        return e.tostring(ft.xml, encoding='unicode')
 
 
 class FilelistFormatter(BaseFormatter):
@@ -420,7 +421,7 @@ class FilelistFormatter(BaseFormatter):
         out = []
         for docid in self.docs:
             out.append(self.normalize_docpath(docid))
-        sys.stdout.write(u' '.join(out).encode('utf-8'))
+        sys.stdout.write(u' '.join(out))
         sys.stdout.write('\n')
 
 
