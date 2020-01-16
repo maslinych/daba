@@ -119,7 +119,8 @@ def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
                 gls = dedot(g.gloss, '_')
             if not gls and g.morphemes:
                 gls = '-'.join([m.gloss for m in g.morphemes])
-            glosses.append(gls)
+            if not args.nogloss:
+                glosses.append(gls)
             if not args.tonal:
                 if g.morphemes:
                     tonals.append(''.join([dedot(m.form) for m in g.morphemes]))
@@ -150,6 +151,8 @@ def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
                         # add grammatical glosses to tags
                         if m.gloss.isupper():
                             tags.add(m.gloss)
+                    else:
+                            glosses.append(m.gloss)
                     if 'mrph' not in m.ps:
                         deep.append(get_lemma(m.form))
                         #deep.append(m.gloss)
@@ -245,6 +248,7 @@ def main():
     oparser.add_argument("-f", "--flective", action="store", help="A list of flective morphemes (glosses)", default=','.join(INFLECTION))
     oparser.add_argument("-C", "--conll", action="store_true", help="Output CONLL-compatible format")
     oparser.add_argument("-s", "--senttag", action="store", default="c", help="Tag to use for SentPunct tokens")
+    oparser.add_argument("-g", "--nogloss", action="store_true", help="Omit glosses in other language (keep only grammatical)")
     args = oparser.parse_args()
 
     reader = daba.formats.HtmlReader(args.infile)
