@@ -19,7 +19,7 @@ def main():
     args = aparser.parse_args()
 
     reader = daba.formats.HtmlReader(args.infile, onlymeta=True)
-    meta = defaultdict(unicode)
+    meta = defaultdict(str)
     for k,v in reader.metadata.items():
         meta[k] = v
 
