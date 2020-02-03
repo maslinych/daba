@@ -9,6 +9,7 @@ import codecs
 import json
 import sys
 import os
+import unicodedata
 from itertools import zip_longest
 from functools import reduce
 from nltk import toolbox
@@ -61,14 +62,26 @@ class ShGloss(collections.abc.Mapping):
         self._dict = collections.OrderedDict()
         self.base = None
         self.isaffix = False
+        self.position = None
+        tuples = [t for t in tuples]
         for k, v in tuples:
+            if k == 'position':
+                try:
+                    self.position = int(v)
+                except ValueError:
+                    self.position = -1
+                continue
             if v.startswith('-') and len(v) > 1:
                 if self.base is None:
                     self.isaffix = True
                 v = v[1:]
-            if self.base is None:
+            if self.base is None and v:
                 self.base = v
             self._dict[k] = v
+
+    @property
+    def ispunct(self):
+        return bool(re.match(u'[.,:;?!()"“”«»–‒]+$', self.base))
 
     def __getitem__(self, key):
         try:
@@ -90,13 +103,19 @@ class ShGloss(collections.abc.Mapping):
 
 
 class Layers(collections.abc.Iterable):
-    def __init__(self, tuples):
-        self.names = []
+    def __init__(self, tuples, positions):
+        self.names = ['position']
         toks = []
-        for name, value in tuples:
+        tokpos = []
+        for name, (value, pos) in tuples:
             self.names.append(name)
             toks.append(value)
-        self.tokens = map(lambda v: ShGloss(zip(self.names, v)), zip_longest(*toks, fillvalue=''))
+            if name == positions:
+                tokpos = pos
+        if not tokpos:
+            if toks:
+                tokpos = range(len(toks[0]))
+        self.tokens = list(map(lambda v: ShGloss(zip(self.names, v)), zip_longest(tokpos, *toks, fillvalue='')))
 
     def __iter__(self):
         return iter(self.tokens)
@@ -106,6 +125,9 @@ class Layers(collections.abc.Iterable):
 
     def __len__(self):
         return len(list(self.tokens))
+
+    def __getitem__(self, idx):
+        return self.tokens[idx]
 
 
 class TokenConverter(object):
@@ -192,7 +214,11 @@ class Config(object):
         "token": "tx",
         "morpheme": ["mb", "ps", "ge"]
         },
-    "columns":[
+    "alignment": {
+        "token": "tx",
+        "morpheme": "mb"
+        },
+    "columns": [
         "tx",
         "LEMMA",
         "TAG",
@@ -234,27 +260,26 @@ class ShBlock(object):
             if marker in config.annotlevels['token']:
                 self._tokens.append((marker, self._tokenize(value)))
             elif marker in config.annotlevels['morpheme']:
-                self._morphemes.append((marker, value.split()))
-        self.tokens = Layers(self._tokens)
-        self.morphemes = Layers(self._morphemes)
+                self._morphemes.append((marker, self._tokenize(value, plain=True)))
+        self.tokens = Layers(self._tokens, positions=self.config.alignment["token"])
+        self.morphemes = Layers(self._morphemes, positions=self.config.alignment["morpheme"])
 
-    def _tokenize(self, string):
-        tokens = re.findall(u'[^ .,:;?!()"“”–‒«»]+|[.,:;?!()"“–‒”«»]+', string)
-        try:
-            words = reduce(lambda a,b: ''.join([a,b]) if b.startswith("-") else ' '.join([a, b]), tokens).split()
-        except TypeError:
-            words = tokens
-        return words
-
-    def ispunct(self, string):
-        return bool(re.match(u'[.,:;?!()"“”«»–‒]+$', string))
+    def _tokenize(self, string, plain=False):
+        if plain:
+            tokenre = re.compile('[^ ]+')
+        else:
+            tokenre = re.compile('[^ .,:;?!()"“”–‒«»]+( +-[^ .,:;?!()"“”–‒«»]+)?|[.,:;?!()"“–‒”«»]+')
+        matches = [m for m in re.finditer(tokenre, string)]
+        tokens = [m.group(0).replace(' ', '') for m in matches]
+        tokpos = [len(bytearray(string[:m.start()], encoding='utf8')) for m in matches]
+        return (tokens, tokpos)
 
     def itokens(self):
         morphs = collections.deque(self.morphemes)
         npunct = 0
-        for tok in self.tokens:
+        for i, tok in enumerate(self.tokens):
             morphemes = []
-            if self.ispunct(tok.base):
+            if tok.ispunct:
                 toktype = 'c'
                 npunct += 1
                 if tok.base == '-':
@@ -267,8 +292,15 @@ class ShBlock(object):
                         morphemes.append(morphs.popleft())
                     except IndexError:
                         raise ValueError("Misaligned morphemes")
-                while morphs and morphs[0].isaffix:
-                    morphemes.append(morphs.popleft())
+                while morphs:
+                    if morphs[0].isaffix:
+                        morphemes.append(morphs.popleft())
+                    elif i < len(self.tokens)-1 and morphs[0].position < self.tokens[i+1].position:
+                        morphemes.append(morphs.popleft())
+                    elif i == len(self.tokens)-1 and morphs[0].position > tok.position:
+                        morphemes.append(morphs.popleft())
+                    else:
+                        break
             yield ShToken(**{'type': toktype, 'word': tok, 'morphemes': morphemes})
         if morphs:
             raise ValueError("Misaligned morphemes")
@@ -313,6 +345,16 @@ class Record(object):
     def get_senttoken(self):
         return PlainToken(('</s>', self.get_senttext()), attrs=dict(self.metadata))
 
+    def unalign(self, string):
+        out = []
+        for char in unicodedata.normalize('NFD', string):
+            if unicodedata.category(char)[0] == 'M':
+                out.append('~~')
+            else:
+                bchar = bytearray(char, encoding='utf8')
+                out.append(char.ljust(len(bchar), '_'))
+        return ''.join(out)
+
     def itokens(self):
         tokens = []
         for b in self.blocks:
@@ -323,7 +365,7 @@ class Record(object):
                     ref = dict(self.metadata)[self.config.reclabel]
                 except KeyError:
                     ref = '\n'.join(u'\\{} {}'.format(k, v) for k, v in self.metadata)
-                warn = '\n'.join([u'\\{} {}'.format(m, v) for m, v in b.fields])
+                warn = '\n'.join([u'\\{}\t{}'.format(m, self.unalign(v)) for m, v in b.fields])
                 sys.stderr.write('Misaligned morphemes:\n')
                 sys.stderr.write(u'{}\n'.format(ref))
                 sys.stderr.write('{}\n\n'.format(warn))
@@ -344,18 +386,16 @@ class ToolboxReader(object):
         self.f.close()
 
     def irecords(self):
-        recdict = collections.OrderedDict()
+        recdict = []
         self.fields = self.f.fields(**self.kwargs)
         for marker, value in self.fields:
             if marker in self.config.recstarters:
-                out = recdict.items()
-                recdict = collections.OrderedDict([(marker, value)])
+                out = recdict
+                recdict = [(marker, value)]
                 yield Record(out, self.config)
             else:
-                if marker in recdict:
-                    value = recdict[marker].strip() + ' ' + value
-                recdict[marker] = value
-        out = recdict.items()
+                recdict.append((marker, value))
+        out = recdict
         yield Record(out, self.config)
 
     def get_docs(self):
