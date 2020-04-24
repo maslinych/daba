@@ -769,7 +769,7 @@ class DictReader(object):
                  variants=False, polisemy=False, keepmrph=False,
                  normalize=True, ignorelist=('i',), inverse=False,
                  lemmafields=('lx', 'le', 'va', 'vc', 'a'),
-                 glossfields=('dff', 'gf', 'ge'), canonical=False):
+                 glossfields=('gf', 'ge', 'dff'), canonical=False):
 
         self._dict = DabaDict()
         self._variants = VariantsDict(canonical=canonical)
