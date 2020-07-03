@@ -351,6 +351,13 @@ class Record(object):
                 blockdata.append((marker, value))
         if blockdata:
             self.blocks.append(ShBlock(blockdata, self.config))
+        _metadict = collections.OrderedDict()
+        for marker, value in self.metadata:
+            if marker in _metadict:
+                _metadict[marker] = ' '.join([_metadict[marker], value])
+            else:
+                _metadict[marker] = value
+        self.metadata = list(_metadict.items())
 
     def __nonzero__(self):
         return bool(self.metadata) or bool(self.blocks)
