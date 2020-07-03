@@ -12,7 +12,7 @@ import os
 import unicodedata
 from itertools import zip_longest
 from functools import reduce
-from nltk import toolbox
+import nltk.toolbox
 from xml.sax.saxutils import quoteattr
 from daba.ntgloss import Gloss
 from daba.formats import WordToken, PlainToken, HtmlWriter
@@ -96,10 +96,10 @@ class ShGloss(collections.abc.Mapping):
         return len(self._dict)
 
     def __repr__(self):
-        return repr(self._dict)
+        return '\n{}, position={}, ispunct={}, isaffix={}\n'.format(repr(self._dict), self.position, self.ispunct, self.isaffix)
 
     def __str__(self):
-        return str(self._dict)
+        return '\n{}, position={}, ispunct={}, isaffix={}\n'.format(str(self._dict), self.position, self.ispunct, self.isaffix)
 
 
 class Layers(collections.abc.Iterable):
@@ -116,6 +116,8 @@ class Layers(collections.abc.Iterable):
             if toks:
                 tokpos = range(len(toks[0]))
         self.tokens = list(map(lambda v: ShGloss(zip(self.names, v)), zip_longest(tokpos, *toks, fillvalue='')))
+        # sys.stderr.write('LAYER: {}\n'.format(str(self.tokens)))
+        self._words = [t for t in self.tokens if not t.ispunct]
 
     def __iter__(self):
         return iter(self.tokens)
@@ -128,6 +130,13 @@ class Layers(collections.abc.Iterable):
 
     def __getitem__(self, idx):
         return self.tokens[idx]
+
+    @property
+    def words(self):
+        return self._words
+
+    def word(self, idx):
+        return self._words[idx]
 
 
 class TokenConverter(object):
@@ -265,27 +274,37 @@ class ShBlock(object):
         self.morphemes = Layers(self._morphemes, positions=self.config.alignment["morpheme"])
 
     def _tokenize(self, string, plain=False):
+        plainre = re.compile('[^ ]+')
+        plainmatches = [p for p in re.finditer(plainre, string)]
+        plainpos = [len(bytearray(string[:p.start()], encoding='utf8')) for p in plainmatches]
         if plain:
-            tokenre = re.compile('[^ ]+')
+            tokens = [m.group(0).replace(' ', '') for m in plainmatches]
+            return (tokens, plainpos)
         else:
-            tokenre = re.compile('[^ .,:;?!()"“”–‒«»]+( +-[^ .,:;?!()"“”–‒«»]+)?|[.,:;?!()"“–‒”«»]+')
-        matches = [m for m in re.finditer(tokenre, string)]
-        tokens = [m.group(0).replace(' ', '') for m in matches]
-        tokpos = [len(bytearray(string[:m.start()], encoding='utf8')) for m in matches]
-        return (tokens, tokpos)
+            tokenre = re.compile('[^ .,:;?!()"“”–‒«»]+([.-][^ .,:;?!()"“”–‒«»]+)?( +-[^ .,:;?!()"“”–‒«»]+)?|[.,:;?!()"“–‒”«»]+', re.U)
+            matches = [m for m in re.finditer(tokenre, string)]
+            tokens = [m.group(0).replace(' ', '') for m in matches]
+            tokpos = [len(bytearray(string[:m.start()], encoding='utf8')) for m in matches]
+            tpos = []
+            for t in tokpos:
+                if t not in plainpos:
+                    tpos.append(tpos[-1])
+                else:
+                    tpos.append(t)
+            return (tokens, tpos)
 
     def itokens(self):
         morphs = collections.deque(self.morphemes)
-        npunct = 0
-        for i, tok in enumerate(self.tokens):
+        i = -1
+        for tok in self.tokens:
             morphemes = []
             if tok.ispunct:
                 toktype = 'c'
-                npunct += 1
                 if tok.base == '-':
                     morphemes.append(morphs.popleft())
             else:
                 toktype = 'w'
+                i += 1
                 # only if sentence is glossed
                 if self.morphemes:
                     try:
@@ -295,16 +314,15 @@ class ShBlock(object):
                 while morphs:
                     if morphs[0].isaffix:
                         morphemes.append(morphs.popleft())
-                    elif i < len(self.tokens)-1 and morphs[0].position < self.tokens[i+1].position:
+                    elif i < len(self.tokens.words)-1 and morphs[0].position < self.tokens.word(i+1).position:
                         morphemes.append(morphs.popleft())
-                    elif i == len(self.tokens)-1 and morphs[0].position > tok.position:
+                    elif i == len(self.tokens.words)-1 and morphs[0].position > tok.position:
                         morphemes.append(morphs.popleft())
                     else:
                         break
             yield ShToken(**{'type': toktype, 'word': tok, 'morphemes': morphemes})
         if morphs:
             raise ValueError("Misaligned morphemes")
-
 
 
 class Record(object):
@@ -330,7 +348,7 @@ class Record(object):
                     blockdata = []
                 blockdata.append((marker, value))
             elif marker in config.annotlevels['token'] or marker in config.annotlevels['morpheme']:
-                blockdata.append((marker, value))              
+                blockdata.append((marker, value))
         if blockdata:
             self.blocks.append(ShBlock(blockdata, self.config))
 
@@ -379,7 +397,7 @@ class ToolboxReader(object):
         self.config = Config(conffile)
         self.kwargs = kwargs
         self.metadata = collections.OrderedDict()
-        self.f = toolbox.StandardFormat()
+        self.f = nltk.toolbox.StandardFormat()
         self.f.open(infile)
 
     def __del__(self):
