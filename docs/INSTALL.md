@@ -9,7 +9,7 @@ Dependencies:
  
   Currently tested with Python 3.6 and 3.7, later versions should work, too.
 
-* wxPython >= 4.0.0 
+* wxPython >= 4.1.1 
  
   Earlier versions of wxPython may work, but support is not
   guaranteed and daba applications may fail unexpectedly.
@@ -86,7 +86,7 @@ be done from any directory.
 
 ### Linux
 
-#### Step 1. Make sure you have python 2.7 and pip available in your system
+#### Step 1. Make sure you have python 3.6+ and pip available in your system
 
 Most Linux distributions already have Python and pip installed. You
 can check that they are present by lauching a terminal and performing
