@@ -752,12 +752,13 @@ class NotFoundDialog(wx.Dialog):
 
 
 class StatusColorsDialog(wx.Dialog):
+    """dialog to let user select status colors"""
     def __init__(self, parent, config, statuscolors, *args, **kwargs):
         wx.Dialog.__init__(self, parent, wx.ID_ANY, "Select status colors", *args, **kwargs)
         self.config = config
         self.buttonrefs = {}
         sizer = wx.BoxSizer(wx.VERTICAL)
-        buttonSizer = wx.FlexGridSizer(7, 5)
+        buttonSizer = wx.FlexGridSizer(5, 7, 2)
         for name, fore, back in statuscolors:
             sampletext = wx.TextCtrl(self, wx.ID_ANY, name)
             sampletext.SetForegroundColour(fore)
