@@ -37,7 +37,7 @@ import daba.grammar
 from daba.ntgloss import Gloss
 
 
-## EVENTS 
+# EVENTS 
 
 GlossSelectorEvent, EVT_SELECTOR_UPDATED = wx.lib.newevent.NewCommandEvent()
 GlossButtonEvent, EVT_GLOSS_SELECTED = wx.lib.newevent.NewCommandEvent()
@@ -53,15 +53,19 @@ LocaldictLookupEvent, EVT_LOCALDICT_LOOKUP = wx.lib.newevent.NewCommandEvent()
 LocaldictSaveEvent, EVT_LOCALDICT_SAVE = wx.lib.newevent.NewCommandEvent()
 
 
-## UTILITY functions and no-interface classes
+# UTILITY functions and no-interface classes
 
 def normalizeText(t):
+    """decompose all unicode accents in a string"""
     return unicodedata.normalize('NFKD', str(t))
+
 
 TokenEdit = namedtuple('TokenEdit', 'operation start end toklist')
 
 
 def get_basename(fname):
+    """strip filename from extensions, including composite daba ones
+like .pars.html and .dis.html"""
     basename = os.path.splitext(os.path.basename(fname))[0]
     pars = basename.rfind('.pars')
     if pars > 0:
@@ -73,6 +77,7 @@ def get_basename(fname):
 
 
 class NormalizedTextCtrl(wx.TextCtrl):
+    """TextCtrl with all text forced to Unicode NFKD (decomposed) form"""
     def __init__(*args, **kwargs):
         if len(args) > 3:
             arglist = list(args)
@@ -83,24 +88,38 @@ class NormalizedTextCtrl(wx.TextCtrl):
         wx.TextCtrl.__init__(*args, **kwargs)
 
     def SetValue(self, string):
+        """set widget's value to a Unicode NFKD-transformed string"""
         wx.TextCtrl.SetValue(self, normalizeText(string))
 
 
 def makeGlossString(gloss, morphemes=False):
+    """string representation of the Gloss object (for labelling buttons and the like)"""
     if not ''.join(gloss.ps) and not gloss.gloss and not gloss.morphemes:
         return gloss.form
     elif morphemes and gloss.morphemes:
-        return u'{0} ({1}){3}{2}{4}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep, '\n' + os.linesep.join([str(m) for m in gloss.morphemes]))
+        return u'{0} ({1}){3}{2}{4}'.format(gloss.form,
+                                            '/'.join(gloss.ps), gloss.gloss, os.linesep, '\n' +
+                                            os.linesep.join([str(m) for m in gloss.morphemes]))
     else:
-        return u'{0} ({1}){3}{2}'.format(gloss.form, '/'.join(gloss.ps), gloss.gloss, os.linesep)
+        return u'{0} ({1}){3}{2}'.format(gloss.form,
+                                         '/'.join(gloss.ps), gloss.gloss, os.linesep)
 
 
 class FileParser(object):
+    """A wrapper class for file IO operations and for keeping annotated data
+
+    Attributes
+    ----------
+    dirty (bool) : user made some changes
+    glosses ([senttuple]) : glosses data as list of tuple(senttoken, selectlist, glosslist, index)
+    metadata (dict) : file metadata
+    """
     def __init__(self):
         self.glosses = []
         self.dirty = False
 
     def read_file(self, filename):
+        """read daba html file and store annotated data as a list of tuples in self.glosses"""
         freader = daba.formats.HtmlReader(filename)
         self.metadata = freader.metadata
         self.glosses = []
@@ -112,6 +131,7 @@ class FileParser(object):
                 self.numwords = freader.numwords
 
     def write(self, filename):
+        """write disabmiguated data into filename"""
         out = [[]]
         for sent in self.glosses:
             pnum = sent[3][0]
@@ -131,28 +151,37 @@ class FileParser(object):
 
 
 class EditLogger(object):
+    """log token edit operations"""
     def __init__(self, filename, encoding='utf-8'):
+        """append logging data to a given file"""
         self.fileobj = codecs.open(filename, 'a+', encoding=encoding)
 
     @property
     def timestamp(self):
+        """timestamp for logging records"""
         return datetime.datetime.now().isoformat()
 
     def LogEdit(self, firstgloss, secondgloss):
+        """log gloss edition"""
         self.fileobj.write(u'{0}\n'.format('\t'.join([self.timestamp, 'edit', str(firstgloss), str(secondgloss)])))
 
     def LogSplit(self, srctoken, tokentuple):
+        """log token split"""
         self.fileobj.write(u'{0}\n'.format('\t'.join([self.timestamp, 'split', srctoken, ''.join(tokentuple)])))
 
     def LogJoin(self, srctuple, restoken):
+        """log token join"""
         self.fileobj.write(u'{0}\n'.format('\t'.join([self.timestamp, 'join', ''.join(srctuple), restoken])))
 
     def OnExit(self):
+        """close log file on exit"""
         self.fileobj.close()
 
 
 class SearchTool(object):
+    """class for searching strings in annotated data"""
     def __init__(self, processor):
+        """processor — FileParser object wrapping list of glosses"""
         self.processor = processor
         self.history = []
         self.matches = []
@@ -162,9 +191,11 @@ class SearchTool(object):
 
     @property
     def nmatches(self):
+        """property holding the number of mathces"""
         return len(self.matches)
 
     def _searcher(self, searchstr, searchtype, startsent):
+        """class-internal search engine"""
         self.position = 0
         self.matches = []
         self.searchstr = searchstr
@@ -190,6 +221,11 @@ class SearchTool(object):
         return self.matches
         
     def find(self, searchstr, startsent=0):
+        """search for a given string as a word part, or as a sentence part in
+case query contains spaces
+
+returns sentence match position tuple (sentid, tokid)
+"""
         if ' ' in searchstr:
             searchtype = 'sentence part'
         else:
@@ -201,6 +237,7 @@ class SearchTool(object):
             return ()
 
     def findNext(self):
+        """return next match position tuple (sentid, tokid)"""
         if self.matches:
             self.position += 1
             if self.position >= len(self.matches):
@@ -210,6 +247,7 @@ class SearchTool(object):
             return ()
 
     def findPrev(self):
+        """return previous match position tuple (sentid, tokid)"""
         if self.matches:
             self.position -= 1
             if self.position < 0:
@@ -219,15 +257,18 @@ class SearchTool(object):
             return ()
 
 
-## WIDGETS
+# WIDGETS
 
 class SentText(wx.StaticText):
+    """Sentence text overview widget"""
     def __init__(self, parent, id, num=None, *args, **kwargs):
         wx.StaticText.__init__(self, parent, *args, **kwargs)
         self.num = num
         self.parent = parent
 
     def onMouseEvent(self, event):
+        """left-click on a word in SentText bring corresponding selection
+buttons into view on canvas (if not visible)"""
         if event.Moving():
             self.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
         elif event.LeftDown():
@@ -239,7 +280,25 @@ class SentText(wx.StaticText):
 
 
 class GlossButton(wx.Panel):
-    def __init__(self, parent, gloss, statecolours, disabled=False, *args, **kwargs):
+    """Single button widget for selecting a gloss variant
+    
+    For a Gloss that contains morphemes the widget generates
+    nested GlossButtons recursively for each morpheme.
+
+    Attributes
+    ----------
+    selected (bool) : gloss is selected
+    children (list) : a list of the nested morphemes of a gloss
+    gloss (Gloss) : widget's Gloss
+"""
+    def __init__(self, parent, gloss, statecolours, disabled=False,
+                 *args, **kwargs):
+        """GlossButton constructor
+
+        :param gloss: Gloss to be displayed on the button
+        :type gloss: Gloss
+        :param statecolors: colors for vairous state of the selector
+        :type statecolors: dict"""
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.selected = False
         self.children = []
@@ -264,7 +323,8 @@ class GlossButton(wx.Panel):
         if gloss.morphemes:
             morphemes = wx.BoxSizer(wx.HORIZONTAL)
             for morph in gloss.morphemes:
-                m = GlossButton(self, morph, self.statecolours, disabled=self.disabled)
+                m = GlossButton(self, morph, self.statecolours,
+                                disabled=self.disabled)
                 self.children.append(m)
                 morphemes.Add(m, 0)
             box.Add(morphemes, 0)
@@ -291,8 +351,9 @@ class GlossButton(wx.Panel):
             self.main.SetBackgroundColour(back)
         self.Refresh()
         self.ToggleChildren()
- 
+
     def ToggleChildren(self):
+        """propagate toggle to the nested morpheme buttons"""
         for child in self.children:
             if bool(child.main.GetValue()) != self.selected:
                 child.main.SetValue(self.selected)
@@ -300,9 +361,23 @@ class GlossButton(wx.Panel):
 
 
 class GlossInputDialog(wx.Dialog):
+    """Dialog to edit gloss manually
+
+    Attributes
+    ----------
+    as_gloss (Gloss) : current gloss selected/entered in the dialog
+    glossstring (str) : dialog's gloss converted into string representation
+    morphemes (list) : list of nested morpheme widgets
+    save (bool) : save entered gloss into localdict (default: true)
+
+    Widgets
+    -------
+    glosstext (wx.ComboBox) : widget to edit gloss in text form
+    gbutton (GlossButton) : button visualizing gloss structure (non-pressable)
+    """
     def __init__(self, parent, id, title, gloss, *args, **kwargs):
         wx.Dialog.__init__(self, parent, id, title,
-                           style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER,
+                           style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
                            *args, **kwargs)
         self.as_gloss = gloss
         self.morphemes = []
@@ -314,7 +389,8 @@ class GlossInputDialog(wx.Dialog):
             config.Read('colors/deselected/back', 'White'))}
 
         vbox_top = wx.BoxSizer(wx.VERTICAL)
-        vbox_top.Add(wx.StaticText(self, wx.ID_ANY, "Gloss string (edit inplace):"))
+        vbox_top.Add(wx.StaticText(self, wx.ID_ANY,
+                                   "Gloss string (edit inplace):"))
         glossstring = str(self.as_gloss)
         self.glosstext = wx.ComboBox(self, wx.ID_ANY, glossstring,
                                      choices=[glossstring])
@@ -336,12 +412,14 @@ class GlossInputDialog(wx.Dialog):
         self.Layout()
 
     def FitGlosstextWidth(self):
+        """resize gloss edit area for a width of the gloss text"""
         gwidth, gheight = self.glosstext.GetTextExtent(self.glosstext.GetValue())
         self.GetSizer().SetItemMinSize(self.glosstext, (gwidth + 15, gheight + 10))
         self.Layout()
         self.Fit()
 
     def UpdateInterface(self, gloss):
+        """update dialog (gbutton, glosstext) given a gloss"""
         self.freeze = True
         glossstring = str(gloss)
         cursor = self.glosstext.GetInsertionPoint()
@@ -356,17 +434,21 @@ class GlossInputDialog(wx.Dialog):
         self.freeze = False
 
     def ShowLocaldictVariants(self, savedglosses):
+        """populate glosstext selection list with items from localdict"""
         for gloss in savedglosses:
             if not gloss == self.as_gloss:
                 self.glosstext.Append(str(gloss))
-    
+
     def SetGlossAttr(self, **kwargs):
+        """deprecate: unused"""
         self.as_gloss._replace(**kwargs) 
 
     def GetGloss(self):
+        """return current dialog's Gloss"""
         return self.as_gloss
 
     def OnEditGlosstext(self, evt):
+        """gloss is edited event callback"""
         if not self.freeze:
             self.FitGlosstextWidth()
             glosstext = normalizeText(self.glosstext.GetValue())
@@ -386,10 +468,23 @@ class GlossInputDialog(wx.Dialog):
                 self.glosstext.Refresh()
 
     def OnCheckLocaldict(self, evt):
+        """toggle `save to localdict` flag"""
         self.save = not self.save
 
 
 class TokenSplitDialog(wx.Dialog):
+    """dialog to enter token split position
+
+    Attributes
+    ----------
+    form (str) : token string
+    split (tuple) : a tuple of token string parts after split
+
+    Widgets
+    -------
+    formfield (NormalizedTextCtrl) : field used to indicate token split position
+    splitbutton (wx.Button) : button binded to split action
+    """
     def __init__(self, parent, form, *args, **kwargs):
         wx.Dialog.__init__(self, parent, -1, "Split gloss")
         self.form = form
@@ -410,6 +505,7 @@ class TokenSplitDialog(wx.Dialog):
         splitbutton.Bind(wx.EVT_BUTTON, self.OnSplit)
 
     def OnSplit(self, evt):
+        """callback for token split action"""
         pos = self.formfield.GetInsertionPoint()
         last = self.formfield.GetLastPosition()
         if not pos == 0 and not pos == last:
@@ -424,10 +520,23 @@ class TokenSplitDialog(wx.Dialog):
             self.Layout()
 
     def GetResult(self):
+        """collect token split result (tuple of strings)"""
         return self.split
 
 
 class GlossEditButton(wx.Panel):
+    """button shows current gloss selection, calls gloss edit dialog when pressed
+
+    Attributes
+    ----------
+    gloss (Gloss) : currently selected gloss, first item in a list if more than one is selected
+    glossstring (str) : string representation of the currently selected gloss
+    state (int) : state of the selector
+
+    Widgets
+    -------
+    button (wx.Button) : button showing gloss information
+    """
     def __init__(self, parent, glosslist, statecolours, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -441,7 +550,7 @@ class GlossEditButton(wx.Panel):
         self.button.Bind(wx.EVT_BUTTON, self.OnEditGloss)
 
     def CalculateGloss(self, glosslist):
-        """Setup a gloss to show as current selection"""
+        """compute a gloss to be shown on the button as current selection for a list of selections"""
         def recursiveGlossDigger(gloss):
             if gloss.gloss:
                 return gloss.gloss
@@ -463,6 +572,7 @@ class GlossEditButton(wx.Panel):
         return Gloss(form, ps, gloss, ())
 
     def OnEditGloss(self, event):
+        """show GlossInputDialog when button is pressed"""
         dlg = GlossInputDialog(self, wx.ID_ANY, 'Insert gloss manually', gloss=self.gloss)
         evt = LocaldictLookupEvent(self.GetId(), gloss=self.gloss, dlg=dlg)
         wx.PostEvent(self.GetEventHandler(), evt)
@@ -478,6 +588,7 @@ class GlossEditButton(wx.Panel):
         dlg.Destroy()
 
     def OnStateChange(self, statecode, gloss):
+        """redraw button when state of the selector changes"""
         glossstring = makeGlossString(self.CalculateGloss([gloss]), morphemes=True)
         self.button.SetLabel(glossstring)
         self.Layout()
@@ -495,6 +606,34 @@ class GlossEditButton(wx.Panel):
 
 
 class GlossSelector(wx.Panel):
+    """group of buttons to select gloss annotation from a list or enter it manually
+
+    Attributes
+    ----------
+    index (tuple) : token's index in a file (sentence number, token number)
+    token (GlossToken) : token object holding initial annotation data
+    gloss (Gloss) : selected gloss variant or a first variant in the list if nothing is selected
+    form (str) : token string / wordform
+    glosslist ([Gloss]) : list of gloss variants (for buttons)
+    selectlist ([Gloss]) : list of selected variants (initially empty)
+    stage (str) : label indicating source of the token (gdisamb, dparser etc.)
+    statecode (int) : selector's state
+    Possible values:
+                1: 'unambiguous',
+                2: 'ambiguous',
+                3: 'uncertain',
+                4: 'unparsed',
+                5: 'manual',
+            'selected': 'selected',
+            'deselected': 'deselected',
+    vertical (bool) : widget orientation
+
+    Widgets
+    -------
+    tbutton (TokenEditButton) : button for a token
+    mbutton (GlossEditButton) : leading button indicating state
+    children ([GlossButton]) : gloss variant buttons in a selector
+    """
     def __init__(self, parent, index, glosstoken, selectlist, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.token = glosstoken
@@ -575,6 +714,7 @@ class GlossSelector(wx.Panel):
         return statecode
 
     def AddButtons(self, glosslist):
+        """generate buttons for each variant in a glosslist"""
         if len(self.glosslist) > 1:
             for gloss in glosslist:
                 gbutton = GlossButton(self, gloss, self.statecolours)
@@ -584,9 +724,11 @@ class GlossSelector(wx.Panel):
             self.Layout()
 
     def UpdateState(self, statecode, gloss):
+        """update leading button's label and color on selector's state change"""
         self.mbutton.OnStateChange(self.statecode, self.gloss)
 
     def OnEdition(self, evt):
+        """update selector buttons when gloss was edited manually by user"""
         gloss = evt.gloss
         self.gloss = gloss
         self.glosslist = [gloss] + [button.gloss for button in self.children]
@@ -607,12 +749,14 @@ class GlossSelector(wx.Panel):
         self.OnSelectorUpdated()
 
     def OnSelectorUpdated(self):
+        """refresh UI and pass on event on selector update"""
         evt = GlossSelectorEvent(self.GetId())
         evt.SetEventObject(self)
         wx.PostEvent(self.GetEventHandler(), evt)
         self.Layout()
 
     def OnSelection(self, gloss):
+        """update UI and selector's state on a variant selection"""
         if self.children:
             selected = [button.gloss for button in self.children if button.selected]
             for i in self.selectlist:
@@ -644,9 +788,11 @@ class GlossSelector(wx.Panel):
         self.UpdateState(self.statecode, self.gloss)
 
     def GetWordToken(self):
+        """generate WordToken from selector's variants"""
         return daba.formats.WordToken(self.glosslist, self.form, self.stage)
 
     def OnContextMenu(self, evt):
+        """context menu shown on right-click on selector's area"""
         if not hasattr(self, "joinfwID"):
             self.joinfwID = wx.NewId()
             self.joinbwID = wx.NewId()
@@ -665,10 +811,10 @@ class GlossSelector(wx.Panel):
         joinbw = menu.Append(self.joinbwID, "Join with previous token")
         split = menu.Append(self.splitID, "Split token")
         change = menu.Append(self.changeID, "Change token type (not implemented)")
-        #FIXME: not implemented yet
+        # FIXME: not implemented yet
         change.Enable(False)
 
-        #FIXME: lacks elegance, duplicate code, see JoinTwo
+        # FIXME: lacks elegance, duplicate code, see JoinTwo
         glosses = self.GetTopLevelParent().processor.glosses
         sentpanel = self.GetTopLevelParent().sentpanel
         tokens = glosses[sentpanel.snum][2]
@@ -686,19 +832,23 @@ class GlossSelector(wx.Panel):
         menu.Destroy()
 
     def OnJoinForward(self, evt):
+        """generate event to join tokens forward"""
         snum, toknum = self.index
         self.OnJoinTwo(snum, toknum, toknum+1)
 
     def OnJoinBackward(self, evt):
+        """generate event to join tokens backward"""
         snum, toknum = self.index
         self.OnJoinTwo(snum, toknum-1, toknum)
 
     def OnJoinTwo(self, snum, first, second):
+        """post generic event to join a pair of tokens"""
         joinevent = TokenJoinEvent(self.GetId(), snum=snum, first=first, second=second)
         wx.PostEvent(self.GetEventHandler(), joinevent)
 
     def OnSplitToken(self, evt):
-        dlg = TokenSplitDialog(self,self.form)
+        """get token split point from a user and post token split event"""
+        dlg = TokenSplitDialog(self, self.form)
         if dlg.ShowModal() == wx.ID_OK:
             result = dlg.GetResult()
             if len(result) > 1:
@@ -706,10 +856,12 @@ class GlossSelector(wx.Panel):
                 wx.PostEvent(self.GetEventHandler(), splitevent)
 
     def OnChangeTokenType(self, evt):
+        """change token type (not implemented)"""
         pass
 
 
 class TokenInputDialog(wx.Dialog):
+    """dialog to let user edit token and its type"""
     def __init__(self, parent, id, title, tokentype, tokenstr, *args, **kwargs):
         wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
         self.typedict = dict([("Comment", "Comment"), ("Punctuation", "c"), ("Markup", "Tag"), ("Word", "w")])
@@ -724,9 +876,12 @@ class TokenInputDialog(wx.Dialog):
         self.SetSizer(sizer)
 
     def GetToken(self):
+        """get token tuple (type, value)"""
         return (self.typedict[self.typefield.GetStringSelection()], self.tokenfield.GetValue())
 
+
 class SearchDialog(wx.Dialog):
+    """search for word and sentence parts"""
     def __init__(self, parent, id, title, searchstr, *args, **kwargs):
         wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
 
@@ -738,10 +893,12 @@ class SearchDialog(wx.Dialog):
         self.SetSizer(sizer)
 
     def GetSearchString(self):
+        """user's search query"""
         return self.searchfield.GetValue()
 
 
 class NotFoundDialog(wx.Dialog):
+    """dialog showing `Not found` message"""
     def __init__(self, parent, id, title, searchstr, *args, **kwargs):
         wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
 
@@ -783,6 +940,7 @@ class StatusColorsDialog(wx.Dialog):
         self.Fit()
 
     def OnSelectColor(self, evt):
+        """write selected color to config file"""
         name, side, sampletext = self.buttonrefs[evt.GetId()]
         colorstring = wx.Colour(*evt.GetValue()).GetAsString(wx.C2S_HTML_SYNTAX)
         self.config.Write("colors/{0}/{1}".format(name, side), colorstring)
@@ -793,6 +951,7 @@ class StatusColorsDialog(wx.Dialog):
 
         
 class TokenEditButton(wx.Panel):
+    """button to let user edit token string and type"""
     def __init__(self, parent, index, tokentype, tokenstr, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.index = index
@@ -800,11 +959,12 @@ class TokenEditButton(wx.Panel):
         self.tokentype = tokentype
         self.button = wx.Button(self, wx.ID_ANY, self.tokenstr, style=wx.NO_BORDER)
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.button,0)
+        sizer.Add(self.button, 0)
         self.SetSizer(sizer)
         self.button.Bind(wx.EVT_BUTTON, self.OnEditToken)
 
     def OnEditToken(self, event):
+        """collect user's changes to token's type and value, post TokenEditEvent"""
         dlg = TokenInputDialog(self, wx.ID_ANY, 'Edit token', self.tokentype, self.tokenstr)
         if (dlg.ShowModal() == wx.ID_OK):
             self.tokentype, self.tokenstr = dlg.GetToken()
@@ -814,10 +974,20 @@ class TokenEditButton(wx.Panel):
         dlg.Destroy()
 
     def GetToken(self):
+        """return token as a tuple (type, value)"""
         return (self.tokentype, self.tokenstr)
 
 
 class SentenceText(wx.stc.StyledTextCtrl):
+    """colored sentence text widget
+
+    Attributes
+    ----------
+    token ((type, value)) : sentence token
+    text (str) : sentence text
+    charspans ([(start, length)]) : list of character spans for each token in a sentence
+    intervals (IntervalTree) : button ids corresponding to text spans for each token
+    """
     def __init__(self, parent, *args, **kwargs):
         wx.stc.StyledTextCtrl.__init__(self, parent, *args, **kwargs)
         self.encoder = codecs.getencoder("utf-8")
@@ -851,12 +1021,15 @@ class SentenceText(wx.stc.StyledTextCtrl):
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyPressed)
 
     def calcByteLen(self, text):
+        """length of sentence text in bytes"""
         return len(self.encoder(text)[0])
 
     def calcBytePos (self, text, pos):
+        """get byte offset corresponding to a character position in text"""
         return len(self.encoder(text[:pos])[0])
 
     def calcCharPos(self, bytepos):
+        """get character position in a string corresponding to a byte offset"""
         if bytepos == 0:
             return 0
         try:
@@ -865,6 +1038,7 @@ class SentenceText(wx.stc.StyledTextCtrl):
             self.calcCharPos(self.text, bytepos-1)
 
     def calcCharSpans(self, tokenbuttons):
+        """set spans in text for each token (given a list of token button widgets)"""
         self.charspans = []
         startchar = 0
         charlength = 0
@@ -873,7 +1047,7 @@ class SentenceText(wx.stc.StyledTextCtrl):
             charlength = len(token)
             tokenindex = self.text[startchar:].find(token)
             if tokenindex == -1:
-                #FIXME: handle missing tokens properly
+                # FIXME: handle missing tokens properly
                 tokenindex = startchar
                 charlength = 0
                 notfound = wx.MessageDialog(self, u'Token not found in the source sentence: ' + token, 'Token not found', wx.OK)
@@ -888,15 +1062,17 @@ class SentenceText(wx.stc.StyledTextCtrl):
         return self.charspans
 
     def calcButtonIntervals(self, tokenbuttons, charspans):
+        """assign token button ids to corresponding character intervals in text"""
         self.intervals = IntervalTree()
         for btn, span in zip(tokenbuttons, charspans):
             start, length = span
             if length == 0:
-                #FIXME: need to find better solution for the missing tokens
+                # FIXME: need to find better solution for the missing tokens
                 length = 1
             self.intervals[start:start+length] = btn.GetId()
 
     def getButtonHere(self, pos):
+        """return button id for a given char position"""
         if pos == 0:
             return sorted(self.intervals)[0][2]
         try:
@@ -905,6 +1081,7 @@ class SentenceText(wx.stc.StyledTextCtrl):
             return self.getButtonHere(pos-1)
 
     def SetSentence(self, senttoken, tokenbuttons):
+        """typeset and color sentence text, attach button ids"""
         self.token = senttoken
         self.text = senttoken.value
         self.calcCharSpans(tokenbuttons)
@@ -915,12 +1092,14 @@ class SentenceText(wx.stc.StyledTextCtrl):
         self.DoColorSentence(tokenbuttons)
 
     def ClearSentence(self):
+        """clear sentence text widget"""
         self.charspans = []
         self.intervals = IntervalTree()
         self.SetReadOnly(False)
         self.ClearAll()
         
     def DoColorToken(self, btn):
+        """color character span corresponding to a token button"""
         snum, toknum = btn.index
         token = btn.token.token
         try:
@@ -931,19 +1110,22 @@ class SentenceText(wx.stc.StyledTextCtrl):
         bytelen = self.calcByteLen(token)
         self.StartStyling(bytepos)
         self.SetStyling(bytelen, btn.statecode)
-        #self.GotoPos(bytepos+bytelen)
+        # self.GotoPos(bytepos+bytelen)
         self.Layout()
 
     def DoColorSentence(self, tokenbuttons):
+        """color text spans for each token in a sentence"""
         for btn in tokenbuttons:
             self.DoColorToken(btn)
 
     def OnSelectorUpdate(self, evt):
+        """change token color on selector state change"""
         btn = evt.GetEventObject()
         self.DoColorToken(btn)
         evt.Skip()
 
     def OnClick(self, evt):
+        """post event to move clicked token's selector into view"""
         bytepos = self.GetCurrentPos()
         charpos = self.calcCharPos(bytepos)
         btn_id = self.getButtonHere(charpos)
@@ -952,11 +1134,13 @@ class SentenceText(wx.stc.StyledTextCtrl):
         evt.Skip()
 
     def OnKeyPressed(self, evt):
+        """post event to move the token where Enter key was pressed into view"""
         if evt.GetKeyCode() == wx.stc.STC_KEY_RETURN:
             self.OnClick(evt)
         evt.Skip()
     
     def OnTokenSplit(self, evt):
+        """update sentence text after token split"""
         snum, toknum = evt.index
         startchar, charlength = self.charspans[toknum]
         newtokens = u' '.join(evt.result)
@@ -964,6 +1148,7 @@ class SentenceText(wx.stc.StyledTextCtrl):
         evt.Skip()
 
     def OnTokenJoin(self, evt):
+        """update sentence text after token join"""
         snum = evt.snum
         startfirst, lenfirst = self.charspans[evt.first]
         startsecond, lensecond = self.charspans[evt.second]
@@ -973,6 +1158,7 @@ class SentenceText(wx.stc.StyledTextCtrl):
         evt.Skip()
 
     def OnTokenEdit(self, evt):
+        """update sentence text after token edit"""
         snum, toknum = evt.index
         startchar, charlength = self.charspans[toknum]
         senttoken = self.text[startchar:startchar+charlength]
@@ -981,16 +1167,24 @@ class SentenceText(wx.stc.StyledTextCtrl):
         evt.Skip()
 
     def UpdateText(self, start, end, newtext, snum):
+        """replace characters between start and end with newtext, update colors and button bindings"""
         self.text = ''.join([self.text[:start], newtext, self.text[end:]])
         self.token.value = self.text
         sentevent = SentenceEditEvent(self.GetId(), snum=snum, sent=self.token)
         wx.PostEvent(self.GetEventHandler(), sentevent)
 
     def Highlight(self, start, end):
+        """highlight characters between start and end (not implemented)"""
         pass
 
 
 class SentAttributes(wx.Panel):
+    """sentence-level attributes widget
+    
+    Attrbutes
+    ---------
+    attrs (dict) : name—value mapping for attributes
+    """
     def __init__(self, parent, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.attrs = {}
@@ -998,7 +1192,6 @@ class SentAttributes(wx.Panel):
         self.delbuttons = {}
         self.snum = None
         self.sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer = wx.BoxSizer(wx.VERTICAL)
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         self.newkey = wx.TextCtrl(self, wx.ID_ANY, '')
         self.addbutton = wx.Button(self, wx.ID_ANY, 'Add attribute', style=wx.NO_BORDER)
@@ -1013,6 +1206,7 @@ class SentAttributes(wx.Panel):
         self.Layout()
 
     def SetSentence(self, senttoken, snum):
+        """show widgets for sentence-level attributes if present in a sentence"""
         self.snum = snum
         if senttoken.attrs:
             alist = senttoken.attrs.items()
@@ -1022,7 +1216,7 @@ class SentAttributes(wx.Panel):
                 field = wx.TextCtrl(self, wx.ID_ANY, value)
                 field.Bind(wx.EVT_TEXT, self.OnEditValue)
                 delbutton = wx.Button(self, wx.ID_ANY, style=wx.BU_EXACTFIT | wx.BU_NOTEXT)
-                delbutton.SetBitmapLabel(wx.ArtProvider.GetBitmap(wx.ART_DELETE, wx.ART_MENU))
+                delbutton.SetBitmapLabel(wx.ArtProvider.GetBitmap(wx.ART_DELETE | wx.ART_MENU))
                 delbutton.Bind(wx.EVT_BUTTON, self.OnDeleteAttribute)
                 self.fields[keytext] = field
                 self.attrs[keytext] = value
@@ -1037,6 +1231,7 @@ class SentAttributes(wx.Panel):
             self.Fit()
 
     def OnEditValue(self, evt):
+        """update attribute values on user input"""
         attrs = {}
         for key, field in self.fields.items():
             attrs[key] = field.GetValue()
@@ -1045,6 +1240,7 @@ class SentAttributes(wx.Panel):
         wx.PostEvent(self.GetEventHandler(), sattrsevent)
 
     def OnAddAttribute(self, evt):
+        """create widgets for a new attribute"""
         keytext = self.newkey.GetValue()
         key = wx.StaticText(self, wx.ID_ANY, keytext)
         value = wx.TextCtrl(self, wx.ID_ANY, '')
@@ -1063,6 +1259,7 @@ class SentAttributes(wx.Panel):
         self.GetParent().Layout()
 
     def OnDeleteAttribute(self, evt):
+        """remove widgets on attribute deletion"""
         btn_id = evt.GetId()
         keytext, key, value, delbutton  = self.delbuttons[btn_id]
         for w in (key, value, delbutton):
@@ -1074,22 +1271,26 @@ class SentAttributes(wx.Panel):
         del self.delbuttons[btn_id]
 
     def ClearSentence(self):
+        """clear attribute data and widgets on sentence switch"""
         self.attrs = {}
         self.fields = {}
         self.delbuttons = {}
         self.snum = None
         self.attribSizer.Clear(delete_windows=True)
 
-## PANELS
+
+# PANELS
+
 
 class FilePanel(wx.ScrolledWindow):
-    'Text fileview panel'
+    """Text fileview panel"""
     def __init__(self, parent, *args, **kwargs):
         wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
         self.SetScrollRate(20, 20)
         self.parent = parent
 
     def ShowFile(self, sentlist):
+        """show source text for a file"""
         Sizer = wx.BoxSizer(wx.VERTICAL)
         for n, senttoken in enumerate(sentlist):
             st = SentText(self, -1, num=n, style=wx.ST_NO_AUTORESIZE)
@@ -1103,7 +1304,31 @@ class FilePanel(wx.ScrolledWindow):
 
 
 class SentPanel(wx.Panel):
-    'Manual disambiguation panel'
+    """Manual disambiguation panel
+
+    Attributes
+    ----------
+    snum (int) : sentence index
+    numsent (int) : total number of sentences in a file
+    senttoken () : sentence token
+    selectlist () : list of selected glosses
+    tokenlist () : list of token objects
+    sentindex () : index of a sentence
+    senttext () : sentence text
+
+    savedstate (bool) : 
+    isshown (bool) : sentence is loaded, widgets shown
+
+    Widgets
+    -------
+    sentnumbutton (wx.SpinCtrl) : choose sentence by number
+    searchbutton (wx.SearchCtrl) : search query input field
+    findprevbutton : find previous
+    findnextbutton : find next
+    navsizer : navigation sizer
+    sentsource (SentenceText) : sentence text widget
+    sentattrs (SentAttributes) : sentence-level attributes panel
+    """
     def __init__(self, parent, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.vertical = vertical
@@ -1117,7 +1342,8 @@ class SentPanel(wx.Panel):
 
         # create navigation buttons
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
-        self.sentnumbutton = wx.SpinCtrl(self, wx.ID_ANY, "", (10,20), style=wx.TE_PROCESS_ENTER)
+        self.sentnumbutton = wx.SpinCtrl(self, wx.ID_ANY, "",
+                                         (10, 20), style=wx.TE_PROCESS_ENTER)
         self.sentnumbutton.SetRange(1, self.numsent)
         prevbutton = wx.Button(self, wx.ID_ANY, '<')
         prevbutton.Bind(wx.EVT_BUTTON, self.PrevSentence)
@@ -1163,6 +1389,7 @@ class SentPanel(wx.Panel):
         self.Bind(EVT_TOKEN_SPLIT, self.sentsource.OnTokenSplit)
 
     def CreateGlossButtons(self):
+        """generate GlossSelector widgets for each token in a sentence"""
         tokenbuttons = []
         self.annotlist = wx.lib.scrolledpanel.ScrolledPanel(self, wx.ID_ANY)
         self.annotlist.SetScrollRate(20, 20)
@@ -1170,7 +1397,7 @@ class SentPanel(wx.Panel):
             annotsizer = wx.BoxSizer(wx.HORIZONTAL)
         else:
             annotsizer = wx.BoxSizer(wx.VERTICAL) 
-        for (toknum, (token,selectlist)) in enumerate(zip(self.tokenlist,self.selectlist)):
+        for (toknum, (token, selectlist)) in enumerate(zip(self.tokenlist, self.selectlist)):
             abox = GlossSelector(self.annotlist, (self.snum, toknum), token, selectlist, vertical=self.vertical)
             tokenbuttons.append(abox)
             annotsizer.Add(abox)
@@ -1179,6 +1406,7 @@ class SentPanel(wx.Panel):
         return tokenbuttons
 
     def ShowSent(self, senttuple, snum):
+        """set sentence data attributes and show widgets"""
         self.senttoken, self.selectlist, self.tokenlist, self.sentindex = senttuple
         self.senttext = self.senttoken.value.strip()
         if self.isshown:
@@ -1196,14 +1424,16 @@ class SentPanel(wx.Panel):
         self.isshown = True
 
     def PrevSentence(self, event):
+        """show previous sentence"""
         self.OnSaveResults(event)
-        if self.snum>0:
+        if self.snum > 0:
             prevsent = self.snum-1
         else:
             prevsent = len(self.GetTopLevelParent().processor.glosses)-1
         self.GetTopLevelParent().ShowSent(prevsent)
 
     def NextSentence(self, event):
+        """show next sentence"""
         self.OnSaveResults(event)
         nextsent = self.snum+1
         try:
@@ -1212,10 +1442,12 @@ class SentPanel(wx.Panel):
             self.GetTopLevelParent().ShowSent(0)
 
     def OnSaveResults(self, event):
+        """post event to save results"""
         evt = SaveResultsEvent(self.GetId())
         wx.PostEvent(self.GetEventHandler(), evt)
 
     def OnCopyToClipboard(self, evt):
+        """copy sentence text to a clipboard"""
         if self.senttext:
             clipdata = wx.TextDataObject()
             clipdata.SetText(self.senttext)
@@ -1225,18 +1457,39 @@ class SentPanel(wx.Panel):
                 wx.TheClipboard.Close()
 
     def OnSelectorUpdate(self, evt):
+        """pass selector update event to the sentence text widget"""
         self.sentsource.OnSelectorUpdate(evt)
         self.Layout()
         evt.Skip()
 
     def OnShowSelector(self, evt):
+        """move requested gloss selector into view"""
         btn_id = evt.GetId()
         btn = self.annotlist.FindWindowById(btn_id)
         self.annotlist.ScrollChildIntoView(btn)
 
 
 class MainFrame(wx.Frame):
-    'Main frame'
+    """Main frame
+
+    Attributes
+    ----------
+    config (wx.Config) : configuration data
+    dirname (str) : saved working directory
+    infile () : input file
+    outfile () : output file
+    processor (FileParser) : IO wrapper
+    searcher (SearchTool) : 
+
+    fileopened (bool) : file is currently opened
+
+
+    Widgets
+    -------
+    filehistory (wx.FileHistory) : recently opened files widget
+    filepanel
+    sentpanel
+    """
     def __init__(self, parent, *args, **kwargs):
         wx.Frame.__init__(self, parent, *args, **kwargs)
 
@@ -1244,6 +1497,7 @@ class MainFrame(wx.Frame):
         wx.Config.Set(wx.Config("gdisamb", style=wx.CONFIG_USE_LOCAL_FILE))
         self.config = wx.Config.Get(False)
         self.config.SetRecordDefaults()
+
         def savedDefault(name, fore, back):
             forecolor = self.config.Read("colors/{}/fore".format(name.lower()), fore)
             backcolor = self.config.Read("colors/{}/back".format(name.lower()), back)
@@ -1261,7 +1515,7 @@ class MainFrame(wx.Frame):
         self.dirname = self.config.Read("state/curdir", os.curdir)
         self.InitValues()
 
-        filemenu= wx.Menu()
+        filemenu = wx.Menu()
         recent = wx.Menu()
         menuOpen = filemenu.Append(wx.ID_OPEN,"O&pen"," Open text file")
         self.Bind(wx.EVT_MENU, self.OnMenuOpen, menuOpen)
@@ -1280,22 +1534,22 @@ class MainFrame(wx.Frame):
             self.SetFont(self.mainfont)
 
         # FIXME: move menus to InitUI?
-        menuSave = filemenu.Append(wx.ID_SAVE,"S&ave"," Save an xhtml file")
+        menuSave = filemenu.Append(wx.ID_SAVE, "S&ave", " Save an xhtml file")
         self.Bind(wx.EVT_MENU, self.OnSave, menuSave)
-        menuSaveAs = filemenu.Append(wx.ID_SAVEAS,"S&ave as"," Save an xhtml file")
+        menuSaveAs = filemenu.Append(wx.ID_SAVEAS, "S&ave as", " Save an xhtml file")
         self.Bind(wx.EVT_MENU, self.OnSaveAs, menuSaveAs)
-        menuClose = filemenu.Append(wx.ID_CLOSE,"C&lose","Close current file")
-        self.Bind(wx.EVT_MENU,self.OnClose, menuClose)
-        menuSearch = filemenu.Append(wx.ID_FIND,"F&ind","Find text")
+        menuClose = filemenu.Append(wx.ID_CLOSE, "C&lose", "Close current file")
+        self.Bind(wx.EVT_MENU, self.OnClose, menuClose)
+        menuSearch = filemenu.Append(wx.ID_FIND, "F&ind", "Find text")
         self.Bind(wx.EVT_MENU, self.OnMenuSearch, menuSearch)
-        menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
+        menuExit = filemenu.Append(wx.ID_EXIT, "E&xit", "Terminate the program")
         self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
         menuBar = wx.MenuBar()
-        menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
+        menuBar.Append(filemenu, "&File") # Adding the "filemenu" to the MenuBar
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
         
         settingsmenu = wx.Menu()
-        menuVertical = settingsmenu.Append(wx.ID_ANY, "V&ertical", " Toggle horizontal/vertical display mode")
+        menuVertical = settingsmenu.Append(wx.ID_ANY, "V&ertical", "Toggle horizontal/vertical display mode")
         self.menuUndoTokens = settingsmenu.Append(wx.ID_ANY, "U&ndo join/split tokens", "Undo join/split tokens")
         self.menuUndoTokens.Enable(False)
         self.Bind(wx.EVT_MENU, self.OnVerticalMode, menuVertical)
@@ -1306,7 +1560,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnSelectColors, menuColors)
         menuLocaldict = settingsmenu.Append(wx.ID_ANY, "Set &Localdict", "Set Localdict")
         self.Bind(wx.EVT_MENU, self.OnSetLocaldict, menuLocaldict)
-        menuBar.Append(settingsmenu,"&Settings")
+        menuBar.Append(settingsmenu, "&Settings")
         self.SetMenuBar(menuBar)
 
         debugmenu = wx.Menu()
@@ -1331,12 +1585,14 @@ class MainFrame(wx.Frame):
         self.Show()
 
     def SetLocaldict(self, dictfile):
+        """load localdict from a file or create empty one if the file does not exist"""
         if os.path.exists(dictfile):
             self.localdict = daba.formats.DictReader(dictfile).get()
         else:
             self.localdict = daba.formats.DabaDict()
 
     def InitValues(self):
+        """set main attributes"""
         self.infile = None
         self.outfile = None
         self.processor = FileParser()
@@ -1344,9 +1600,9 @@ class MainFrame(wx.Frame):
         self.logger = None
         self.fileopened = False
         self.undolist = defaultdict(list)
-        
 
     def InitUI(self):
+        """initialize main frame UI"""
         self.notebook = wx.Notebook(self)
         self.filepanel = FilePanel(self.notebook)
         self.sentpanel = SentPanel(self.notebook, vertical=self.config.ReadBool("display/vertical"))
@@ -1362,10 +1618,12 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_TEXT_ENTER, self.OnGotoSentence, self.sentpanel.sentnumbutton)
 
     def CleanUI(self):
+        """clear interface"""
         self.SetTitle("no file")
         self.notebook.Destroy()
 
     def UpdateUI(self):
+        """update UI to show SentPanel's current sentence"""
         self.Freeze()
         try:
             snum = self.sentpanel.snum
@@ -1373,19 +1631,21 @@ class MainFrame(wx.Frame):
             snum = None
         self.CleanUI()
         self.InitUI()
-        if not snum is None:
+        if snum is not None:
             self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
             self.ShowSent(snum)
         self.Layout()
         self.Thaw()
 
     def OnVerticalMode(self, e):
+        """toggle vertical mode for UI layout"""
         self.config.WriteBool("display/vertical", not self.config.ReadBool("display/vertical"))
         self.config.Flush()
         if self.fileopened:
             self.UpdateUI()
 
     def OnSelectFont(self, e):
+        """change and save font selected by a user"""
         fontdata = wx.FontData()
         fontdata.SetInitialFont(self.mainfont)
         dlg = wx.FontDialog(self, fontdata)
@@ -1400,12 +1660,14 @@ class MainFrame(wx.Frame):
         dlg.Destroy()
 
     def OnSelectColors(self, e):
+        """let user select colors, keep selections in config"""
         dlg = StatusColorsDialog(self, self.config, self.statuscolors)
         if dlg.ShowModal() == wx.ID_OK:
             self.config.Flush()
         dlg.Destroy()
 
     def OnSetLocaldict(self, e):
+        """let user choose localdict for the opened file"""
         if not self.fileopened:
             self.NoFileError(e)
         else:
@@ -1418,10 +1680,12 @@ class MainFrame(wx.Frame):
                 dlg.Destroy()
 
     def OnWidgetInspector(self, e):
+        """show widget inspector"""
         import wx.lib.inspection
         wx.lib.inspection.InspectionTool().Show()
 
     def OnSelectorUpdate(self, e):
+        """record user's selections/edits into processor"""
         selector = e.GetEventObject()
         if selector.selectlist:
             self.processor.dirty = True
@@ -1431,12 +1695,14 @@ class MainFrame(wx.Frame):
         self.processor.glosses[snum][2][toknum] = token
 
     def ShowSent(self, snum):
+        """show sentence by its index"""
         if self.undolist[snum]:
             self.menuUndoTokens.Enable(True)
         self.SaveFilePos(snum)
         self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
 
     def OnTokenSplit(self, evt):
+        """split tokens in the processor glosses data, update UI"""
         snum, toknum = evt.index
         savedtoken = self.processor.glosses[snum][2][toknum]
         edit = TokenEdit('split', toknum, toknum+len(evt.result), [savedtoken])
@@ -1452,6 +1718,7 @@ class MainFrame(wx.Frame):
         wx.CallAfter(self.ShowSent, snum)
 
     def OnTokenJoin(self, evt):
+        """join tokens in the processor glosses data, update UI"""
         snum = evt.snum
         first = evt.first
         second = evt.second
@@ -1471,6 +1738,7 @@ class MainFrame(wx.Frame):
         wx.CallAfter(self.ShowSent, snum)
 
     def OnTokenEdit(self, evt):
+        """edit tokens in the processor glosses data, update UI"""
         snum, toknum = evt.index
         savedtoken = self.processor.glosses[snum][2][toknum]
         if evt.toktype == 'w':
@@ -1486,19 +1754,23 @@ class MainFrame(wx.Frame):
         wx.CallAfter(self.ShowSent, snum)
 
     def OnSentenceEdit(self, evt):
+        """save sentence text changes to processor glosses after token edits"""
         savedsent = self.processor.glosses[evt.snum]
         self.processor.glosses[evt.snum] = (evt.sent,) + savedsent[1:]
         self.processor.dirty = True
 
     def OnSentAttrsEdit(self, evt):
+        """save sentence-level attributes edits in the processor glosses"""
         savedsent = self.processor.glosses[evt.snum]
         savedsent[0].attrs = evt.attrs
         self.processor.dirty = True
 
     def OnGlossEdited(self, evt):
+        """remember that gloss has been edited"""
         self.processor.dirty = True
     
     def OnLocaldictLookup(self, evt):
+        """lookup a gloss in localdict, show available matches"""
         try:
             savedglosses = self.localdict[evt.gloss.form]
             dlg = evt.dlg
@@ -1507,6 +1779,7 @@ class MainFrame(wx.Frame):
             pass
 
     def OnLocaldictSave(self, evt):
+        """save a word into localdict"""
         gloss = evt.gloss
         # we do not save words with empty glosses into localdict
         if not gloss.gloss:
@@ -1517,7 +1790,8 @@ class MainFrame(wx.Frame):
         else:
             self.localdict[gloss.form] = gloss
     
-    def OnUndoTokens(self,e):
+    def OnUndoTokens(self, e):
+        """undo token split/join operations"""
         snum = self.sentpanel.snum
         if self.undolist[snum]:
             savedstate = self.undolist[snum].pop()
@@ -1529,17 +1803,20 @@ class MainFrame(wx.Frame):
                 print("Unimplemented undo operation!")
             self.ShowSent(snum)
 
-    def OnMenuSearch(self,e):
+    def OnMenuSearch(self, e):
+        """pop-up search dialog"""
         dlg = SearchDialog(self, wx.ID_ANY, "Search word or sentence part", "")
         if (dlg.ShowModal() == wx.ID_OK):
             searchstr = dlg.GetSearchString()
             self.DoSearch(searchstr)
 
-    def OnButtonSearch(self,e):
+    def OnButtonSearch(self, e):
+        """run search when search button is pressed"""
         searchstr = self.sentpanel.searchbutton.GetValue()
         self.DoSearch(searchstr)
 
     def DoSearch(self, searchstr):
+        """run search for a given query"""
         if not searchstr:
             return
         # search forward by default
@@ -1547,6 +1824,7 @@ class MainFrame(wx.Frame):
         self.ShowSearchResult(firstmatch)
 
     def ShowSearchResult(self, match):
+        """show the first sentence where the string is found"""
         if not self.searcher.searchstr:
             return
         if not match:
@@ -1563,28 +1841,34 @@ class MainFrame(wx.Frame):
                     foundhere.ShowModal()
 
     def OnFindPrev(self, e):
+        """show previous match"""
         match = self.searcher.findPrev()
         self.ShowSearchResult(match)
 
     def OnFindNext(self, e):
+        """show next match"""
         match = self.searcher.findNext()
         self.ShowSearchResult(match)
 
     def OnGotoSentence(self, e):
+        """show sentence with a given number"""
         self.sentpanel.OnSaveResults(e)
         snum = self.sentpanel.sentnumbutton.GetValue() - 1
         self.ShowSent(snum)
 
     def SaveFilePos(self, snum):
+        """save current sentence index for a file"""
         if self.fileopened:
             self.config.WriteInt(self.infile, snum)
             self.config.Flush()
 
     def GetFilePos(self, filename):
+        """recall the saved sentence index for a file"""
         snum = self.config.ReadInt(filename, 0)
         return snum
 
-    def OnClose(self,e):
+    def OnClose(self, e):
+        """save and cleanup UI on file close"""
         if self.fileopened:
             if self.processor.dirty:
                 self.OnSave(e)
@@ -1593,22 +1877,26 @@ class MainFrame(wx.Frame):
             self.InitValues()
             self.CleanUI()
 
-    def OnExit(self,e):
+    def OnExit(self, e):
+        """close file on exit"""
         if self.fileopened:
             self.OnClose(e)
         self.Close(True)
 
-    def NoFileError(self,e):
+    def NoFileError(self, e):
+        """show error message that no file is opened"""
         dlg = wx.MessageDialog(self, 'Error: no file opened!', 'No file opened', wx.OK)
         dlg.ShowModal()
         dlg.Destroy()
 
-    def FileOpenedError(self,e):
+    def FileOpenedError(self, e):
+        """show error message that file is not closed"""
         dlg = wx.MessageDialog(self, 'Error: previous file not closed!', 'Previous file is still opened. You should close it before opening the next one', wx.OK)
         dlg.ShowModal()
         dlg.Destroy()
 
-    def OnMenuOpen(self,e):
+    def OnMenuOpen(self, e):
+        """pop-up open file menu"""
         if self.fileopened:
             self.FileOpenedError(e)
         else:
@@ -1617,14 +1905,15 @@ class MainFrame(wx.Frame):
                 self.DoOpen(dlg.GetPath())
                 dlg.Destroy()
 
-    def OnFileHistory(self,e):
+    def OnFileHistory(self, e):
+        """open a file from recent files"""
         if self.fileopened:
             self.FileOpenedError(e)
         else:
             filenum = e.GetId() - wx.ID_FILE1
             self.DoOpen(self.filehistory.GetHistoryFile(filenum))
 
-    def DoOpen(self,filename):
+    def DoOpen(self, filename):
         """ Open a file"""
         self.infile = filename
         self.filehistory.AddFileToHistory(self.infile)
@@ -1647,12 +1936,14 @@ class MainFrame(wx.Frame):
         self.Layout()
 
     def SaveFiles(self):
+        """save annotated data, localdict and config values"""
         if self.localdict:
-            daba.formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict',ver='0').write()
+            daba.formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict', ver='0').write()
         self.processor.write(self.outfile)
         self.config.Flush()
 
-    def OnSave(self,e):
+    def OnSave(self, e):
+        """save files"""
         if not self.fileopened:
             self.NoFileError(e)
         else:
@@ -1661,7 +1952,8 @@ class MainFrame(wx.Frame):
             else:
                 self.SaveFiles()
 
-    def OnSaveAs(self,e):
+    def OnSaveAs(self, e):
+        """pop-up save as menu"""
         if not self.fileopened:
             self.NoFileError(e)
         else:
