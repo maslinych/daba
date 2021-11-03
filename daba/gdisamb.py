@@ -3,7 +3,7 @@
 #
 # Manual disambiguation editor
 #
-# Copyright (C) 2010—2019  Kirill Maslinsky <kirill@altlinux.org>
+# Copyright (C) 2010—2021  Kirill Maslinsky <kirill@altlinux.org>
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -45,6 +45,8 @@ GlossEditEvent, EVT_GLOSS_EDITED = wx.lib.newevent.NewCommandEvent()
 TokenSplitEvent, EVT_TOKEN_SPLIT = wx.lib.newevent.NewCommandEvent()
 TokenJoinEvent, EVT_TOKEN_JOIN = wx.lib.newevent.NewCommandEvent()
 TokenEditEvent, EVT_TOKEN_EDIT = wx.lib.newevent.NewCommandEvent()
+SentenceJoinEvent, EVT_SENTENCE_JOIN = wx.lib.newevent.NewCommandEvent()
+SentenceSplitEvent, EVT_SENTENCE_SPLIT = wx.lib.newevent.NewCommandEvent()
 SentenceEditEvent, EVT_SENT_EDIT = wx.lib.newevent.NewCommandEvent()
 SentAttrsEditEvent, EVT_SATTRS_EDIT = wx.lib.newevent.NewCommandEvent()
 ShowSelectorEvent, EVT_SHOW_SELECTOR = wx.lib.newevent.NewCommandEvent()
@@ -112,8 +114,11 @@ class SentAnnot(object):
     ----------
     pnum (int) : paragraph number (0-based)
     snum (int) : sentence number (0-based)
-    senntoken (GlossToken) : sentence token
+    senntoken (PlainToken) : sentence token
     senttext (str) : sentence text
+    glosslist ([WordToken]) : list of anntotations for each token in a sentence
+    selectlist ([[WordToken]]) : list of annotations selected by user (for each token)
+    attrs (dict) : sentence-level attributes (proxy to senttoken.attrs)
     """
     def __init__(self, pnum, snum, sent):
         """initialize from a compatibility-style sent"""
@@ -122,10 +127,52 @@ class SentAnnot(object):
         self.senttoken, self.glosslist = sent
         self.senttext = self.senttoken.value
         self.selectlist = [[] for g in self.glosslist]
+        self.attrs = self.senttoken.attrs
 
     def as_tuple(self):
         """return data as tuple for compatibility"""
         return (self.senttoken, self.selectlist, self.glosslist, (self.pnum, self.snum))
+
+    def join(self, other):
+        """join with another sentence, together with all annotation and attributes
+
+        NB: side-effect, changes values of the object in-place
+        """
+        if self.attrs:
+            if other.attrs:
+                for k in self.attrs.keys():
+                    if k in other.attrs:
+                        self.attrs[k] = ' '.join([self.attrs[k], other.attrs[k]])
+                for j in other.attrs.keys():
+                    if j not in self.attrs:
+                        self.attrs[j] = other.attrs[j]
+        elif other.attrs:
+            self.attrs = other.attrs
+        self.senttext = ' '.join([self.senttext.strip(), other.senttext.strip()])
+        toktuple = (self.senttoken.type, self.senttext)
+        self.senttoken = daba.formats.PlainToken(toktuple, self.attrs)
+        self.glosslist.extend(other.glosslist)
+        self.selectlist.extend(other.selectlist)
+        return self
+
+    def split(self, tnum, charpos):
+        """split sentence into two SentAnnot objs at the given point"""
+        firsttext = self.senttext[:charpos].strip()
+        secondtext = self.senttext[charpos:].strip()
+        self.senttext = firsttext
+        toktuple = (self.senttoken.type, self.senttext)
+        self.senttoken = daba.formats.PlainToken(toktuple, self.attrs)
+        newtoktuple = (self.senttoken.type, secondtext)
+        newsenttoken = daba.formats.PlainToken(newtoktuple, self.attrs)
+        firstglosslist = self.glosslist[:tnum]
+        secondglosslist = self.glosslist[tnum:]
+        self.glosslist = firstglosslist
+        newsent = SentAnnot(self.pnum, self.snum+1, (newsenttoken, secondglosslist))
+        firstselectlist = self.selectlist[:tnum]
+        secondselectlist = self.selectlist[tnum:]
+        self.selectlist = firstselectlist
+        newsent.selectlist = secondselectlist
+        return (self, newsent)
 
 
 class FileParser(object):
@@ -534,8 +581,8 @@ class TokenSplitDialog(wx.Dialog):
         pos = self.formfield.GetInsertionPoint()
         last = self.formfield.GetLastPosition()
         if not pos == 0 and not pos == last:
-            first = self.formfield.GetRange(0,pos)
-            second = self.formfield.GetRange(pos,last)
+            first = self.formfield.GetRange(0, pos)
+            second = self.formfield.GetRange(pos, last)
             self.split = (first, second)
             sizer = self.GetSizer()
             sizer.Detach(self.splittext)
@@ -1008,13 +1055,15 @@ class SentenceText(wx.stc.StyledTextCtrl):
 
     Attributes
     ----------
-    token ((type, value)) : sentence token
+    token (PlainToken) : sentence token
     text (str) : sentence text
     charspans ([(start, length)]) : list of character spans for each token in a sentence
     intervals (IntervalTree) : button ids corresponding to text spans for each token
+    sentpanel (SentPanel) : backref to a perent frame to access its attributes (snum, numsent)
     """
     def __init__(self, parent, *args, **kwargs):
         wx.stc.StyledTextCtrl.__init__(self, parent, *args, **kwargs)
+        self.sentpanel = parent
         self.encoder = codecs.getencoder("utf-8")
         self.decoder = codecs.getdecoder("utf-8")
         # defining styles
@@ -1044,6 +1093,7 @@ class SentenceText(wx.stc.StyledTextCtrl):
 
         self.Bind(wx.EVT_LEFT_UP, self.OnClick)
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyPressed)
+        self.Bind(wx.EVT_CONTEXT_MENU, self.OnContextMenu)
 
     def calcByteLen(self, text):
         """length of sentence text in bytes"""
@@ -1202,6 +1252,62 @@ class SentenceText(wx.stc.StyledTextCtrl):
         """highlight characters between start and end (not implemented)"""
         pass
 
+    def OnContextMenu(self, evt):
+        """pop-up sentence context menu on right-click"""
+        if not hasattr(self, "joinfwID"):
+            self.splitID = wx.NewId()
+            self.joinfwID = wx.NewId()
+            self.joinbwID = wx.NewId()
+
+        self.Bind(wx.EVT_MENU, self.OnJoinForward, id=self.joinfwID)
+        self.Bind(wx.EVT_MENU, self.OnJoinBackward, id=self.joinbwID)
+        self.Bind(wx.EVT_MENU, self.OnSplitSentence, id=self.splitID)
+
+        menu = wx.Menu()
+        menu.Append(-1, "Options for this sentence: ")
+        menu.AppendSeparator()
+        menu.Append(self.splitID, "Split sentence at this point")
+        joinfw = menu.Append(self.joinfwID, "Join with next sentence")
+        joinbw = menu.Append(self.joinbwID, "Join with previous sentence")
+
+        if self.sentpanel.snum == 0:
+            joinbw.Enable(False)
+        elif self.sentpanel.snum == self.sentpanel.numsent:
+            joinfw.Enable(False)
+
+        self.PopupMenu(menu)
+        menu.Destroy()
+
+    def OnJoinForward(self, evt):
+        """generate event to join sentences forward"""
+        snum = self.sentpanel.snum
+        self.OnJoinSentences(snum, snum+1)
+
+    def OnJoinBackward(self, evt):
+        """generate event to join sentences backward"""
+        snum = self.sentpanel.snum
+        self.OnJoinSentences(snum-1, snum)
+
+    def OnJoinSentences(self, first, second):
+        """post event to join two sentences"""
+        sjoinevent = SentenceJoinEvent(self.GetId(), first=first, second=second)
+        wx.PostEvent(self.GetEventHandler(), sjoinevent)
+
+    def OnSplitSentence(self, evt):
+        """split sentence at the cursor point"""
+        bytepos = self.GetCurrentPos()
+        charpos = self.calcCharPos(bytepos)
+        last = len(self.text)
+        if charpos < last:
+            first = self.intervals.overlap(0, charpos)
+            # make sure that second part contains tokens
+            if len(first) < len(self.charspans):
+                snum = self.sentpanel.snum
+                tnum = len(first)
+                ssplitevent = SentenceSplitEvent(self.GetId(), snum=snum, tnum=tnum, charpos=charpos)
+                wx.PostEvent(self.GetEventHandler(), ssplitevent)
+            
+
 
 class SentAttributes(wx.Panel):
     """sentence-level attributes widget
@@ -1353,6 +1459,7 @@ class SentPanel(wx.Panel):
     navsizer : navigation sizer
     sentsource (SentenceText) : sentence text widget
     sentattrs (SentAttributes) : sentence-level attributes panel
+    annotlist (ScrolledPanel) : token annotation buttons
     """
     def __init__(self, parent, vertical=True, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
@@ -1376,7 +1483,7 @@ class SentPanel(wx.Panel):
         nextbutton.Bind(wx.EVT_BUTTON, self.NextSentence)
         savebutton = wx.Button(self, wx.ID_ANY, 'Save results')
         savebutton.Bind(wx.EVT_BUTTON, self.OnSaveResults)
-        self.searchbutton = wx.SearchCtrl(self, size=(200,-1), style=wx.TE_PROCESS_ENTER)
+        self.searchbutton = wx.SearchCtrl(self, size=(200, -1), style=wx.TE_PROCESS_ENTER)
         self.findprevbutton = wx.Button(self, wx.ID_ANY, '<Prev')
         self.findnextbutton = wx.Button(self, wx.ID_ANY, 'Next>')
         self.navsizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -1385,10 +1492,10 @@ class SentPanel(wx.Panel):
         sentenceno.SetForegroundColour(self.sentcolor)
         self.navsizer.Add(sentenceno, 0)
         self.navsizer.Add(self.sentnumbutton)
-        sentof = wx.StaticText(self, wx.ID_ANY, " of {}  ".format(self.numsent))
-        sentof.SetFont(self.sentfont)
-        sentof.SetForegroundColour(self.sentcolor)
-        self.navsizer.Add(sentof, 0)
+        self.sentof = wx.StaticText(self, wx.ID_ANY, " of {}  ".format(self.numsent))
+        self.sentof.SetFont(self.sentfont)
+        self.sentof.SetForegroundColour(self.sentcolor)
+        self.navsizer.Add(self.sentof, 0)
         self.navsizer.Add(prevbutton, 0)
         self.navsizer.Add(nextbutton, 0)
         self.navsizer.Add(savebutton, 0)
@@ -1412,6 +1519,8 @@ class SentPanel(wx.Panel):
         self.Bind(EVT_TOKEN_EDIT, self.sentsource.OnTokenEdit)
         self.Bind(EVT_TOKEN_JOIN, self.sentsource.OnTokenJoin)
         self.Bind(EVT_TOKEN_SPLIT, self.sentsource.OnTokenSplit)
+        self.Bind(EVT_SENTENCE_JOIN, self.OnSentenceJoin)
+        self.Bind(EVT_SENTENCE_SPLIT, self.OnSentenceSplit)
 
     def CreateGlossButtons(self):
         """generate GlossSelector widgets for each token in a sentence"""
@@ -1493,6 +1602,29 @@ class SentPanel(wx.Panel):
         btn = self.annotlist.FindWindowById(btn_id)
         self.annotlist.ScrollChildIntoView(btn)
 
+    def UpdateNumsent(self, numsent):
+        """update numsent value and its display"""
+        self.numsent = numsent
+        self.sentnumbutton.SetRange(1, self.numsent)
+        self.navsizer.Detach(self.sentof)
+        self.sentof.Show(False)
+        self.sentof = wx.StaticText(self, wx.ID_ANY, " of {}  ".format(self.numsent))
+        self.sentof.SetFont(self.sentfont)
+        self.sentof.SetForegroundColour(self.sentcolor)
+        self.navsizer.Insert(2, self.sentof)
+        self.navsizer.Show(2)
+        self.navsizer.Layout()
+        
+    def OnSentenceJoin(self, evt):
+        """update UI and data due to sentence join"""
+        self.UpdateNumsent(self.numsent-1)
+        evt.Skip()
+
+    def OnSentenceSplit(self, evt):
+        """update UI and data due to sentence split"""
+        self.UpdateNumsent(self.numsent+1)
+        evt.Skip()
+
 
 class MainFrame(wx.Frame):
     """Main frame
@@ -1542,7 +1674,7 @@ class MainFrame(wx.Frame):
 
         filemenu = wx.Menu()
         recent = wx.Menu()
-        menuOpen = filemenu.Append(wx.ID_OPEN,"O&pen"," Open text file")
+        menuOpen = filemenu.Append(wx.ID_OPEN, "O&pen", " Open text file")
         self.Bind(wx.EVT_MENU, self.OnMenuOpen, menuOpen)
         filemenu.Append(wx.ID_ANY, "Open &recent", recent)
         self.filehistory = wx.FileHistory(maxFiles=9, idBase=wx.ID_FILE1)
@@ -1591,7 +1723,7 @@ class MainFrame(wx.Frame):
         debugmenu = wx.Menu()
         menuInspector = debugmenu.Append(wx.ID_ANY, "Widget I&nspector", "Widget Inspector")
         self.Bind(wx.EVT_MENU, self.OnWidgetInspector, menuInspector)
-        menuBar.Append(debugmenu,"&Debug") 
+        menuBar.Append(debugmenu, "&Debug") 
 
         # Custom events
         self.Bind(EVT_SELECTOR_UPDATED, self.OnSelectorUpdate)
@@ -1599,6 +1731,8 @@ class MainFrame(wx.Frame):
         self.Bind(EVT_TOKEN_SPLIT, self.OnTokenSplit)
         self.Bind(EVT_TOKEN_JOIN, self.OnTokenJoin)
         self.Bind(EVT_TOKEN_EDIT, self.OnTokenEdit)
+        self.Bind(EVT_SENTENCE_JOIN, self.OnSentenceJoin)
+        self.Bind(EVT_SENTENCE_SPLIT, self.OnSentenceSplit)
         self.Bind(EVT_SENT_EDIT, self.OnSentenceEdit)
         self.Bind(EVT_SATTRS_EDIT, self.OnSentAttrsEdit)
         self.Bind(EVT_LOCALDICT_LOOKUP, self.OnLocaldictLookup)
@@ -1783,10 +1917,35 @@ class MainFrame(wx.Frame):
         wx.CallAfter(self.ShowSent, snum)
 
     def OnSentenceJoin(self, evt):
-        """edit sentences in the processor glosses data, update UI"""
-        first = evt.first
-        second = evt.second
-        pass
+        """join sentences in the processor glosses data, update UI"""
+        firstsent = self.processor.glosses[evt.first]
+        nextsent = self.processor.glosses[evt.second]
+        newsent = firstsent.join(nextsent)
+        self.processor.glosses[evt.first] = newsent
+        del self.processor.glosses[evt.second]
+        for sent in self.processor.glosses[evt.second:]:
+            sent.snum -= 1
+        self.processor.numsent -= 1
+        self.processor.dirty = True
+        wx.CallAfter(self.ShowSent, evt.first)
+
+    def OnSentenceSplit(self, evt):
+        """split sentences in the processor glosses data, update UI"""
+        sent = self.processor.glosses[evt.snum]
+        firstsent, nextsent = sent.split(evt.tnum, evt.charpos)
+        self.processor.glosses[evt.snum] = firstsent
+        self.processor.glosses.insert(evt.snum+1, nextsent)
+        for sent in self.processor.glosses[evt.snum+2:]:
+            sent.snum += 1
+        s0 = self.processor.glosses[evt.snum]
+        s1 = self.processor.glosses[evt.snum+1]
+        s2 = self.processor.glosses[evt.snum+2]
+        print("S0", s0.senttext, evt.snum, s0.snum)
+        print("S1", s1.senttext, evt.snum+1, s1.snum)
+        print("S2", evt.snum+2, s2.senttext, s2.snum)
+        self.processor.numsent += 1
+        self.processor.dirty = True
+        wx.CallAfter(self.ShowSent, evt.snum)
 
     def OnSentenceEdit(self, evt):
         """save sentence text changes to processor glosses after token edits"""
