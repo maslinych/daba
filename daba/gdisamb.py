@@ -1050,6 +1050,17 @@ class TokenEditButton(wx.Panel):
         return (self.tokentype, self.tokenstr)
 
 
+class SplitImpossibleDialog(wx.Dialog):
+    """dialog showing `Split not possible at this point` message"""
+    def __init__(self, parent, id, title, searchstr, *args, **kwargs):
+        wx.Dialog.__init__(self, parent, id, title, *args, **kwargs)
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(wx.StaticText(self, -1, u'Sentence split point cannot be inside a token'.format(searchstr)))
+        sizer.Add(self.CreateButtonSizer(wx.OK), 0, wx.TOP | wx.BOTTOM, 10)
+        self.SetSizer(sizer)
+
+
 class SentenceText(wx.stc.StyledTextCtrl):
     """colored sentence text widget
 
@@ -1300,14 +1311,33 @@ class SentenceText(wx.stc.StyledTextCtrl):
         last = len(self.text)
         if charpos < last:
             first = self.intervals.overlap(0, charpos)
-            # make sure that second part contains tokens
-            if len(first) < len(self.charspans):
+            tnum = len(first)
+            if self.intervals[charpos]:
+                charpos = charpos-1
+                if self.intervals[charpos]:
+                    self.SplitImpossibleError(evt)
+                    return
+            # make sure that both parts contain tokens
+            if tnum > 0 and tnum < len(self.charspans):
                 snum = self.sentpanel.snum
-                tnum = len(first)
                 ssplitevent = SentenceSplitEvent(self.GetId(), snum=snum, tnum=tnum, charpos=charpos)
                 wx.PostEvent(self.GetEventHandler(), ssplitevent)
-            
+            else:
+                self.SplitImpossibleError(evt)
 
+    def SplitImpossibleError(self, e):
+        """sentence split at this point not possible error message"""
+        dlg = wx.MessageDialog(self,
+                               """Impossible to split sentence at this point.
+ 
+    Sentence split point cannot be inside a token
+    or at the very beginning and end of sentence.
+    Please position split point between tokens
+    and try again""",
+                               'Impossible to split sentence at this point',
+                               wx.OK)
+        dlg.ShowModal()
+        dlg.Destroy()
 
 class SentAttributes(wx.Panel):
     """sentence-level attributes widget
@@ -2077,7 +2107,7 @@ class MainFrame(wx.Frame):
         dlg = wx.MessageDialog(self, 'Error: no file opened!', 'No file opened', wx.OK)
         dlg.ShowModal()
         dlg.Destroy()
-
+ 
     def FileOpenedError(self, e):
         """show error message that file is not closed"""
         dlg = wx.MessageDialog(self, 'Error: previous file not closed!', 'Previous file is still opened. You should close it before opening the next one', wx.OK)
