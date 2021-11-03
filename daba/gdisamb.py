@@ -105,13 +105,36 @@ def makeGlossString(gloss, morphemes=False):
                                          '/'.join(gloss.ps), gloss.gloss, os.linesep)
 
 
+class SentAnnot(object):
+    """a container for all sentence-level annotation data and state
+
+    Attributes
+    ----------
+    pnum (int) : paragraph number (0-based)
+    snum (int) : sentence number (0-based)
+    senntoken (GlossToken) : sentence token
+    senttext (str) : sentence text
+    """
+    def __init__(self, pnum, snum, sent):
+        """initialize from a compatibility-style sent"""
+        self.pnum = pnum
+        self.snum = snum
+        self.senttoken, self.glosslist = sent
+        self.senttext = self.senttoken.value
+        self.selectlist = [[] for g in self.glosslist]
+
+    def as_tuple(self):
+        """return data as tuple for compatibility"""
+        return (self.senttoken, self.selectlist, self.glosslist, (self.pnum, self.snum))
+
+
 class FileParser(object):
     """A wrapper class for file IO operations and for keeping annotated data
 
     Attributes
     ----------
     dirty (bool) : user made some changes
-    glosses ([senttuple]) : glosses data as list of tuple(senttoken, selectlist, glosslist, index)
+    glosses ([SentAnnot]) : glosses data as a list of SentAnnot objects
     metadata (dict) : file metadata
     """
     def __init__(self):
@@ -123,29 +146,29 @@ class FileParser(object):
         freader = daba.formats.HtmlReader(filename)
         self.metadata = freader.metadata
         self.glosses = []
+        snum = 0
         for pnum, par in enumerate(freader.glosses):
-            for snum, sent in enumerate(par):
-                # tuple(senttoken, selectlist, glosslist, index)
-                self.glosses.append((sent[0], [[] for i in sent[1]], sent[1], (pnum, snum)))
+            for i, sent in enumerate(par):
+                self.glosses.append(SentAnnot(pnum, snum, sent))
                 self.numsent = freader.numsent
                 self.numwords = freader.numwords
+                snum += 1
 
     def write(self, filename):
         """write disabmiguated data into filename"""
         out = [[]]
         for sent in self.glosses:
-            pnum = sent[3][0]
-            if pnum > len(out)-1:
+            if sent.pnum > len(out)-1:
                 out.append([])
             outgloss = []
-            for selectlist, glosstoken in zip(sent[1], sent[2]):
+            for selectlist, glosstoken in zip(sent.selectlist, sent.glosslist):
                 if not selectlist:
                     outgloss.append(glosstoken)
                 else:
                     if glosstoken.type == 'w':
                         glosstoken.setGlosslist(selectlist)
                     outgloss.append(glosstoken)
-            out[-1].append((sent[0], outgloss))
+            out[-1].append((sent.senttoken, outgloss))
         fwriter = daba.formats.HtmlWriter((self.metadata, out), filename)
         fwriter.write()
 
@@ -202,30 +225,32 @@ class SearchTool(object):
         self.history.append(self.searchstr)
         if self.ignorecase:
             searchstr = searchstr.lower()
-            glosses = list(enumerate(self.processor.glosses))
+        glosses = self.processor.glosses
         if startsent:
             glosses = glosses[startsent:] + glosses[:startsent]
-        for snum, sent in glosses:
+        for sent in glosses:
             if searchtype == 'word part':
-                for wnum, word in enumerate(sent[2]):
+                for wnum, word in enumerate(sent.glosslist):
                     try:
                         if self.searchstr in word.token:
-                            match = (snum, wnum)
+                            match = (sent.snum, wnum)
                             self.matches.append(match)
                     # FIXME: should not happen if all words are proper GlossTokens
                     except (AttributeError):
                         print(word)
             elif searchtype == 'sentence part':
-                for matchobj in re.finditer(self.searchstr, sent[0].value):
-                    self.matches.append((snum, matchobj))
+                for matchobj in re.finditer(self.searchstr, sent.senttext):
+                    self.matches.append((sent.snum, matchobj))
         return self.matches
         
     def find(self, searchstr, startsent=0):
-        """search for a given string as a word part, or as a sentence part in
-case query contains spaces
+        """search for a given string 
 
-returns sentence match position tuple (sentid, tokid)
-"""
+        By default, a query is interpreted as a word part. It is
+        treated as a sentence part in case query contains spaces.
+
+        Returns sentence match position tuple (sentid, tokid)
+        """
         if ' ' in searchstr:
             searchtype = 'sentence part'
         else:
@@ -817,7 +842,7 @@ class GlossSelector(wx.Panel):
         # FIXME: lacks elegance, duplicate code, see JoinTwo
         glosses = self.GetTopLevelParent().processor.glosses
         sentpanel = self.GetTopLevelParent().sentpanel
-        tokens = glosses[sentpanel.snum][2]
+        tokens = glosses[sentpanel.snum].glosslist
         snum, toknum = self.index
         if toknum == 0:
             joinbw.Enable(False)
@@ -1405,17 +1430,17 @@ class SentPanel(wx.Panel):
         self.annotlist.Layout()
         return tokenbuttons
 
-    def ShowSent(self, senttuple, snum):
+    def ShowSent(self, sentannot):
         """set sentence data attributes and show widgets"""
-        self.senttoken, self.selectlist, self.tokenlist, self.sentindex = senttuple
-        self.senttext = self.senttoken.value.strip()
+        self.senttoken, self.selectlist, self.tokenlist, self.sentindex = sentannot.as_tuple()
+        self.senttext = sentannot.senttext.strip()
         if self.isshown:
             self.sentsource.ClearSentence()
             self.sentattrs.ClearSentence()
             self.Sizer.Remove(self.annotlist.GetSizer())
             self.annotlist.Destroy()
-        self.snum = snum
-        self.sentnumbutton.SetValue(snum+1)
+        self.snum = sentannot.snum
+        self.sentnumbutton.SetValue(self.snum+1)
         tokenbuttons = self.CreateGlossButtons()
         self.sentsource.SetSentence(self.senttoken, tokenbuttons)
         self.sentattrs.SetSentence(self.senttoken, self.snum)
@@ -1632,7 +1657,7 @@ class MainFrame(wx.Frame):
         self.CleanUI()
         self.InitUI()
         if snum is not None:
-            self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
+            self.filepanel.ShowFile(s.senttoken for s in self.processor.glosses)
             self.ShowSent(snum)
         self.Layout()
         self.Thaw()
@@ -1691,28 +1716,30 @@ class MainFrame(wx.Frame):
             self.processor.dirty = True
         token = selector.GetWordToken()
         snum, toknum = selector.index
-        self.processor.glosses[snum][1][toknum] = selector.selectlist
-        self.processor.glosses[snum][2][toknum] = token
+        sent = self.processor.glosses[snum]
+        sent.selectlist[toknum] = selector.selectlist
+        sent.glosslist[toknum] = token
 
     def ShowSent(self, snum):
         """show sentence by its index"""
         if self.undolist[snum]:
             self.menuUndoTokens.Enable(True)
         self.SaveFilePos(snum)
-        self.sentpanel.ShowSent(self.processor.glosses[snum], snum)
+        self.sentpanel.ShowSent(self.processor.glosses[snum])
 
     def OnTokenSplit(self, evt):
         """split tokens in the processor glosses data, update UI"""
         snum, toknum = evt.index
-        savedtoken = self.processor.glosses[snum][2][toknum]
+        sent = self.processor.glosses[snum]
+        savedtoken = sent.glosslist[toknum]
         edit = TokenEdit('split', toknum, toknum+len(evt.result), [savedtoken])
         self.undolist[snum].append(edit)
-        del self.processor.glosses[snum][1][toknum]
-        del self.processor.glosses[snum][2][toknum]
+        del sent.selectlist[toknum]
+        del sent.glosslist[toknum]
         shift = 0
         for token in evt.result:
-            self.processor.glosses[snum][1].insert(toknum+shift, [])
-            self.processor.glosses[snum][2].insert(toknum+shift, daba.formats.WordToken([Gloss(token, (), '', ())], token, '-1'))
+            sent.selectlist.insert(toknum+shift, [])
+            sent.glosslist.insert(toknum+shift, daba.formats.WordToken([Gloss(token, (), '', ())], token, '-1'))
             shift = shift+1
         self.processor.dirty = True
         wx.CallAfter(self.ShowSent, snum)
@@ -1722,25 +1749,27 @@ class MainFrame(wx.Frame):
         snum = evt.snum
         first = evt.first
         second = evt.second
-        savedtokens = self.processor.glosses[snum][2][first:second+1]
+        sent = self.processor.glosses[snum]
+        savedtokens = [2][first:second+1]
         edit = TokenEdit('join', first, second, savedtokens)
         self.undolist[snum].append(edit)
-        firsttoken = self.processor.glosses[snum][2][first]
-        nexttoken = self.processor.glosses[snum][2][second]
-        #FIXME: will break on non-word tokens
+        firsttoken = sent.glosslist[first]
+        nexttoken = sent.glosslist[second]
+        # FIXME: will break on non-word tokens
         newform = firsttoken.token + nexttoken.token
-        newtoken = daba.formats.WordToken([Gloss(newform, (),'',())], newform, '-1')
-        self.processor.glosses[snum][1][first] = []
-        del self.processor.glosses[snum][1][second]
-        self.processor.glosses[snum][2][first] = newtoken
-        del self.processor.glosses[snum][2][second]
+        newtoken = daba.formats.WordToken([Gloss(newform, (), '', ())], newform, '-1')
+        sent.selectlist[first] = []
+        del sent.selectlist[second]
+        sent.glosslist[first] = newtoken
+        del sent.glosslist[second]
         self.processor.dirty = True
         wx.CallAfter(self.ShowSent, snum)
 
     def OnTokenEdit(self, evt):
         """edit tokens in the processor glosses data, update UI"""
         snum, toknum = evt.index
-        savedtoken = self.processor.glosses[snum][2][toknum]
+        sent = self.processor.glosses[snum]
+        savedtoken = sent.glosslist[toknum]
         if evt.toktype == 'w':
             if savedtoken.type == 'w':
                 newtoken = savedtoken
@@ -1749,20 +1778,26 @@ class MainFrame(wx.Frame):
                 newtoken = daba.formats.WordToken([Gloss(evt.token, (), '', ())], evt.token, '-1')
         else:
             newtoken = daba.formats.PlainToken((evt.toktype, evt.token))
-        self.processor.glosses[snum][2][toknum] = newtoken
+        sent.glosslist[toknum] = newtoken
         self.processor.dirty = True
         wx.CallAfter(self.ShowSent, snum)
 
+    def OnSentenceJoin(self, evt):
+        """edit sentences in the processor glosses data, update UI"""
+        first = evt.first
+        second = evt.second
+        pass
+
     def OnSentenceEdit(self, evt):
         """save sentence text changes to processor glosses after token edits"""
-        savedsent = self.processor.glosses[evt.snum]
-        self.processor.glosses[evt.snum] = (evt.sent,) + savedsent[1:]
+        sent = self.processor.glosses[evt.snum]
+        sent.senttoken = evt.sent
         self.processor.dirty = True
 
     def OnSentAttrsEdit(self, evt):
         """save sentence-level attributes edits in the processor glosses"""
-        savedsent = self.processor.glosses[evt.snum]
-        savedsent[0].attrs = evt.attrs
+        sent = self.processor.glosses[evt.snum]
+        sent.senttoken.attrs = evt.attrs
         self.processor.dirty = True
 
     def OnGlossEdited(self, evt):
@@ -1795,10 +1830,11 @@ class MainFrame(wx.Frame):
         snum = self.sentpanel.snum
         if self.undolist[snum]:
             savedstate = self.undolist[snum].pop()
+            sent = self.processor.glosses[snum]
             if savedstate.operation == 'split':
-                self.processor.glosses[snum][2][savedstate.start:savedstate.end+1] = savedstate.toklist
+                sent.glosslist[savedstate.start:savedstate.end+1] = savedstate.toklist
             elif savedstate.operation == 'join':
-                self.processor.glosses[snum][2][savedstate.start:savedstate.end] = savedstate.toklist
+                sent.glosslist[savedstate.start:savedstate.end] = savedstate.toklist
             else:
                 print("Unimplemented undo operation!")
             self.ShowSent(snum)
@@ -1929,7 +1965,7 @@ class MainFrame(wx.Frame):
         self.processor.read_file(self.infile)
         self.InitUI()
         self.SetTitle(self.filename)
-        self.filepanel.ShowFile(t[0] for t in self.processor.glosses)
+        self.filepanel.ShowFile(s.senttoken for s in self.processor.glosses)
         snum = self.GetFilePos(self.infile)
         self.ShowSent(snum)
         self.fileopened = True
