@@ -1937,12 +1937,6 @@ class MainFrame(wx.Frame):
         self.processor.glosses.insert(evt.snum+1, nextsent)
         for sent in self.processor.glosses[evt.snum+2:]:
             sent.snum += 1
-        s0 = self.processor.glosses[evt.snum]
-        s1 = self.processor.glosses[evt.snum+1]
-        s2 = self.processor.glosses[evt.snum+2]
-        print("S0", s0.senttext, evt.snum, s0.snum)
-        print("S1", s1.senttext, evt.snum+1, s1.snum)
-        print("S2", evt.snum+2, s2.senttext, s2.snum)
         self.processor.numsent += 1
         self.processor.dirty = True
         wx.CallAfter(self.ShowSent, evt.snum)
