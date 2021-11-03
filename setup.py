@@ -20,7 +20,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='daba',  # Required
-    version='0.9.0',  # Required
+    version='0.9.1',  # Required
     description='Pattern-based morphemic analysis toolkit',  # Required
     long_description=long_description,  # Optional
     url='https://github.com/maslinych/daba',  # Optional
@@ -58,6 +58,8 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9'
     ],
     # supprted python versions
     python_requires='>=3.6',

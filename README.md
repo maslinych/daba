@@ -26,7 +26,7 @@ disambiguation:
 ### Dependencies
 
 Daba is written in Python (currently requires Python 3.6 or higher) and uses
-[wxPython](http://www.wxpython.org) (>= 4.0.0) cross-platform GUI library.
+[wxPython](http://www.wxpython.org) (>= 4.1.0) cross-platform GUI library.
 
 Daba is available for Windows, MacOS and Linux. Python and pip are
 required for installation, see [instructions](./docs/INSTALL.md).

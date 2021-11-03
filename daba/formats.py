@@ -134,6 +134,7 @@ class PlainToken(BaseToken):
 
 
 class WordToken(BaseToken):
+    """wrapper object holding all data related to a word token"""
     def __init__(self, glosslist, token=None, stage='', attrs=None):
         self.type = 'w'
         self.glosslist = glosslist
