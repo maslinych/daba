@@ -517,16 +517,15 @@ class HtmlWriter(object):
         w = e.SubElement(annot, 'span', {'class': 'w',
                                          'stage': str(stage)})
         w.text = gt.token
+        w.tail = '\n'
         variant = False
         for gloss in glosslist:
             if not variant:
                 lem = gloss_to_html(gloss)
-                lem.tail = '\n'
                 variant = True
             else:
                 #NB: SIDE EFFECT!
                 lem.append(gloss_to_html(gloss, variant=True))
-                lem.tail = '\n'
         w.append(lem)
         return w
 
