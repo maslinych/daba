@@ -156,7 +156,9 @@ class SentAnnot(object):
         return self
 
     def split(self, tnum, charpos):
-        """split sentence into two SentAnnot objs at the given point"""
+        """split sentence into two SentAnnot objs at the given point
+        
+        NB: side-effect: truncates own values and returns both self and new SentAnnot"""
         firsttext = self.senttext[:charpos].strip()
         secondtext = self.senttext[charpos:].strip()
         self.senttext = firsttext

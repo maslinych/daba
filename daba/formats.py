@@ -1,7 +1,29 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-## FIXME: add copyright notice
+# Library for input/output formats supported by Daba
+#
+# Copyright (C) 2010—2021  Kirill Maslinsky <kirill@altlinux.org>
+#
+# This file is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Data structure for internal bare text representation:
+# ({metadata}, [para+])
+
+# Data structure for parsed text representation:
+# ({metadata}, [_para [_sent (text, [_c|w|t|comment ]) ] ])
+# w: (token, stage, [Gloss()])
+# c: (token,)
+# t: (start|end|tag, name)
+# comment: (text,)
 
 import os
 import re
@@ -16,18 +38,6 @@ from abc import abstractmethod
 import daba.grammar
 from daba.ntgloss import Gloss
 from daba.orthography import detone
-
-
-# Data structure for internal bare text representation:
-# ({metadata}, [para+])
-
-# Data structure for parsed text representation:
-# ({metadata}, [_para [_sent (text, [_c|w|t|comment ]) ] ])
-# w: (token, stage, [Gloss()])
-# c: (token,)
-# t: (start|end|tag, name)
-# comment: (text,)
-
 
 #FIXME: duplicate, move to common util
 normalizeText = lambda t: unicodedata.normalize('NFKD', str(t))
