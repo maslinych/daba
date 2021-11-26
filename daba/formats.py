@@ -778,7 +778,7 @@ class DictReader(object):
     def __init__(self, filename, encoding='utf-8', store=True,
                  variants=False, polisemy=False, keepmrph=False,
                  normalize=True, ignorelist=('i',), inverse=False,
-                 lemmafields=('lx', 'le', 'va', 'vc', 'a'),
+                 lemmafields=('lx', 'le', 'va', 'vc', 've', 'a'),
                  glossfields=('gf', 'ge', 'dff'), canonical=False):
 
         self._dict = DabaDict()
