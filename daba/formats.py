@@ -778,7 +778,8 @@ class DictReader(object):
     def __init__(self, filename, encoding='utf-8', store=True,
                  variants=False, polisemy=False, keepmrph=False,
                  normalize=True, ignorelist=('i',), inverse=False,
-                 lemmafields=('lx', 'le', 'va', 'vc', 've', 'a'),
+                 lemmafields=('lx', 'le'),
+                 variantfields=('ve', 'va', 'vc', 'a'),
                  glossfields=('gf', 'ge', 'dff'), canonical=False):
 
         self._dict = DabaDict()
@@ -790,11 +791,14 @@ class DictReader(object):
         self.ignorelist = ignorelist
         self.inverse = inverse
         self.lemmafields = lemmafields
+        self.variantfields = variantfields
         self.glossfields = glossfields
         ignore = False
         lemmalist = []
         key = None
         ps = ()
+        glossdict = {}
+        lemma = None
 
         def parsemm(v):
             try:
@@ -808,12 +812,22 @@ class DictReader(object):
                 print("Error line:", str(self.line), str(v))
 
         def normalize(value):
-            return normalizeText(value.translate({ord(u'.'): None, ord(u'-'):None}).lower())
+            try:
+                return normalizeText(value.translate({ord(u'.'): None, ord(u'-'):None}).lower())
+            except AttributeError:
+                return value
 
-        def make_item(value):
+        def make_item(value, key=None):
+            """return [key, Gloss] for lemmalist with unannotated Gloss object
+            
+            key — optional key (standardized lemma) to use instead of the current wordform
+"""
             if self.normalize:
+                key = normalize(key)
                 value = normalize(value)
-            return [value, Gloss(form=value, ps=(), gloss="", morphemes=())]
+            if not key:
+                key = value
+            return [key, Gloss(form=value, ps=(), gloss="", morphemes=())]
 
         def push_items(primarykey, lemmalist):
             for key, lx in lemmalist:
@@ -831,8 +845,15 @@ class DictReader(object):
                 except KeyError:
                     pass
             return ge
-                    
-        def process_record(key, lemmalist):
+
+        def process_record(key, lemmalist, ps, glossdict):
+            """parse one toolbox lexical entry and add to a DabaDict
+
+            key — lookup form for DabaDict
+            lemmalist — list of gloss objects collected from a lexical entry
+            ps — part of speech tag
+            glossdict — all possible glosses collected from a lexical entry
+"""
             if lemmalist:
                 ge = select_gloss(glossdict)
                 if self.inverse:
@@ -853,12 +874,13 @@ class DictReader(object):
                 # end of the artice/dictionary
                 if not line or line.isspace():
                     if not ignore:
-                        process_record(key, lemmalist)
+                        process_record(key, lemmalist, ps, glossdict)
                     ignore = False
                     lemmalist = []
                     ps = ()
                     glossdict = {}
                     key = None
+                    lemma = None
                 elif line.startswith('\\'):
                     line = unicodedata.normalize('NFKD', line)
                     tag, space, value = line[1:].partition(' ')
@@ -873,6 +895,14 @@ class DictReader(object):
                         else:
                             key = value
                         lemmalist.append(make_item(value))
+                        if not lemma:
+                            lemma = value
+                    elif tag in self.variantfields:
+                        if lemma:
+                            lemmalist.append(make_item(lemma, key=value))
+                        else:
+                            # shouldn't happen: variant should not come before lemma
+                            lemmalist.append(make_item(value))
                     elif tag in ['mm']:
                         lemmalist[-1][1] = lemmalist[-1][1]._replace(morphemes=lemmalist[-1][1].morphemes+(parsemm(value),))
                     elif tag in ['ps'] and not ps:
@@ -889,7 +919,7 @@ class DictReader(object):
                             if not dk == key:
                                 self._polisemy[dk][select_gloss(glossdict)].append(value)
             else:
-                process_record(key, lemmalist)
+                process_record(key, lemmalist, ps, glossdict)
 
             if not self._dict.attributed():
                 print(r"Dictionary does not contain obligatory \lang, \name or \ver fields.\
