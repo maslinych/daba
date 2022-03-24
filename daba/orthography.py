@@ -3,7 +3,8 @@
 
 import re
 import unicodedata
-from collections import namedtuple, MutableSequence
+from collections import namedtuple
+from collections.abc import MutableSequence
 
 # Orthographic constants
 HACEK = u'\u030c'

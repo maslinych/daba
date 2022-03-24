@@ -32,7 +32,8 @@ import unicodedata
 import hashlib
 import xml.etree.ElementTree as e
 from pytrie import StringTrie as trie
-from collections import MutableMapping, defaultdict, OrderedDict
+from collections import defaultdict, OrderedDict
+from collections.abc import MutableMapping
 from abc import abstractmethod
 
 import daba.grammar
