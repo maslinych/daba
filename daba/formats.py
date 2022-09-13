@@ -201,6 +201,20 @@ class TxtReader(BaseReader):
             self.para = re.split(os.linesep + '{2,}', normalizeText(f.read().strip()))
 
 
+class SentenceListReader(BaseReader):
+    def __init__(self, filename, encoding="utf-8"):
+        self.isdummy = True
+        self.metadata = {}
+        sent_re = '(?P<starttag><s[ ]+n="(?P<id>[0-9]+)"\s*>)(?P<senttext>.|\n(?!<s n=))*(?P<endtag></s>)'
+        out = []
+        with open(filename, encoding=encoding) as f:
+            txt = f.read()
+            for s in re.finditer(sent_re, txt, re.MULTILINE):
+                s_text = s.group('senttext')
+                out.append(s_text)
+        self.para = [out]
+
+
 class HtmlCommons(object):
     def __init__(self):
         self.tmap = {'Comment': 'comment',
@@ -584,14 +598,18 @@ class FileWrapper(object):
         self.encoding = encoding
         self.output_formats = ["html", "txt", "sentlist", "tokens"]
 
-    def read(self, filename):
+    def read(self, filename, sentlist=False):
         try:
             basename, ext = os.path.splitext(filename)
         except (AttributeError):
             print("FILENAME", filename)
         if ext in ['.txt']:
-            self.format = 'txt'
-            self._reader = TxtReader(filename)
+            if sentlist:
+                self.format = 'sentlist'
+                self._reader = SentenceListReader(filename)
+            else:
+                self.format = 'txt'
+                self._reader = TxtReader(filename)
         elif ext in ['.html', '.htm']:
             self.format = 'html'
             self._reader = HtmlReader(filename)

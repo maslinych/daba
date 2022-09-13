@@ -233,7 +233,7 @@ class GrammarLoader(object):
 class Processor(object):
     def __init__(self, dictloader=None, grammarloader=None,
                  tokenizer=None, converters=None, detone=False, nolemmas=False,
-                 normalize_orthography=False):
+                 normalize_orthography=False, has_sentences=False):
         if converters:
             plugins = OrthographyConverter.get_plugins()
             self.converters = [plugins[c] for c in converters]
@@ -242,6 +242,14 @@ class Processor(object):
         self.tokenizer = tokenizer
         self.detone = detone
         self.normalize_orthography = normalize_orthography
+        if has_sentences:
+            def sent_splitter(para):
+                for s in para:
+                    yield self.tokenizer.tokenize(s)
+        else:
+            def sent_splitter(para):
+                return self.tokenizer.split_sentences(self.tokenizer.tokenize(para))
+        self.sentence_splitter = sent_splitter
         if nolemmas:
             class Noparser(object):
                 def lemmatize(self, wform):
@@ -291,7 +299,7 @@ class Processor(object):
         self.parsed = []
         for para in txt:
             par = []
-            for sent in self.tokenizer.split_sentences(self.tokenizer.tokenize(para)):
+            for sent in self.sentence_splitter(para):
                 sttoken = daba.formats.PlainToken(('</s>', ''.join(t.value for t in sent)))
                 st = (sttoken, [])
                 par.append(st)
@@ -349,13 +357,12 @@ def load_plugins():
 def parse_file(infile, outfile, pp, args):
     print('Processing', infile)
     io = daba.formats.FileWrapper()
-    io.read(infile)
+    io.read(infile, sentlist=args.sentlist)
     io.write(outfile, pp.parse(io.para), parsed=True, format=args.format)
     print('Finished', outfile)
 
 
 def main():
-    
     plugins = load_plugins()
     tkz = Tokenizer()
 
@@ -368,6 +375,7 @@ def main():
     aparser.add_argument("-g", "--grammar", help="Grammar specification file")
     aparser.add_argument("-n", "--noparse", action='store_true', help="Do not parse, only process resources")
     aparser.add_argument("-N", "--nolemmas", action='store_true', help="Do not lemmatize, only tokenize input")
+    aparser.add_argument("-S", "--sentlist", action='store_true', help="Read txt file with sentence boundary tags")
     aparser.add_argument("-l", "--list", help="Read input filenames list from file")
     aparser.add_argument("-t", "--detone", action='store_true', help="Ignore tones in dictionary lookups")
     aparser.add_argument("-z", "--tokenizer", action='store', choices=tkz.methods, default="default", help="Tokenizer to use")
@@ -376,7 +384,7 @@ def main():
     args = aparser.parse_args()
 
     tkz.use_method(args.tokenizer)
-    
+
     if args.nolemmas:
         pp = Processor(tokenizer=tkz, converters=args.script, detone=args.detone, nolemmas=True, normalize_orthography=args.convert)
     else:
@@ -389,7 +397,7 @@ def main():
             gr.load(args.grammar)
     if not args.noparse:
         if not args.nolemmas:
-            pp = Processor(dictloader=dl, grammarloader=gr, tokenizer=tkz, converters=args.script, detone=args.detone, normalize_orthography=args.convert)
+            pp = Processor(dictloader=dl, grammarloader=gr, tokenizer=tkz, converters=args.script, detone=args.detone, normalize_orthography=args.convert, has_sentences=args.sentlist)
         if args.list:
             with open(args.list, encoding='utf-8') as filelist:
                 for line in filelist:
