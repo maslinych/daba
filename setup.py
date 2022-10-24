@@ -91,6 +91,7 @@ setup(
         'intervaltree',
         'pytrie',
         'regex',
+        'attrdict3',
         'wxPython',
     ],
     # List additional groups of dependencies here (e.g. development
