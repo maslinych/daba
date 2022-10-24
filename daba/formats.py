@@ -205,7 +205,7 @@ class SentenceListReader(BaseReader):
     def __init__(self, filename, encoding="utf-8"):
         self.isdummy = True
         self.metadata = {}
-        sent_re = '(?P<starttag><s[ ]+n="(?P<id>[0-9]+)"\s*>)(?P<senttext>.|\n(?!<s n=))*(?P<endtag></s>)'
+        sent_re = '(?P<starttag><s[ ]+n="(?P<id>[0-9]+)"\s*>)(?P<senttext>(.|\n(?!<s n=))*)(?P<endtag></s>)'
         out = []
         with open(filename, encoding=encoding) as f:
             txt = f.read()
@@ -293,9 +293,12 @@ class HtmlReader(BaseReader):
                 spanclass = elem.get('class')
                 elemtext = normalizeText(elem.text) or ''
                 if spanclass == 'w':
-                    self.tokens.append(
-                        WordToken(glosslist, token=elemtext, stage=elem.get('stage'), attrs=elem.attrib)
-                    )
+                    try:
+                        self.tokens.append(
+                            WordToken(glosslist, token=elemtext, stage=elem.get('stage'), attrs=elem.attrib)
+                        )
+                    except IndexError:
+                        print(elem, sentlist)
                     glosslist = []
                     self.numwords += 1
                 elif spanclass in ['lemma var'] and not self.onlymeta:

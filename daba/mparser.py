@@ -245,7 +245,8 @@ class Processor(object):
         if has_sentences:
             def sent_splitter(para):
                 for s in para:
-                    yield self.tokenizer.tokenize(s)
+                    st = list(self.tokenizer.tokenize(s))
+                    yield st
         else:
             def sent_splitter(para):
                 return self.tokenizer.split_sentences(self.tokenizer.tokenize(para))
