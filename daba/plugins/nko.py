@@ -15,12 +15,17 @@ class NkoToLatin(OrthographyConverter):
         """
         Main NKO>latin conversion method
         """
-        
-        if re.search("[a-zA-Z]", token):
-            return [token]
-
 
         w = token
+        # if token.type != 'Word':
+        #     w = w.replace('\u060c', ',')
+        #     w = w.replace('\u200f', '')
+        #     return [w]
+            
+        if re.search("[a-zA-Z]", w):
+            return [w]
+
+
         if debug:
             print("NKO", w, )
     ### FOREIGN sounds with diacritics:
@@ -92,6 +97,9 @@ class NkoToLatin(OrthographyConverter):
         w = w.replace('؛', r";")
         w = w.replace('\u07fa', r"-")
         w = w.replace('\u066a', r"%")
+        w = w.replace('\u200f', '') # right-to-left mark
+        w = w.replace('\u07f9', r"!")
+        w = w.replace('\u07f8', "\u00b7") # strange ·_
 
     ### MARKING HIGH TONE:
         w = re.sub('(a|e|H|i|o|O|u|N)(b|p|t|j|c|d|r|R|s|G|f|k|l|n|m|Y|h|w|y|z|g|S|v|F|D|Q|J|A|T|Z|C|x|q|-)', "\\1\u0301\\2", w)
@@ -199,15 +207,13 @@ class NkoToLatin(OrthographyConverter):
         w = w.replace('T', "t\u0323")   ### J"
         w = w.replace('Z', "z\u0323")   ### J"
         w = w.replace('C', "s\u0323")   ### S=
-        w = w.replace('\u07f8', r",")
-        w = w.replace('\u07f9', r"!")
         w = re.sub('[‘]', r"`", w)
         w = re.sub('[’]', r"'", w)
         w = w.replace('_', '')
         w = w.replace('\u0640', '')
         w = w.replace('N', 'n')
         w = re.sub('^i\u0301`$', 'i\u0301', w)
-        
+
         if debug:
             print("LAT", w,)
         w = self.normalize_tones(w)

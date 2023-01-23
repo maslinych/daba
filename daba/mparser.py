@@ -309,7 +309,11 @@ class Processor(object):
                     if token.type in ['Comment', 'Tag']:
                         annot.append(daba.formats.PlainToken((token.type, token.value)))
                     elif token.type in ['Punct', 'SentPunct', 'Nonword']:
-                        annot.append(daba.formats.PlainToken(('c', token.value)))
+                        if self.converters:
+                            ctoken = self.convert_orthography(token.value)[0]
+                        else:
+                            ctoken = token.value
+                        annot.append(daba.formats.PlainToken(('c', ctoken)))
                     elif token.type in ['Cardinal']:
                         gloss = Gloss(token.value, ('num',), 'CARDINAL', ())
                         annot.append(daba.formats.WordToken([gloss], token.value, 'tokenizer'))
