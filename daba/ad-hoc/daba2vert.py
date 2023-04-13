@@ -7,6 +7,7 @@ import html
 import argparse
 import daba.formats
 import pickle
+import unicodedata
 from daba.orthography import detone
 
 INFLECTION = [
@@ -120,6 +121,7 @@ def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
             if not gls and g.morphemes:
                 gls = '-'.join([m.gloss for m in g.morphemes])
             if not args.nogloss:
+                gls = unicodedata.normalize('NFKC', gls)
                 glosses.append(gls)
             if not args.tonal:
                 if g.morphemes:
