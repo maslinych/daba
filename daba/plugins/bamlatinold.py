@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 
 from . import OrthographyConverter
 import funcparserlib.lexer
@@ -25,11 +25,12 @@ class BambaraOldtoNew(OrthographyConverter):
                     ('NY', (r'ny', re.I | re.U)),
                     ('EE', (r'è[eè]', re.I | re.U)),
                     ('OO', (r'ò[oò]', re.I | re.U)),
+                    ('NL', (r'[\n]+', re.U)),
+                    ('QUOT', (r'["]', re.U)),
                     ('ANY', (r'.', re.U)),
                     ]
             tok = funcparserlib.lexer.make_tokenizer(specs)
-            r = [x.value for x in tok(unicodedata.normalize('NFKC', word))]
-            #print('CW', string, ':', r)
+            r = [x.value for x in tok(unicodedata.normalize('NFKC', word)) if x.type != 'NL']
             return r
 
         def multiply_list(amblist):
