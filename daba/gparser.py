@@ -21,7 +21,7 @@ import os
 from contextlib import contextmanager
 
 import daba.mparser
-import daba.formats
+# import daba.formats   # already loaded in mparser!
 from daba.plugins import OrthographyConverter
 
 def get_outdir(fname):
@@ -38,6 +38,14 @@ def get_outdir(fname):
 
 def get_outfile(fname):
     basename = os.path.basename(fname)
+    # <<<< +JJM
+    parsfile='.'.join([os.path.splitext(basename)[0], 'pars.html'])  
+    if os.path.exists(parsfile): 
+        print("get_outfile / EXISTE DÉJÀ / ALREADY EXISTS: ",parsfile)
+        os.remove(parsfile)
+        print("  fichier précédent SUPPRIMÉ / previous file DELETED/removed")
+        # NO SELF HERE self.statusbar.SetStatusText(" fichier pars précédent supprimé:"+parsfile)
+    # >>>> +JJM
     return '.'.join([os.path.splitext(basename)[0], 'pars'])
 
 
@@ -56,6 +64,7 @@ class DictionaryItem(wx.Panel):
     def __init__(self, parent, dic, b_id, *args, **kwargs):
         wx.Panel.__init__(self, parent, *args, **kwargs)
         hbox = wx.BoxSizer(wx.HORIZONTAL)
+        print("dic :",dic)
         hbox.Add(wx.StaticText(self, -1, dic.description),0)
         rbutton = wx.Button(self, b_id, "Remove")
         self.Bind(wx.EVT_BUTTON, parent.OnRemove, rbutton)
@@ -63,15 +72,19 @@ class DictionaryItem(wx.Panel):
         self.SetSizer(hbox)
         self.Layout()
 
-
-class DictionaryLister(wx.Panel):
+import wx.lib.scrolledpanel as scrolled
+class DictionaryLister(scrolled.ScrolledPanel):
     def __init__(self, parent, dictloader, *args, **kwargs):
-        wx.Panel.__init__(self, parent, *args, **kwargs)
+        super(DictionaryLister, self).__init__(parent,
+                                      style = wx.TAB_TRAVERSAL|wx.SUNKEN_BORDER)
+        self.SetupScrolling()
+        #wx.Panel.__init__(self, parent, *args, **kwargs)
         self.buttons = {}
         self.children = {}
         self.parent = parent
         self.dictloader = dictloader
         dictbox = wx.StaticBox(self, -1, "Available Dictionaries")
+        dictbox.SetBackgroundColour((236, 211, 211, 255))   # was (60, 25, 25, 25)
         self.dsizer = wx.StaticBoxSizer(dictbox, wx.VERTICAL)
         b_id = 0
         for dic in self.dictloader.dictionary.dictlist:
@@ -121,6 +134,7 @@ class GrammarLister(wx.Panel):
 
         self.grammarloader = grammarloader
         grambox = wx.StaticBox(self, -1, "Available Grammar")
+        grambox.SetBackgroundColour((236, 211, 211, 255)) # was (80, 40, 40, 30)
         self.gsizer = wx.StaticBoxSizer(grambox, wx.VERTICAL)
         self.gramlist = wx.StaticText(self, -1, '\n'.join(self.grammarloader.gramlist))
         self.gsizer.Add(self.gramlist, 0, wx.TOP|wx.LEFT, 10)
@@ -142,15 +156,21 @@ class GrammarLister(wx.Panel):
             self.gramlist.Show(True)
             self.Layout()
 
-class ConverterLister(wx.Panel):
+class ConverterLister(scrolled.ScrolledPanel):
     def __init__(self, parent, *args, **kwargs):
-        wx.Panel.__init__(self, parent, *args, **kwargs)
+        super(ConverterLister, self).__init__(parent,
+                                style = wx.TAB_TRAVERSAL|wx.SUNKEN_BORDER)
+        self.SetupScrolling()
+        #wx.Panel.__init__(self, parent, *args, **kwargs)
         #FIXME: make default plugins configurable from config file
         self.selection = ('apostrophe',)
         daba.mparser.load_plugins()
         converterbox = wx.StaticBox(self, -1, "Available Orthographic Converters")
+        converterbox.SetBackgroundColour((236, 211, 211, 255)) # was (70, 30, 30, 30)
         self.csizer = wx.StaticBoxSizer(converterbox, wx.VERTICAL)
+        print("OrthographyConverter.converters",OrthographyConverter.converters)
         self.converterlist = wx.CheckListBox(self, wx.ID_ANY, choices=OrthographyConverter.converters)
+        self.converterlist.SetBackgroundColour((236, 211, 211, 255)) # was (60, 25, 25, 25)
         self.converterlist.SetCheckedStrings(self.selection)
         self.Bind(wx.EVT_CHECKLISTBOX, self.OnSelection, self.converterlist)
         self.csizer.Add(self.converterlist, 0, wx.TOP|wx.LEFT, 10)
@@ -168,6 +188,7 @@ class TokenizerLister(wx.Panel):
         self.tkz = daba.mparser.Tokenizer()
         self.tokenizers = self.tkz.methods
         tokenizerbox = wx.StaticBox(self, wx.ID_ANY, "Available Tokenizers")
+        tokenizerbox.SetBackgroundColour((236, 211, 211, 255)) # was (60, 25, 25, 30)
         self.tsizer = wx.StaticBoxSizer(tokenizerbox, wx.VERTICAL)
         self.tokenizerlist = wx.RadioBox(self, wx.ID_ANY, choices=self.tokenizers)
         self.tokenizerlist.SetSelection(self.tokenizerlist.FindString(self.selection))
@@ -207,12 +228,20 @@ class MainFrame(wx.Frame):
     def __init__(self, parent, *args, **kwargs):
         wx.Frame.__init__(self, parent, *args, **kwargs)
         self.InitValues()
+
+        wx.Config.Set(wx.Config("gparser", style=wx.CONFIG_USE_LOCAL_FILE))
+        self.config = wx.Config.Get(False)
+        self.config.SetRecordDefaults()
+
         # setup Resources
         self.dirname = os.curdir
         self.dl = daba.mparser.DictLoader()
         self.gr = daba.mparser.GrammarLoader()
         self.resourcepanel = ResourcePanel(self, self.dl, self.gr)
         self.filepanel = FilePanel(self)
+
+        self.statusbar = self.CreateStatusBar(1)  # JJM
+        self.statusbar.SetStatusText('Bienvenue dans le parseur (gparser) !')
 
         filemenu= wx.Menu()
         menuOpen = filemenu.Append(wx.ID_OPEN,"O&pen"," Open text file")
@@ -236,6 +265,14 @@ class MainFrame(wx.Frame):
         self.SetAutoLayout(True)
         self.Fit()
 
+        x=self.config.ReadInt("MainFrame/pos/x",30)     # JJM : recover previous layout
+        y=self.config.ReadInt("MainFrame/pos/y",30)
+        w=self.config.ReadInt("MainFrame/size/w",512)
+        h=self.config.ReadInt("MainFrame/size/h",756)
+        print("config ReadInt x,y,w,h",x,y,w,h)
+        self.SetPosition(wx.Point(x,y))
+        self.SetSize(wx.Rect(x,y,w,h))
+
     def InitValues(self):
         self.infile = None
         self.outfile = None
@@ -245,12 +282,17 @@ class MainFrame(wx.Frame):
     def OnParse(self,e):
         @contextmanager
         def wait_for_parser():
+            print("OnParse / self.resourcepanel.toklist.tkz.methods:",self.resourcepanel.toklist.tkz.methods) # JJM
+            #for n, tok in enumerate(self.resourcepanel.toklist.tkz):   # JJM
+            #    print("OnParse / self.resourcepanel.toklist / n, tok :",n,tok)
+            print("OnParse / self.resourcepanel.convlist.selection:",self.resourcepanel.convlist.selection) # JJM
             self.processor = daba.mparser.Processor(self.dl, self.gr,
                                                tokenizer=self.resourcepanel.toklist.tkz,
                                                converters=self.resourcepanel.convlist.selection)
             yield self.processor.parse(self.io.para)
 
         dlg = wx.MessageDialog(self, 'Please wait: parsing in progress', 'Please wait', wx.OK)
+        self.statusbar.SetStatusText("parsing en cours... (mparser) ")
         dlg.ShowModal()
 
         if not self.parsed:
@@ -258,9 +300,13 @@ class MainFrame(wx.Frame):
                 self.parsed = True
                 dlg.Destroy()
                 self.FinishedParsing(e)
+                myparsfile=self.outfile.replace(self.dirname,"")
+                self.statusbar.SetStatusText("parsing terminé / finished :"+myparsfile)
         else:
             #FIXME: proper error message or better avoid this case!
             print("File already parsed!")
+            myparsfile=self.outfile.replace(self.dirname,"")
+            self.statusbar.SetStatusText("votre fichier est déjà parsé / already parsed :"+myparsfile+" -> PLEASE file/close")
 
     def NoFileError(self,e):
         dlg = wx.MessageDialog(self, 'Error: no file opened!', 'No file opened', wx.OK)
@@ -273,25 +319,93 @@ class MainFrame(wx.Frame):
         dlg.Destroy()
 
     def OnExit(self,e):
+        #   JJM save window position and size
+        x,y=self.Position 
+        w,h=self.Size
+        self.config.WriteInt("MainFrame/pos/x",x)
+        self.config.WriteInt("MainFrame/pos/y",y)
+        self.config.WriteInt("MainFrame/size/w",w)
+        self.config.WriteInt("MainFrame/size/h",h)
+        self.config.Flush()  # permanently writes
+        print("config WriteInt x,y,w,h",x,y,w,h)
+
         self.Close(True)
 
     def OnOpen(self, e):
         """ Open a file"""
-        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.FD_OPEN)
+        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "gparser files (txt/html)|*.html;*.txt", wx.FD_OPEN|wx.FD_FILE_MUST_EXIST)
+        # caution: it would be nice to filter out localdict.txt and pars.html, dis.html files
         if dlg.ShowModal() == wx.ID_OK:
             self.infile = dlg.GetPath()
-            self.dirname = os.path.dirname(self.infile)
-            try:
-                self.io.read(self.infile)
-                self.parsed = False
-                self.filepanel.control.SetValue('\n\n'.join(self.io.para))
-            except ValueError as e:
-                fileerror = wx.MessageDialog(self, "Unknown file type", "Unknown file type", wx.OK)
+            if self.infile.endswith(".pars.html") or self.infile.endswith(".dis.html") or self.infile.endswith(".repl.html"):
+                fileerror = wx.MessageDialog(self, "incompatible file type", self.infile, wx.OK)
                 fileerror.ShowModal()
                 fileerror.Destroy()
+            else:
+                self.dirname = os.path.dirname(self.infile)
+
+                try:
+                    self.io.read(self.infile)
+                    self.SetTitle("gparser: "+self.infile)
+                    self.parsed = False
+                    self.filepanel.control.SetValue('\n\n'.join(self.io.para))
+                    #print("self.io.metadata['text:script']:",self.io.metadata['text:script']) # JJM
+                    try: 
+                        myscript=self.io.metadata['text:script']
+                    except KeyError:
+                        myscript='***NO SCRIPT***'
+                        dlg = wx.MessageDialog(self, 'Please choose from the Available orthographic converters (or none if "Nouvel orthographe malien", only "apostrophe")', 'The file has no meta information for text:script',  wx.OK)
+                        dlg.ShowModal()
+                    print("OnOpen / metas / script:",myscript)
+                    myscriptcode=''
+                    mytokcode=''
+                    if   myscript=='Nouvel orthographe malien':
+                        mytokcode="bamana"
+                    elif myscript=='Ancien orthographe malien': 
+                        myscriptcode='bamlatinold'
+                        mytokcode="bamana"
+                    elif myscript=='N&#8217;Ko' or myscript=="N’Ko": 
+                        myscriptcode='nko'
+                        mytokcode="nko"
+                    if myscriptcode=='': 
+                        myselection=('apostrophe',)
+                    else:
+                        myselection=('apostrophe',myscriptcode)
+                    if mytokcode=='':
+                        mytokmethods=['default']
+                    else:
+                        mytokmethods=[mytokcode]
+                    print("OnOpen / myselection:",myselection)
+                    print("OnOpen / mytokmethods:",mytokmethods)
+                    self.resourcepanel.convlist.selection=myselection
+                    self.resourcepanel.toklist.tkz.methods=mytokmethods
+                    # update interface accordingly
+                    try:
+                        self.resourcepanel.toklist.tokenizerlist.SetSelection(self.resourcepanel.toklist.tokenizerlist.FindString(mytokcode))
+                    except:
+                        print("mytokcode:",mytokcode," radio box index:",self.resourcepanel.toklist.tokenizerlist.FindString(mytokcode))
+                    self.resourcepanel.convlist.converterlist.SetCheckedStrings(myselection)
+                    
+                    
+                    myfile=self.infile.replace(self.dirname,"")
+                    self.statusbar.SetStatusText("fichier ouvert:"+myfile+"     text:script: "+myscript)
+                except ValueError as e:
+                    fileerror = wx.MessageDialog(self, "Unknown file type", "Unknown file type", wx.OK)
+                    fileerror.ShowModal()
+                    fileerror.Destroy()
         dlg.Destroy()
 
     def OnClose(self,e):
+        #   JJM save window position and size
+        x,y=self.Position 
+        w,h=self.Size
+        self.config.WriteInt("MainFrame/pos/x",x)
+        self.config.WriteInt("MainFrame/pos/y",y)
+        self.config.WriteInt("MainFrame/size/w",w)
+        self.config.WriteInt("MainFrame/size/h",h)
+        self.config.Flush()  # permanently writes
+        print("config WriteInt x,y,w,h",x,y,w,h)
+
         self.filepanel.control.Clear()
         self.InitValues()
 

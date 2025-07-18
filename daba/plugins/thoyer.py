@@ -1,39 +1,42 @@
 #!/usr/bin/env python3
 # -*- coding: utf8 -*-
 
-from . import OrthographyConverter
+from daba.plugins import OrthographyConverter
 import funcparserlib.lexer
 import re
 import unicodedata
 
 
-class BambaraOldtoNew(OrthographyConverter):
+class ThoyertoNew(OrthographyConverter):
     def __init__(self, *args, **kwargs):
-        self.title = 'bamlatinold'
-        self.desc = 'Convertor from old latin Bambara orthography (ambiguous)'
-
-        # some transforms could be valid for bamlatinNEW: u'ng':[u'ng',u'ŋ'], u'ny':[u'ny',u'ɲ'], u'ua':['wa']
+        self.title = 'thoyer'
+        self.desc = 'Convertor from Annik Thoyer transcriptions 1978'
 
     def convert(self, token):
         """
         Main conversion method
         """
-        conversion_table = {u'è':[u'ɛ'], u'ò':[u'ɔ'], u'èe':[u'ɛɛ'], u'òo':[u'ɔɔ'], u'ng':[u'ng',u'ŋ'], u'ny':[u'ny',u'ɲ'], u'ua':['wa']}
-        
+        conversion_table = {u'èè':[u'ɛɛ'], u'òò':[u'ɔɔ'], u'èe':[u'ɛɛ'], u'òo':[u'ɔɔ'], u'è':[u'ɛ'], u'ò':[u'ɔ'], 
+                            u'ng':[u'ng',u'ŋ'], u'ny':[u'ny',u'ɲ'], 
+                            u'sy':[u'sh', u's'], u'y':[u'y', u'j'], u'gh':[u'g'], u'gb':[u'g'], u'gw':[u'g',u'j',u'gw']}
+
         def graphemes_old(word):
             # split word into maximal length graphemes (old orthography)
             specs = [
                     ('NG', (r'ng', re.I | re.U)),
                     ('NY', (r'ny', re.I | re.U)),
-                    ('UA', (r'ua', re.I | re.U)),
                     ('EE', (r'è[eè]', re.I | re.U)),
                     ('OO', (r'ò[oò]', re.I | re.U)),
+                    ('GH', (r'gh', re.I | re.U)),
+                    ('GB', (r'gb', re.I | re.U)),
+                    ('GW', (r'gw', re.I | re.U)),
+                    ('SY', (r'sy', re.I | re.U)),
                     ('ANY', (r'.', re.U)),
                     ]
-            
+
             tok = funcparserlib.lexer.make_tokenizer(specs)
             r = [x.value for x in tok(unicodedata.normalize('NFKC', word))]
-            
+
             return r
 
         def multiply_list(amblist):

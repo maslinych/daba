@@ -6,11 +6,14 @@ from daba.ntgloss import Pattern, Gloss
 from funcparserlib.parser import *
 from funcparserlib.lexer import make_tokenizer, Token, LexerError
 
+# JJM added 'ap' 04/10/2024'
 PSLIST = [
         'mrph',
+        'mrph.nko',
         'n.prop',
         'n',
         'adj',
+        'ap',
         'num',
         'v',
         'ptcp',
@@ -30,7 +33,7 @@ PSLIST = [
         'prep',
         'n.top',
         'conv.n',
-        'PUNCT',
+        'PUNCT'
         ]
 
 
@@ -86,7 +89,8 @@ denone = lambda s: s or ()
 maketuple = lambda t: tuple(t.split('/')) if t else ()
 denonetuple = lambda t: t or ()
 filternone = lambda s: [i for i in s if i]
-despace = lambda s: [i for i in s if s is not ' ']
+#despace = lambda s: [i for i in s if s is not ' ']
+despace = lambda s: [i for i in s if s != ' ']
 
 def flatten_list(l):
     for el in l:

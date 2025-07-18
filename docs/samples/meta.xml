@@ -1,4 +1,4 @@
-<?xml version="1.5" encoding="utf-8"?>
+﻿<?xml version="1.5" encoding="utf-8"?>
 <!-- Bamana corpus metadata structure, version 0.9 -->
 <metaconfig>
   <section id="source" name="Source">
@@ -10,6 +10,7 @@
 	<item name="Manuscrits" />
 	<item name="Affiches" />
 	<item name="Communication audiovisuelle" />
+	<item name="Internet" />
       </list>
     </field>
     <field id="title" type="text" name="Titre" default="" />
@@ -20,10 +21,10 @@
     <field id="number" type="int" name="Num&#233;ro" default="" />
     <field id="editor" type="text" name="Nom de l&#8217;&#233;diteur" default="" />
     <field id="url" type="text" name="URL" default="" />
-    <field id="date" type="datetext" name="Date d&#8217;acc&#232;s/de l&#8217;&#233;mission (dd.mm.yyyy)" default="" />
+    <field id="date" type="date" name="Date d&#8217;acc&#232;s/de l&#8217;&#233;mission" default="" />
     <field id="misc" type="long_text" name="Autres" />
   </section>
-  <section id="author" name="Auteur" save="authors-vv.csv" multiple="true" keyfield="author:name">
+  <section id="author" name="Auteur" save="authors.csv" multiple="true" keyfield="name">
       <field id="name" type="text" name="Nom de l&#8217;auteur/locuteur/traducteur" />
       <field id="spelling" type="text" name="Author's name spelling" />
     <field id="sex" type="closed_list" name="Sexe">
@@ -33,7 +34,7 @@
 	<item name="f" />
       </list>
     </field>
-    <field id="birth_year" type="text" name="Ann&#233;e de naissance" default="" />
+    <field id="birth_year" type="int" name="Ann&#233;e de naissance" default="" />
     <field id="dialect" type="open_list" name="Place de socialisation langagi&#232;re">
       <list>
 	<item name="inconnu" />
@@ -96,7 +97,7 @@
   </section>
   <section id="text" name="Texte">
     <field id="title" type="text" name="Titre" />
-    <field id="date" type="datetext" name="Date de cr&#233;ation" />
+    <field id="date" type="date" name="Date de cr&#233;ation" />
     <field id="translation" type="closed_list" name="Original / traduction">
       <list>
 	<item name="original" />
@@ -104,7 +105,7 @@
 	<item name="inconnu" />
       </list>
     </field>
-    <field id="original_lang" type="open_list" name="(Pour les traductions) La langue de l&#8217;original">
+    <field id="original_lang" type="open_list" name="(Pour les traductions)&#13;&#10; La langue de l&#8217;original">
       <list>
 	<item name="fran&#231;ais" />
 	<item name="arabe" />
@@ -112,7 +113,7 @@
 	<item name="russe" />
       </list>
     </field>
-    <field id="transldata" type="long_text" name="(Pour les traductions) Information sur l'original" /> 
+    <field id="transldata" type="long_text" name="(Pour les traductions)&#13;&#10; Information sur l'original" /> 
     <field id="pages" type="text" name="Localisation du texte dans le source (pages)" />
     <field id="medium" type="closed_list" name="Moyen de transmission">
       <list>
@@ -121,16 +122,16 @@
 	<item name="internet" />
       </list>
     </field>
-    <field id="transcription" type="long_text" name="(Pour les textes oraux:) date et place de la transcription: nom du transcripteur" />
+    <field id="transcription" type="long_text" name="(Pour les textes oraux:) &#13;&#10;date et place de la transcription:&#13;&#10; + nom du transcripteur" />
     <field id="rubric" type="text" name="(Pour les p&#233;riodiques:) rubrique" />
-    <field id="script" type="closed_list" name="Type de l&#8217;&#233;criture">
-      <list>
-    <item name="Nouveau orthographe malien" />
-	<item name="Ancien orthographe malien" />
-	<item name="N&#8217;Ko" />
-	<item name="Orthographe coloniale" />
-	<item name="Autres orthographes latines" />
-	<item name="Adjami" />
+    <field id="script" type="closed_list" name="Type d&#8217;&#233;criture" >
+      <list default="Nouvel orthographe malien">
+    <item name="Nouvel orthographe malien" />
+		<item name="Ancien orthographe malien" />
+		<item name="N&#8217;Ko" />
+		<item name="Orthographe coloniale" />
+		<item name="Autres orthographes latines" />
+		<item name="Adjami" />
       </list>
     </field>
     <field id="genre" type="checklist" name="Genre">
@@ -147,7 +148,7 @@
 	<item name="Belles-Lettres : Sc&#233;narios" />
 	<item name="Belles-Lettres : Dramaturgie" />
 	<item name="Belles-Lettres : Po&#233;sie moderne" />
-	<item name="Belles-Lettres : Chan&#231;ons populaires" />
+	<item name="Belles-Lettres : Chansons populaires" />
 	<item name="Belles-Lettres : Documentaires" />
 	<item name="Belles-Lettres : Bande dessin&#233;e" />
 	<item name="Belles-Lettres : Texte sacral" />
@@ -179,6 +180,7 @@
 	<item name="Sciences naturelles"/>
 	<item name="Science"/>
 	<item name="Technologie"/> 
+	<item name="Communication"/> 
 	<item name="Christianisme"/>
 	<item name="Islam"/>
 	<item name="Cultes traditionnels"/>
@@ -186,15 +188,17 @@
 	<item name="Philosophie"/>
 	<item name="Arm&#233;e et Guerre"/>
 	<item name="Politique"/>
+	<item name="Administration"/>
 	<item name="Soci&#233;t&#233;"/>
 	<item name="Economie et Finances"/>
 	<item name="Agriculture"/>
+	<item name="Chasse"/>
 	<item name="Sport"/> 
 	<item name="Transport"/>
 	<item name="Loisir"/>
 	<item name="Voyages"/>
 	<item name="Vie priv&#233;e"/>
-	<item name="M&#233;dicine et sant&#233;"/>
+	<item name="M&#233;decine et sant&#233;"/>
 	<item name="G&#233;ographie"/>
 	<item name="Environnement"/>
 	<item name="&#201;ducation"/>
@@ -208,24 +212,29 @@
 	<item name="Ekaterina Aplonova" />
 	<item name="Evgenia Bogacheva" />
 	<item name="Artem Davydov" />
-	<item name="Artem Davydov" />
+	<item name="Vincent Duguet" />
 	<item name="Anna Erman" />
 	<item name="Anna Ivanova" />
 	<item name="Dmitry Matveev" />
-	<item name="Jean Jacques Meric" />
+	<item name="Jean-Jacques Méric" />
 	<item name="Ekaterina Nikiforova" />
 	<item name="Daria Ogorodnikova" />
 	<item name="Egor Solonovich" />
 	<item name="Elisaveta Volkova" />
 	<item name="Valentin Vydrine" />
 	<item name="Monika Zeutschel" />
+	<item name="Sabine Courtin" />
+	<item name="Idrissa Konté" />
+	<item name="Marilou Robillard" />
+	<item name="Christine Bagnères" />
       </list>
     </field>
     <field id="adddate" type="date" name="Date de modification du texte" />
     <field id="sponsor" type="open_list" name="Contributeur">
       <list>
 	<item name="Charles Bailleul" />
-	<item name="G&#233;rard Dumestre" />
+	<item name="Gérard Dumestre" />
+	<item name="Samba Niaré" />
 	 </list>
     </field>
    	 </section>
