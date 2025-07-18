@@ -278,6 +278,9 @@ class Processor(object):
         for plugin in self.converters:
             converted = []
             for w in wlist:
+                # print("w:'"+w+"'") # if next line starts with " we have here '\n"' ???
+                # if '\n' in w : w=w.replace('\n','')
+                # this should NEVER happen given the definition of 'Par' in tokenizer.py!!!
                 for result in plugin.convert(w):
                     converted.append(result)
             wlist = converted
@@ -297,6 +300,11 @@ class Processor(object):
         return stage, filtered
 
     def parse(self, txt):
+
+        def iscapitalized(s):
+            if len(s) ==1 : return s.isupper()
+            else: return (s[0].isupper() and s[1:].islower())
+
         self.parsed = []
         for para in txt:
             par = []
@@ -305,32 +313,318 @@ class Processor(object):
                 st = (sttoken, [])
                 par.append(st)
                 annot = st[1]
+                wordindex=0
+                # print("sent:",sent)
                 for token in sent:
                     if token.type in ['Comment', 'Tag']:
                         annot.append(daba.formats.PlainToken((token.type, token.value)))
                     elif token.type in ['Punct', 'SentPunct', 'Nonword']:
+                        # annot.append(daba.formats.PlainToken(('c', token.value)))
                         if self.converters:
+                            # print("token value:",token.value)
                             ctoken = self.convert_orthography(token.value)[0]
                         else:
                             ctoken = token.value
                         annot.append(daba.formats.PlainToken(('c', ctoken)))
+                        # print('PUNCT token.value=',token.value)
+                        if token.value in [":","«",'"','“',"-","("] :
+                            wordindex=0  # need to reset, next word in Capital like at start of sentence - for instance after : or «
+                            # print("(in) wordindex=",wordindex,"token.value=",token.value) 
+                            
                     elif token.type in ['Cardinal']:
                         gloss = Gloss(token.value, ('num',), 'CARDINAL', ())
                         annot.append(daba.formats.WordToken([gloss], token.value, 'tokenizer'))
                     elif token.type in ['Word']:
+                        wordindex+=1
                         if self.converters:
                             wlist = self.convert_orthography(token.value)
                             converts = []
                             for w in filter(None, wlist):
                                 converts.append(
-                                    self.parser.lemmatize(w.lower())
+                                    #self.parser.lemmatize(w.lower())
+                                    self.parser.lemmatize(w)
                                 )
                             try:
                                 stage, glosslist = self.filter_parsed(converts, list(filter(None, wlist)))
                             except ValueError:
                                 print("WARNING: invalid orthographic conversion result, skippig token:", token.type, token.value, converts)
                         else:
-                            stage, glosslist = self.parser.lemmatize(token.value.lower())
+                            #stage, glosslist = self.parser.lemmatize(token.value.lower())
+                            stage, glosslist = self.parser.lemmatize(token.value)
+                        # but that's not enough:
+                        # if stage, glosslist looks like: (-1, [Gloss(form='hawa', ps=(), gloss='', morphemes=())])
+                        # we need to try again : if 1st letter is in lower case, try uppercasing it
+                        # else if it is in uppercase, try lowercasing it.
+
+                        # for now restricted to results with glosslist limited to one
+                        # it would be nice to also tackle longer glosslist with emply morphemes gloss,
+                        # where only derivation morphemes are identifiable, e.g. :
+                        # propername Keyita, distracted by possible suffix -ta
+                        # [Gloss(form='keyita', ps=(), gloss='', morphemes=()), Gloss(form='keyita', ps=('ptcp',), gloss='', morphemes=(Gloss(form='keyi', ps=('v',), gloss='', morphemes=()), Gloss(form='ta', ps=('mrph',), gloss='PTCP.POT', morphemes=())))]
+                        # propername Mayiga:, distracted by possible prefix ma-
+                        # [Gloss(form='mayiga', ps=(), gloss='', morphemes=()), Gloss(form='mayiga', ps=('v',), gloss='', morphemes=(Gloss(form='mà', ps=('mrph',), gloss='SUPER', morphemes=()), Gloss(form='yiga', ps=('v',), gloss='', morphemes=())))]
+
+                        if len(glosslist)==1 or glosslist[0].gloss=="":
+                            gloss=glosslist[0]
+                            if (    len(gloss.ps)==0 and gloss.gloss=="") \
+                                or (len(gloss.ps)==1 and gloss.ps[0]=="") \
+                                or (len(gloss.ps)==1 and gloss.ps[0]=="n.prop") :  
+                                #Last test
+                                #1) n.prop:NOM is only the default for capitalized token (see bamana.gram.txt)
+                                #                  but I removed this rtestriction: and gloss.gloss=="NOM" because:
+                                #2) other proper names are inherently misleading and should be presented with alternative lowercase solution
+                                # like Sira (also sira: road, path) or Misi (also misi: cow) and many more
+                                # not doing so produces ridiculous solutions - JJM 07/02/2025
+
+                                # 01/04/2025 traiter des cas comme
+                                # cikɛ-bolofarakuntigi:n: [cikɛ-bolofarakun:n: tìgi:n:maître]
+                                # en éliminant le ou les -
+
+                                trythis=""
+
+                                if self.converters:
+                                    wlist = self.convert_orthography(token.value)
+                                    trythis=wlist[0]
+
+                                    if "-" in trythis: 
+                                        wlist.append(trythis.replace("-",""))
+
+                                    if trythis.islower():
+                                        converts = []
+                                        for w in filter(None, wlist):
+                                            w=w.capitalize()
+                                            converts.append(
+                                            self.parser.lemmatize(w)
+                                            )
+                                    elif iscapitalized(trythis) :
+                                        converts = []
+                                        for w in filter(None, wlist):
+                                            w=w.lower()
+                                            converts.append(
+                                            self.parser.lemmatize(w)
+                                            )
+                                    else:  # word is all caps or a mixture
+                                        converts = []
+                                        for w in filter(None, wlist):
+                                            w=w.lower()
+                                            converts.append(
+                                            self.parser.lemmatize(w)
+                                            )
+                                        for w in filter(None, wlist):
+                                            w=w.lower().capitalize()
+                                            converts.append(
+                                            self.parser.lemmatize(w)
+                                            )    
+                                    try:
+                                        # print("wlist=",wlist)
+                                        stage2, glosslist2 = self.filter_parsed(converts, list(filter(None, wlist)))                                        
+                                    except ValueError:
+                                        print("WARNING4: invalid orthographic conversion result, skipping token:", token.type, token.value, converts)
+
+                                else:
+                                    # print("not self.converters token.value=",token.value)
+                                    trythis2=""
+                                    if token.value.islower():
+                                        trythis=token.value.capitalize()
+                                    elif iscapitalized(token.value):
+                                        trythis=token.value.lower()
+                                    else:
+                                        trythis=token.value.lower()
+                                        trythis2=token.value.lower().capitalize()
+                                    try:
+                                        stage2,glosslist2=self.parser.lemmatize(trythis)
+                                    except ValueError:
+                                        print("WARNING5: invalid orthographic conversion result, skipping token:", token.type, token.value, converts)
+
+                                    if trythis2 != "":
+                                        try:
+                                            stage3,glosslist3=self.parser.lemmatize(trythis2)
+                                            glosslist2=glosslist2+glosslist3
+                                        except ValueError:
+                                            print("WARNING6 ",trythis2," lemmatize error ")
+
+                                if trythis != "":
+                                    #gl2=""
+                                    #for g in glosslist2: 
+                                    #    gl2 +=str(g)+", "
+                                    #print("glosslist2","["+gl2[:-2]+"]")
+
+                                    if len(glosslist2)>0 and glosslist2!=glosslist:
+                                        for g in glosslist2:
+                                            if len(g.ps)>0 and g.ps[0] != "":
+                                                nggok=0
+                                                if g.gloss=="" :
+                                                    if len(g.morphemes)>0 :
+                                                        for gg in g.morphemes:
+                                                            if len(gg.ps)==1 and gg.ps[0]!="mrph" and gg.gloss!="": nggok+=1
+                                                else:
+                                                    nggok=1
+
+                                                if nggok>0:
+                                                    if g in glosslist: continue
+                                                    else: glosslist.append(g)
+
+                                        # do some cleanup on resulting list
+                                        glosslist2=glosslist
+                                        glosslist=[]
+                                        for g in glosslist2:
+                                            if len(g.ps)>0 and g.ps[0] != "":
+                                                nggok=0
+                                                if g.gloss=="" :
+                                                    if len(g.morphemes)>0 :
+                                                        for gg in g.morphemes:
+                                                            if len(gg.ps)==1 and gg.ps[0]!="mrph" and gg.gloss!="": nggok+=1
+                                                else:
+                                                    nggok=1
+
+                                                if nggok>0:
+                                                    if g in glosslist: continue
+                                                    else: glosslist.append(g)                                        
+                                        if len(glosslist) == 0 :
+                                            glosslist=glosslist2    # no interesting results found!
+
+
+                                        # MORE CLEANUP:
+                                        # if len glosslist>1 éliminate X:n.prop:NOM artificial entries
+                                        if len(glosslist)>1:
+                                            glosslist2=glosslist
+                                            glosslist=[]
+                                            for g in glosslist2:
+                                                if len(g.ps)>0:
+                                                    if not (g.ps[0]=='n.prop' and g.gloss=='NOM'):
+                                                        glosslist.append(g)
+                                        if len(glosslist) == 0 :
+                                            glosslist=glosslist2    # no interesting results found!
+
+                                    #gl1=""
+                                    #for g in glosslist: 
+                                    #    gl1 +=str(g)+", "
+                                    #print("solution found?:","["+gl1[:-2]+"]")
+
+                        # needs testing here if it is the first Word in sentence (added wordindex)
+                        # do "trythis" (try lower case - but also try uppercase if it's old bambara all in lowercase)
+                        # and append to already found glosslist
+                        # example Masalabolo may have identified Masala as TOP + bolo "branch"
+                        # but it can also be masalabolo "text"
+                        # print("(word) wordindex=",wordindex,"token=",token.value)
+                        if wordindex==1:    
+                            # caution: this is not beginning of sentence but is restarted at punctuations, ie: also after a comma
+
+                            # assess initial situation, how many catitalized and lowercase results
+                            gl1 =""
+                            ncapitalized=0
+                            nlowercase=0
+                            # print("glosslist",glosslist)
+                            for g in glosslist: 
+                                if g.form[0].islower(): nlowercase+=1
+                                else:                   ncapitalized+=1
+                                gl1 +=str(g)+", "
+                            #print("standard list for :",token.value,"glosslist:","["+gl1 [:-2]+"]")
+                            #if      nlowercase==0:print("all capitalized")
+                            #elif    ncapitalized==0:print("all lowercase")
+                            #else:   print("mixed list lower and capitalized")
+
+                            trythis=""
+
+                            testthis=token.value[0]
+                            if self.converters:
+                                wlist = self.convert_orthography(token.value)
+                                testthis = wlist[0]
+                                if "-" in testthis: 
+                                    wlist.append(testthis.replace("-",""))
+
+                            if testthis.islower():    # was gloss.form
+                                if ncapitalized == 0:  # not capitalized result in standard approach
+                                    trythis=token.value.capitalize()   # no worry if converters (not used there), trythis just needs to be <> "
+                                    if self.converters:
+                                        # already done : wlist = self.convert_orthography(token.value)
+                                        converts = []
+                                        for w in filter(None, wlist):
+                                            w=w.capitalize()
+                                            converts.append(
+                                            self.parser.lemmatize(w)
+                                            )
+                                        try:
+                                            stage2, glosslist2 = self.filter_parsed(converts, list(filter(None, wlist)))
+                                        except ValueError:
+                                            print("WARNING2: invalid orthographic conversion result, skippig token:", token.type, token.value, converts)
+                                    else: 
+                                        stage2,glosslist2=self.parser.lemmatize(trythis)
+                                    
+                                    #gl2=""
+                                    #for g in glosslist2: gl2+=str(g)+", "
+                                    #print("islower trythis:",trythis,"glosslist2:","["+gl2[:-2]+"]")
+
+                            else:                     # Word was capitalized
+                                if nlowercase == 0 :  # no lowercase result in standard approach
+                                    trythis=token.value.lower()   # no worry if converters (not used there), trythis just needs to be <> "
+                                    if self.converters:
+                                        # already done: wlist = self.convert_orthography(token.value)
+                                        converts = []
+                                        for w in filter(None, wlist):
+                                            w=w.lower()
+                                            converts.append(
+                                            self.parser.lemmatize(w)
+                                            )
+                                        try:
+                                            stage2, glosslist2 = self.filter_parsed(converts, list(filter(None, wlist)))
+                                        except ValueError:
+                                            print("WARNING3: invalid orthographic conversion result, skippig token:", token.type, token.value, converts)
+                                    else: 
+                                        stage2,glosslist2=self.parser.lemmatize(trythis)
+
+                                    #gl2=""
+                                    #for g in glosslist2: gl2+=str(g)+", "
+                                    #print("not islower trythis:",trythis,"glosslist2:","["+gl2[:-2]+"]")
+                                
+                            if trythis!="":
+
+                                    if glosslist2!=glosslist:
+                                        for g in glosslist2:
+                                            if len(g.ps)>0 :
+                                                nggok=0
+                                                if g.gloss=="" :
+                                                    if len(g.morphemes)>0 :
+                                                        for gg in g.morphemes:
+                                                            if len(gg.ps)==1 and gg.ps[0]!="mrph" and gg.gloss!="": nggok+=1
+                                                else:
+                                                    nggok=1
+
+                                                if nggok>0:
+                                                    if g in glosslist: continue
+                                                    else: glosslist.append(g)
+
+                                    # nettoyage des doublons
+                                    #   faut-il plus de nettoyage (gloses inutiles) ???
+
+                                    glosslist2=glosslist
+                                    glosslist=[]
+                                    for g in glosslist2:
+                                        if g not in glosslist:
+                                            glosslist.append(g)
+
+                                    if len(glosslist)==0:
+                                        glosslist=glosslist2
+                                    
+                                    # MORE CLEANUP:
+                                    # if len glosslist>1 éliminate X:n.prop:NOM artificial entries
+                                    if len(glosslist)>1:
+                                        glosslist2=glosslist
+                                        glosslist=[]
+                                        for g in glosslist2:
+                                            if len(g.ps)>0:
+                                                if not (g.ps[0]=='n.prop' and g.gloss=='NOM'):
+                                                    glosslist.append(g)
+                                    if len(glosslist) == 0 :
+                                        glosslist=glosslist2    # no interesting results found!
+                                    
+
+
+                                #gl1 =""
+                                #for g in glosslist: gl1 +=str(g)+", "
+                                #print("Resulting glosslist:","["+gl1 [:-2]+"]")
+
+                            #else: print("no change")
 
                         if self.normalize_orthography and self.converters:
                             if len(wlist) == 1:
@@ -345,6 +639,10 @@ class Processor(object):
                             annot.append(daba.formats.WordToken(glosslist, normform, str(stage)))
                         else:
                             annot.append(daba.formats.WordToken(glosslist, token.value, str(stage)))
+
+
+
+
 
             self.parsed.append(par)
         return self.parsed

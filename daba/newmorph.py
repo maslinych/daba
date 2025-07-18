@@ -215,7 +215,8 @@ class Parser(object):
         result = pattern.apply(gloss)
         if result:
             if () in [m.ps for m in result.morphemes]:
-                ms = filter(lambda i: i.ps is not (), result.morphemes)
+                # ms = filter(lambda i: i.ps is not (), result.morphemes)
+                ms = filter(lambda i: i.ps != (), result.morphemes)
                 result = result._replace(morphemes=ms)
             return [result]
         else:
@@ -232,9 +233,16 @@ class Parser(object):
         if  parts < 2:
             return self.parse(pattern, gloss)
         else:
-            if gloss.morphemes:
-                #FIXME: use only first non-glossed morpheme as possible stem
-                stemgloss, stempos = [(m,pos) for pos,m in enumerate(gloss.morphemes) if not m.gloss][0]
+            if gloss.morphemes :
+                xxx=[(m,pos) for pos,m in enumerate(gloss.morphemes) if not m.gloss]
+                if len(xxx)>0:
+                    #FIXME: use only first non-glossed morpheme as possible stem
+                    #print("newmorph 237 m,pos :",[(m,pos) for pos,m in enumerate(gloss.morphemes) if not m.gloss])
+                    # stemgloss, stempos = [(m,pos) for pos,m in enumerate(gloss.morphemes) if not m.gloss][0]
+                    stemgloss, stempos =xxx[0]
+                else:
+                    stemgloss = gloss
+                    stempos = -1
             else:
                 stemgloss = gloss
                 stempos = -1

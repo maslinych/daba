@@ -113,12 +113,12 @@ class GUIBuilder(object):
     def __init__(self):
         self.widgets = {
                 'text': (wx.TextCtrl, None, None),
-                'long_text': (wx.TextCtrl, None, {'style': wx.TE_MULTILINE}),
+                'long_text': (wx.TextCtrl, None, {'style': wx.TE_MULTILINE, 'size':(300,100)}),
                 'int': (wx.lib.intctrl.IntCtrl, None, None),
                 'closed_list': (wx.Choice, 'choices', None),
                 'open_list': (wx.ComboBox, 'choices', None),
                 'checklist': (wx.CheckListBox, 'choices', None),
-                'date': (wx.adv.DatePickerCtrl, None, None),
+                'date': (wx.adv.DatePickerCtrl, None, {'style': wx.adv.DP_DROPDOWN|wx.adv.DP_SHOWCENTURY}),
                 'datetext': (wx.lib.masked.Ctrl, None, {'autoformat': 'EUDATEDDMMYYYY.'}),
                 }
         operate = namedtuple('Operate', 'get set')
@@ -139,7 +139,7 @@ class GUIBuilder(object):
                     lambda w,t: wx.ComboBox.SetValue(w, str(t))),
                 'checklist': operate(lambda t: ';'.join(wx.CheckListBox.GetCheckedStrings(t)), 
                     lambda w,t: wx.CheckListBox.SetCheckedStrings(w, t.split(';'))),
-                'date': operate(lambda t: wx.adv.DatePickerCtrl.GetValue(t).FormatDate(),
+                'date': operate(lambda t: wx.adv.DatePickerCtrl.GetValue(t).Format("%d.%m.%Y"),
                     lambda w,t: wx.adv.DatePickerCtrl.SetValue(w, parse_date(t))),
                 'datetext': operate(wx.lib.masked.TextCtrl.GetValue,
                     lambda w,t: wx.lib.masked.BaseMaskedTextCtrl.SetValue(w, str(t))),
@@ -250,8 +250,13 @@ class MetaDB(object):
             return mkey[len(prefix):]
         return mkey
 
-    def _decode_row(self, row):
-        utf = dict((self._strip_secname(k),v) for k,v in row.items())
+    def _decode_row(self, row):   
+        try:
+            utf = dict((self._strip_secname(k),v) for k,v in row.items())
+        except:
+            print("-row : ",row)   # added JJM 24/12/2024
+            sys.exit("***decode_row error***")
+
         if self.idcolumn not in utf.keys():
             key = self._add_uuid(utf)
         return utf
@@ -311,12 +316,16 @@ class MetaDB(object):
         dbentry = self._normalize_row(mdict)
         self._map[key] = dbentry
         self._strmap[self._make_keystring(mdict)] = key
-        self.write()
+        # print("mdict? : ",mdict) # JJM 27/12/2024
+        # mdict? :  {'name': 'Fournier, Georges', 'spelling': '', 'sex': 'm', 'birth_year': '', 'dialect': 'France', 'native_lang': 'Français', 'addon': 'nyòninsan 1976 (avec Andrée Audibert)', 'uuid': 'cc1eced6-e66e-4e9a-9b6d-8b209c56b699'}
+        if mdict['name']!='':    # JJM 27/12/2024 - do not update authors unnecessarily
+            self.write()
         return dbentry
 
     def update(self, key, mdict):
         self._map[key] = self._normalize_row(mdict)
-        self.write()
+        if mdict['name']!='':    # JJM 27/12/2024 - do not update authors unnecessarily
+            self.write()
 
     def getEntryByUUID(self, uuid):
         return self._map[uuid]
@@ -403,6 +412,7 @@ class MetaPanel(wx.Panel):
         else:
             panel = DataPanel(self, config=self.config, section=self.section)
             self.sizer.Add(panel, 1, wx.EXPAND, 0)
+        panel.SetBackgroundColour((236, 211, 211, 255))  # was (96, 63, 63, 30) - (90, 50, 50, 30) (236, 211, 211, 255) (130, 80, 80, 30)
         self.panels.append(panel)
         self.Layout()
 
@@ -452,6 +462,7 @@ class MetaPanel(wx.Panel):
                 dbentry = self.db.getEntryByKey(self.selector.GetValue())
                 self.setCurrentPanelData(dbentry.items())
             except KeyError:
+                # print("KeyError :", self.selector.GetValue())  # JJM 04/01/2024
                 pass
 
     def saveDBEntries(self):
@@ -464,6 +475,88 @@ class MetaPanel(wx.Panel):
                 dbentry = self.db.append(mdict)
                 panel.setPanelData(dbentry.items())
                 self.selector.AutoComplete(choices=self.db.getList())
+
+class ResumePanel(wx.ScrolledWindow):
+    def __init__(self, parent, *args, **kwargs):
+        wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
+        self.SetScrollRate(20, 20)
+        self.parent = parent
+        self.isMetaShown=False
+        self.Sizer = wx.BoxSizer(wx.VERTICAL)
+
+    def ShowMetas(self, metadata):
+
+        if self.isMetaShown:
+            self.Sizer.Clear(delete_windows=True)   # that's the key element missing : delete_windows=True
+            self.Sizer.Remove(self.Sizer)   # probably does not do a thing...
+
+        metas={}
+        items=[]
+        authors=False
+        metatxt=""
+        for item,y in metadata._data.items():
+            #print("item,y",item,y)
+            #metatxt+=item+" "+str(y)+"\n"
+            for sitem,svalue in y.items():
+                #print("sitem,svalue:",sitem,str(svalue))
+                if item=="author":
+                    if sitem=="name": sitem="_name" # force sorting as 1st
+                elif item in ["source","text"] :
+                    if sitem=="title": sitem="_title"
+           
+                thisvalue=', '.join(svalue)
+
+                if item in items:
+                    if item=="author" and authors:
+                        authindex=0
+                        for v in svalue:
+                            authindex+=1
+                            metas[item][authindex][sitem]=v
+                    else:
+                        metas[item][sitem]=thisvalue
+                else: 
+                    items.append(item)
+                    if item=="author":
+                        if len(svalue)>1:
+                            authors=True
+                            authindex=0
+                            for v in svalue:
+                                authindex+=1
+                                if authindex==1: 
+                                    metas[item]={authindex: {sitem:v}}
+                                else :  metas[item][authindex]={sitem:v}
+                        else:
+                            metas[item]={sitem:thisvalue}
+                    else:
+                        metas[item]={sitem:thisvalue}
+        
+        #print("metas:",metas)
+        # print sorted metas
+        metatxt="Métadonnées\n"
+        for x,y in sorted(metas.items()):
+            metatxt+=x+"\n"
+            for w,z in sorted(y.items()):
+                if x=="author" and authors:
+                    metatxt+="\t"+str(w)+"\n"
+                    for wn,zn in sorted(z.items()):
+                        metatxt+="\t\t"+wn.strip("_")+" :\t "+zn+"\n"
+                else: 
+                    metatxt+="\t"+w.strip("_")+" :\t "+str(z)+"\n"
+        metatxt=metatxt.replace("\n","\n   ")
+        metatxt=metatxt.replace(";"," ; ")
+
+        self.st= wx.TextCtrl(self,style=wx.TE_MULTILINE|wx.TE_DONTWRAP)
+        self.st.SetValue(metatxt)
+        #font = wx.Font(12, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        #self.SetFont(font)
+        self.metafont = self.GetFont()
+        self.metafont.SetPointSize(self.metafont.GetPointSize() + 2)
+        self.st.SetFont(self.metafont)
+        self.Sizer.Add(self.st, 1, wx.EXPAND)        
+
+        self.SetSizer(self.Sizer)
+        self.Layout()
+        self.isMetaShown=True
 
 
 class MetaNotebook(wx.Notebook):
@@ -481,6 +574,8 @@ class FilePanel(wx.Panel):
         self.parent = parent
 
         self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY)
+        # self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE)   # needs more work to enable text edits
+
         Sizer = wx.BoxSizer(wx.VERTICAL)
         Sizer.Add(self.control, 1, wx.EXPAND)
         self.SetSizer(Sizer)
@@ -498,6 +593,25 @@ class MainFrame(wx.Frame):
         self.dirname = os.curdir
         self.metapanels = {}
         self.encoding = encoding
+
+        self.myconfig = wx.Config.Get()            # JJM 26/12/2024
+        global confpath
+        confpath = self.myconfig.Read("meta/confpath")
+        print("_init_confpath=",confpath)
+        if confpath!="": 
+            self.config = MetaConfig(confpath)
+            # self.SetTitle("["+confpath+"]")   # JJM 27/12/2024
+        #wx.Config.Set(wx.Config("gparser", style=wx.CONFIG_USE_LOCAL_FILE))
+        #self.config = wx.Config.Get(False)
+        #self.config.SetRecordDefaults()
+
+        x=self.myconfig.ReadInt("MainFrame/pos/x",30)     # JJM : recover previous layout
+        y=self.myconfig.ReadInt("MainFrame/pos/y",30)
+        w=self.myconfig.ReadInt("MainFrame/size/w",512)
+        h=self.myconfig.ReadInt("MainFrame/size/h",256)
+        #print("x,y,w,h",x,y,w,h)
+        self.SetPosition(wx.Point(x,y))
+        self.SetSize(wx.Rect(x,y,w,h))
 
         filemenu = wx.Menu()
         menuOpen = filemenu.Append(wx.ID_OPEN, "O&pen", " Open text file")
@@ -522,6 +636,8 @@ class MainFrame(wx.Frame):
         configbutton.Bind(wx.EVT_FILEPICKER_CHANGED, self.OnConfigSelected)
         configbutton.SetTextCtrlProportion(2)
         configbutton.SetTextCtrlGrowable(True)
+        if confpath!="":
+            configbutton.SetPath(confpath)
         retainbutton = wx.ToggleButton(self, -1, 'Retain values for the next file')
         retainbutton.Bind(wx.EVT_TOGGLEBUTTON, self.OnRetainToggled)
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
@@ -536,6 +652,7 @@ class MainFrame(wx.Frame):
         splitter.SetMinimumPaneSize(100)
         self.filepanel = FilePanel(splitter)
         self.notebook = MetaNotebook(splitter)
+        self.notebook.SetBackgroundColour((236, 211, 211, 255))  # was (96, 63, 63, 30) - (236, 211, 211, 255) (90, 50, 50, 30)
         splitter.SplitVertically(self.filepanel, self.notebook)
         return splitter
         
@@ -548,8 +665,13 @@ class MainFrame(wx.Frame):
     def draw_metapanels(self):
         for secname in self.config.sections():
             metapanel = MetaPanel(self.notebook, config=self.config, section=secname)
+            # metapanel.Bind(wx.EVT_KILL_FOCUS, self.update_metadata)   # does not work, only Save fixes metadata for Résumé
             self.metapanels[secname] = metapanel
             self.notebook.AddPage(metapanel, self.config.getSectionTitle(secname))
+        # add résumé 
+        self.resumepanel = ResumePanel(self.notebook)
+        # self.resumepanel.Bind(wx.EVT_SET_FOCUS, self.resumepanel.ShowMetas(self.metadata))
+        self.notebook.AddPage(self.resumepanel, "[Résumé]")
         self.Layout()
 
     def clear_metapanels(self):
@@ -569,19 +691,31 @@ class MainFrame(wx.Frame):
     def update_interface(self):
         for secname, secdata in self.metadata.sections():
             self.metapanels[secname].setSectionData(secdata)
+        # update résumé
+        self.resumepanel.ShowMetas(self.metadata)
 
     def update_metadata(self):
         # collect all metadata given
         for secname, mp in self.metapanels.items():
             self.metadata.setSection(secname, mp.getSectionData())
+        # update résumé
+        self.resumepanel.ShowMetas(self.metadata)
 
     def write_xmldata(self):
         self.update_metadata()
+        metadatadict=self.metadata.toPlain()  # text-script REQUIRED VALUE JJM 29/12/2024 
+        if metadatadict['text:script']=='':
+            # wx.MessageBox('text:script is not set, please check in the Texte panel', 'value required', wx.OK | wx.ICON_INFORMATION)
+            wx.MessageBox('Le Type d\'écriture (text:script) doit être précisé, vérifier dans l\'onglet Texte ', 'value required', wx.OK | wx.ICON_INFORMATION)
+            return
         tempout = tempfile.NamedTemporaryFile(delete=False)
-        self.io.write(tempout.name, metadata=self.metadata.toPlain())
+        # self.io.write(tempout.name, metadata=self.metadata.toPlain())
+        self.io.write(tempout.name, metadata=metadatadict)
+        
         tempout.close()
         outfile = os.path.join(self.dirname, self.filename)
         shutil.copyfile(tempout.name, outfile)
+        #print("tempout.name: ",tempout.name)
         os.unlink(tempout.name)
     
     def OnRetainToggled(self, e):
@@ -591,7 +725,14 @@ class MainFrame(wx.Frame):
         if self.filename:
             self.FileOpenedError(e)
         else:
+            global confpath
             confpath = e.GetPath()
+
+            # self.SetTitle("["+confpath+"]")          # JJM 26/12/2024
+            myconfig = wx.Config.Get()
+            myconfig.Write("meta/confpath",confpath) # JJM 26/12/2024
+            myconfig.Flush()
+
             self.config = MetaConfig(confpath)
             if len(self.metapanels) > 0:
                 self.clear_metapanels()
@@ -615,7 +756,7 @@ class MainFrame(wx.Frame):
         if not self.config:
             self.NoFileError(e)
             return False
-        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.FD_OPEN)
+        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "meta files (txt/html)|*.html;*.txt", wx.FD_OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             self.infile = dlg.GetPath()
             self.filename = os.path.basename(self.infile)
@@ -627,6 +768,9 @@ class MainFrame(wx.Frame):
                 self.draw_metapanels()
                 self.update_interface()
             self.filepanel.control.SetValue(self.txt)
+            # global confpath
+            # self.SetTitle("["+confpath+"]   -   "+self.filename)  # added JJM 26/12/2024
+            self.SetTitle("Meta : "+self.filename)  # added JJM 30/12/2024
         dlg.Destroy()
 
     def OnSave(self,e):
@@ -658,6 +802,14 @@ class MainFrame(wx.Frame):
     def OnClose(self,e):
         self.OnSave(e)
         self.init_values()
+        #   JJM save window position and size
+        x,y=self.Position 
+        w,h=self.Size
+        self.myconfig.WriteInt("MainFrame/pos/x",x)
+        self.myconfig.WriteInt("MainFrame/pos/y",y)
+        self.myconfig.WriteInt("MainFrame/size/w",w)
+        self.myconfig.WriteInt("MainFrame/size/h",h)
+        self.myconfig.Flush()  # permanently writes
         if self.cleanup:
             self.clear_metapanels()
             self.draw_metapanels()

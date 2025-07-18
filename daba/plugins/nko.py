@@ -17,6 +17,7 @@ class NkoToLatin(OrthographyConverter):
         """
 
         w = token
+        
         # if token.type != 'Word':
         #     w = w.replace('\u060c', ',')
         #     w = w.replace('\u200f', '')
@@ -28,14 +29,15 @@ class NkoToLatin(OrthographyConverter):
 
         if debug:
             print("NKO", w, )
-    ### FOREIGN sounds with diacritics:
+    ### FOREIGN sounds with diacritics:    
+    #   07ed=short rising tone (dot above)  07f3=double dot above  07eb= short high tone (bar above)
         w = w.replace('\u07d6\u07ed', r"z")
         w = w.replace('\u07db\u07ed', r"S")   ### SH
         w = w.replace('\u07dc\u07ed', r"g")
         w = w.replace('\u07dd\u07ed', r"v")
         w = w.replace('\u07d8\u07ed', r"D")   ### D.
         w = w.replace('\u07e4\u07ed', r"Q")   ### H.
-        w = w.replace('\u07d7\u07ed', r"J")   ### C.
+        w = w.replace('\u07d7\u07ed', r"J")   ### C. CHA+short rising tone
         w = w.replace('\u07de\u07ed', r"x")   ### K.
         w = w.replace('\u07d5\u07ed', r"T")   ### T.
         
@@ -46,21 +48,22 @@ class NkoToLatin(OrthographyConverter):
         w = w.replace('\u07db\u07eb', r"C")   ### S=
         w = w.replace('\u07de\u07eb', r"q")   ### K=
 
-        w = w.replace('\u07f3', "\u0308")
-        w = w.replace('\u07f6', r"o")
-        w = w.replace('\u07cb\u0623', r"{")
-        w = w.replace('\u07cb\u0625', r"}")
+        w = w.replace('\u07f3', "\u0308")     # Double dot above -> ̈   Combining Diaeresis (U+0308)
+
+        w = w.replace('\u07f6', r"o")         #    ߶ N'Ko OO dennen
+        w = w.replace('\u07cb\u0623', r"{")   #    ߋ N'ko EE + أ Arabic Letter Alef With Hamza Above (U+0623)
+        w = w.replace('\u07cb\u0625', r"}")   #    ߋ N'ko EE + إ Arabic Letter Alef With Hamza Below (U+0625)
 
     ### VOWELS:
         w = w.replace('\u07ca', r"a")
         w = w.replace('\u07cb', r"e")
         w = w.replace('\u07cc', r"i")
-        w = w.replace('\u07cd', r"H")
+        w = w.replace('\u07cd', r"H")  # ߍ 
         w = w.replace('\u07ce', r"u")
         w = w.replace('\u07cf', r"o")
         w = w.replace('\u07d0', r"O")
     ### SYLLABIC N
-        w = w.replace('\u07d2', r"N")
+        w = w.replace('\u07d2', r"N")  # ߒ 
 
     ### CONSONANTS:
         w = w.replace('\u07d3', r"b")
@@ -76,30 +79,45 @@ class NkoToLatin(OrthographyConverter):
         w = w.replace('\u07dd', r"f")
         w = w.replace('\u07de', r"k")
         w = w.replace('\u07df', r"l")
-        w = w.replace('\u07e0', r"n")   # Na woloso
+        w = w.replace('\u07e0', r"n")   # ߠ Na woloso
         w = w.replace('\u07e1', r"m")
-        w = w.replace('\u07e2', r"Y")   # Nya
+        w = w.replace('\u07e2', r"Y")   # ߢ Nya
         w = w.replace('\u07e3', r"n")
         w = w.replace('\u07e4', r"h")
         w = w.replace('\u07e5', r"w")
         w = w.replace('\u07e6', r"y")
-        w = w.replace('\u07e7', r"y")   # Nya woloso
+        w = w.replace('\u07e7', r"y")   # ߧ Nya woloso
 
     ### APOSTROPHES:
-        w = w.replace('\u07f4', r"’")
-        w = w.replace('\u07f5', r"‘")
+        #w = w.replace('\u07f4', r"’")
+        #w = w.replace('\u07f5', r"‘")
+        w = w.replace('\u07f4', r"'")   # MODIFIED JJM 09/10/2024
+        w = w.replace('\u07f5', r"'")   # MODIFIED JJM 09/10/2024
 
-
+    ### DOUBLE PUNCTUATIONS #  MODIFIED JJM 18/10/2024 
+        w = w.replace('ߵߵ', r'"')
+        #w = w.replace('<<', r'«')  # this is handled in mparser sent_splitter
+        #w = w.replace('>>', r'»')
 
     ### PUNCTUATION:
         w = w.replace('\u060c', r",")  # Arabic comma
         w = w.replace('\u061f', r"?")  # Arabic question mark
-        w = w.replace('؛', r";")
-        w = w.replace('\u07fa', r"-")
-        w = w.replace('\u066a', r"%")
-        w = w.replace('\u200f', '') # right-to-left mark
-        w = w.replace('\u07f9', r"!")
-        w = w.replace('\u07f8', "\u00b7") # strange ·_
+        w = w.replace('؛', r";")       # U+061B ؛ ARABIC SEMICOLON
+        w = w.replace('\u07fa', r"-")  # N'Ko LAJANYALAN
+        w = w.replace('\u066a', r"%")  # Arabic Percent sign ٪
+        w = w.replace('\u200f', '')    # right-to-left mark
+        w = w.replace('\u07f9', r"!")  # N'Ko EXLAMATION MARK
+        w = w.replace(' \u07d1 ', r" ߸ ")  # erroneous use of N'ko dagbasinna as N'Ko comma (always between spaces) - JJM 19/nov/2024
+        w = w.replace('\u07f8', ",")   # N'Ko COMMA ߸
+        w = w.replace('\u202e', " ")   # RLO (Right-Left Override)
+        # not translated : ref https://www.unicode.org/charts/PDF/U07C0.pdf
+        # \07F7 NKO SYMBOL GBAKURUNEN ߷
+        # \07FE NKO DOROME SIGN ߾߾
+        # \07FF NKO TAMAN SIGN ߿
+        # \07FD NKO DANTAYALAN ߽
+        # bad idea? w = w.replace('(', "¤(¤")   # rotate parenthesis JJM 11/12/2024
+        # bad idea? w = w.replace(')', "(")
+        # bad idea? w = w.replace("¤(¤",")")
 
     ### MARKING HIGH TONE:
         w = re.sub('(a|e|H|i|o|O|u|N)(b|p|t|j|c|d|r|R|s|G|f|k|l|n|m|Y|h|w|y|z|g|S|v|F|D|Q|J|A|T|Z|C|x|q|-)', "\\1\u0301\\2", w)
@@ -175,7 +193,17 @@ class NkoToLatin(OrthographyConverter):
     ### REMOVE flowting low tone from "i" and "n" pronouns:
         w = re.sub('\b([iN])\u0301`', "\\1\u0301", w)
         
-   ### NUMERALS:
+    ### if N'Ko Text already contains LATIN NUMBERS (happened in Solomana Kante Kurukanfuwa) JJM nov 2024
+        # REVERSE NUMBERS : 31 in N'Ko is 13 in latin !
+        def reverse(m):
+            digits=m.groups()[0]
+            digitsr = digits[len(digits)::-1]
+            return digitsr
+        w = re.sub(r'([0-9][0-9]+)',reverse,w)
+        # otherwise, the reversal comes with the replacement of RTL characters with LTR characters
+        # for numbers just as well as for words
+
+    ### NUMERALS:
         w = w.replace('\u07c0', r"0")
         w = w.replace('\u07c1', r"1")
         w = w.replace('\u07c2', r"2")
@@ -186,7 +214,12 @@ class NkoToLatin(OrthographyConverter):
         w = w.replace('\u07c7', r"7")
         w = w.replace('\u07c8', r"8")
         w = w.replace('\u07c9', r"9")
-        w = re.sub('(\d)\u07f2', r"\1nan", w)
+        w = re.sub('r(\d)\u07f2', r"\1nan", w)
+        w = re.sub('r(\d) \u07f2', r"\1nan", w) # I notice it is considered separate JJM 28/10/2024
+        w = re.sub('r\u07f2(\d)', r"\1nan", w)  # is it not the reverse? JJM 28/10/2024B
+        w = re.sub('r\u07f2 (\d)', r"\1nan", w)  # is it not the reverse? JJM 28/10/2024B
+        #NB : none of these 4 approaches work ?
+
 
     ### NASALIZATION MARK:    
         w = w.replace('\u07f2', r"n")
@@ -199,14 +232,14 @@ class NkoToLatin(OrthographyConverter):
         w = w.replace('R', r"rr")
         w = w.replace('G', r"gb")
         w = w.replace('S', r"sh")   # sh
-        w = w.replace('D', "d\u0323")   ### D.
-        w = w.replace('Q', "\u0127")    ### H.
-        w = w.replace('J', "\u0292")    ### C. = zh
-        w = w.replace('A', "\u0295")    ### A"
-        w = w.replace('F', "\u03b8")    ### S"
-        w = w.replace('T', "t\u0323")   ### J"
-        w = w.replace('Z', "z\u0323")   ### J"
-        w = w.replace('C', "s\u0323")   ### S=
+        w = w.replace('D', "d\u0323")   ### D.  u0323=Combining dot below
+        w = w.replace('Q', "\u0127")    ### H.  Latin Small Letter H With Stroke (U+0127)
+        w = w.replace('J', "\u0292")    ### C. = zh - why not j ???
+        w = w.replace('A', "\u0295")    ### A"  Latin Letter Pharyngeal Voiced Fricative (U+0295)
+        w = w.replace('F', "\u03b8")    ### S"  Greek Small Letter Theta (U+03B8)
+        w = w.replace('T', "t\u0323")   ### J"  u0323=Combining dot below
+        w = w.replace('Z', "z\u0323")   ### J"  u0323=Combining dot below
+        w = w.replace('C', "s\u0323")   ### S=  u0323=Combining dot below
         w = re.sub('[‘]', r"`", w)
         w = re.sub('[’]', r"'", w)
         w = w.replace('_', '')
@@ -217,7 +250,7 @@ class NkoToLatin(OrthographyConverter):
         if debug:
             print("LAT", w,)
         w = self.normalize_tones(w)
-
+        
         if debug:
             print("TNL", w)
         return [w]

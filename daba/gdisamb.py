@@ -54,6 +54,9 @@ SaveResultsEvent, EVT_SAVE_RESULTS = wx.lib.newevent.NewCommandEvent()
 LocaldictLookupEvent, EVT_LOCALDICT_LOOKUP = wx.lib.newevent.NewCommandEvent()
 LocaldictSaveEvent, EVT_LOCALDICT_SAVE = wx.lib.newevent.NewCommandEvent()
 
+global bamananGV, maninkaGV 
+bamananGV=True # JJM - default value for Gloss Validations specific to Bamanan
+maninkaGV=False # JJM 24/03/2024  Settings should be saved
 
 # UTILITY functions and no-interface classes
 
@@ -70,8 +73,11 @@ def get_basename(fname):
 like .pars.html and .dis.html"""
     basename = os.path.splitext(os.path.basename(fname))[0]
     pars = basename.rfind('.pars')
+    repl = basename.rfind('.repl')  # added JJM
     if pars > 0:
         return basename[:pars]
+    elif repl > 0:
+        return basename[:repl]
     dis = basename.rfind('.dis')
     if dis > 0 and len(basename)-dis <= 7:
         return basename[:dis]
@@ -96,6 +102,9 @@ class NormalizedTextCtrl(wx.TextCtrl):
 
 def makeGlossString(gloss, morphemes=False):
     """string representation of the Gloss object (for labelling buttons and the like)"""
+    # print("makeGlossString morphemes passed:",morphemes)
+    # print("makeGlossString gloss.morphemes passed:",gloss.morphemes)
+    # print("makeGlossString gloss._str_ passed:",str(gloss))
     if not ''.join(gloss.ps) and not gloss.gloss and not gloss.morphemes:
         return gloss.form
     elif morphemes and gloss.morphemes:
@@ -114,9 +123,9 @@ class SentAnnot(object):
     ----------
     pnum (int) : paragraph number (0-based)
     snum (int) : sentence number (0-based)
-    senntoken (PlainToken) : sentence token
+    senttoken (PlainToken) : sentence token
     senttext (str) : sentence text
-    glosslist ([WordToken]) : list of anntotations for each token in a sentence
+    glosslist ([WordToken]) : list of annotations for each token in a sentence
     selectlist ([[WordToken]]) : list of annotations selected by user (for each token)
     attrs (dict) : sentence-level attributes (proxy to senttoken.attrs)
     """
@@ -218,9 +227,18 @@ class FileParser(object):
                         glosstoken.setGlosslist(selectlist)
                     outgloss.append(glosstoken)
             out[-1].append((sent.senttoken, outgloss))
+        # added JJM from format HtmlReader (removed numpar, unkown here)
+        # these were not updated on save (only on load)
+        for k, v in [
+                ('_auto:words', self.numwords),
+                ('_auto:sentences', self.numsent)
+                ]:
+            self.metadata[k] = str(v)
+
         fwriter = daba.formats.HtmlWriter((self.metadata, out), filename)
         fwriter.write()
 
+    
 
 class EditLogger(object):
     """log token edit operations"""
@@ -272,7 +290,7 @@ class SearchTool(object):
         self.matches = []
         self.searchstr = searchstr
         self.history.append(self.searchstr)
-        if self.ignorecase:
+        if searchtype not in ('gf','in','re',) and self.ignorecase:
             searchstr = searchstr.lower()
         glosses = self.processor.glosses
         if startsent:
@@ -287,6 +305,63 @@ class SearchTool(object):
                     # FIXME: should not happen if all words are proper GlossTokens
                     except (AttributeError):
                         print(word)
+            elif searchtype == "ps":
+                for wnum, word in enumerate(sent.glosslist):
+                    try:
+                        s0=":"+self.searchstr+":"
+                        if s0 in str(word.gloss) :
+                            match = (sent.snum, wnum)
+                            self.matches.append(match)
+                    # FIXME: should not happen if all words are proper GlossTokens
+                    except (AttributeError):
+                        print(word)
+            elif searchtype == "gf":
+                for wnum, word in enumerate(sent.glosslist):
+                    try:
+                        s1=":"+self.searchstr+" "
+                        s2=":"+self.searchstr+"]"
+                        sgloss=str(word.gloss)+" "
+                        if s1 in sgloss or s2 in sgloss :
+                            match = (sent.snum, wnum)
+                            self.matches.append(match)
+                    # FIXME: should not happen if all words are proper GlossTokens
+                    except (AttributeError):
+                        print("except in searcher searchtype 'gf' :",word)              
+            elif searchtype == "lx":
+                for wnum, word in enumerate(sent.glosslist):
+                    try:
+                        s1=self.searchstr+":"
+                        s2="["+s1
+                        s3=" "+s1
+                        sgloss=str(word.gloss)
+                        if sgloss.startswith(s1) or s2 in sgloss or s3 in sgloss:
+                            match = (sent.snum, wnum)
+                            self.matches.append(match)
+                    # FIXME: should not happen if all words are proper GlossTokens
+                    except (AttributeError):
+                        print("except in searcher searchtype 'lx' :",word)
+            elif searchtype == "in":
+                for wnum, word in enumerate(sent.glosslist):
+                    try:
+                        sgloss=str(word.gloss)
+                        if searchstr in sgloss:
+                            match = (sent.snum, wnum)
+                            self.matches.append(match)
+                    # FIXME: should not happen if all words are proper GlossTokens
+                    except (AttributeError):
+                        print("except in searcher searchtype 'in' :",searchstr,word)
+            elif searchtype == "re":
+                # print("_searcher 're' searchstr:",searchstr)
+                for wnum, word in enumerate(sent.glosslist):
+                    try:
+                        sgloss=str(word.gloss)
+                        # print("_searcher 're' sgloss:",sgloss, re.search(searchstr,sgloss))
+                        if re.search(searchstr,sgloss):
+                            match = (sent.snum, wnum)
+                            self.matches.append(match)
+                    # FIXME: should not happen if all words are proper GlossTokens
+                    except (AttributeError):
+                        print("except in searcher searchtype 're' :",searchstr,word)
             elif searchtype == 'sentence part':
                 for matchobj in re.finditer(self.searchstr, sent.senttext):
                     self.matches.append((sent.snum, matchobj))
@@ -302,6 +377,21 @@ class SearchTool(object):
         """
         if ' ' in searchstr:
             searchtype = 'sentence part'
+        elif searchstr.startswith(':::'):
+            searchtype = "gf"
+            searchstr=normalizeText(searchstr[3:])
+        elif searchstr.startswith('::'):
+            searchtype = "ps"
+            searchstr=searchstr[2:]
+        elif searchstr.startswith(":"):
+            searchtype='lx'
+            searchstr=searchstr[1:]
+        elif searchstr.startswith('**'):
+            searchtype = "re"
+            searchstr=searchstr[2:]
+        elif searchstr.startswith("*"):
+            searchtype='in'
+            searchstr=searchstr[1:]
         else:
             searchtype = 'word part'
         matches = self._searcher(searchstr, searchtype, startsent)
@@ -349,9 +439,31 @@ buttons into view on canvas (if not visible)"""
             self.GetTopLevelParent().sentpanel.OnSaveResults(event)
             self.GetTopLevelParent().ShowSent(self.num)
             self.GetTopLevelParent().Layout()
-
+            self.GetTopLevelParent().notebook.ChangeSelection(0)   # added JJM: switches to sentpanel
         event.Skip()
 
+class MetaText(wx.StaticText):
+    """Meta data overview widget"""
+    def __init__(self, parent, id, num=None, *args, **kwargs):
+        wx.StaticText.__init__(self, parent, *args, **kwargs)
+        self.num = num
+        self.parent = parent
+
+        font = wx.Font(12, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        self.SetFont(font)
+
+
+    """def onMouseEvent(self, event):
+        
+        if event.Moving():
+            self.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
+        elif event.LeftDown():
+            self.GetTopLevelParent().metapanel.OnSaveResults(event)
+            self.GetTopLevelParent().ShowSent(self.num)
+            self.GetTopLevelParent().Layout()
+
+        event.Skip()
+    """
 
 class GlossButton(wx.Panel):
     """Single button widget for selecting a gloss variant
@@ -365,13 +477,13 @@ class GlossButton(wx.Panel):
     children (list) : a list of the nested morphemes of a gloss
     gloss (Gloss) : widget's Gloss
 """
-    def __init__(self, parent, gloss, statecolours, disabled=False,
+    def __init__(self, parent, gloss, statecolours, disabled=False, addbylocaldict=False,
                  *args, **kwargs):
         """GlossButton constructor
 
         :param gloss: Gloss to be displayed on the button
         :type gloss: Gloss
-        :param statecolors: colors for vairous state of the selector
+        :param statecolors: colors for various state of the selector
         :type statecolors: dict"""
         wx.Panel.__init__(self, parent, *args, **kwargs)
         self.selected = False
@@ -379,18 +491,24 @@ class GlossButton(wx.Panel):
         self.gloss = gloss
         self.disabled = disabled
         self.statecolours = statecolours
+        self.addbylocaldict = addbylocaldict
 
         box = wx.BoxSizer(wx.VERTICAL)
         # prepare main gloss button
+        textforbutton=makeGlossString(gloss)
+        if self.addbylocaldict: textforbutton="*"+textforbutton
         if self.disabled:
-            self.main = wx.Button(self, -1, makeGlossString(gloss))
+            self.main = wx.Button(self, -1, textforbutton)
             self.main.Disable()
         else:
-            self.main = wx.ToggleButton(self, -1, makeGlossString(gloss))
+            self.main = wx.ToggleButton(self, -1, textforbutton)
             self.main.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggled)
         fore, back = self.statecolours['deselected']
         self.main.SetForegroundColour(fore)
-        self.main.SetBackgroundColour(back)
+        if self.addbylocaldict: 
+            self.main.SetBackgroundColour((255, 230, 200, 255)) # some sort of beige?
+        else:
+            self.main.SetBackgroundColour(back)
         self.Refresh()
         box.Add(self.main, 0, wx.EXPAND)
         # prepare morphemes buttons recursively
@@ -418,11 +536,17 @@ class GlossButton(wx.Panel):
         if self.selected:
             fore, back = self.statecolours['selected']
             self.main.SetForegroundColour(fore)
-            self.main.SetBackgroundColour(back)
+            if self.addbylocaldict:
+                self.main.SetBackgroundColour((255, 230, 200, 255)) # some sort of beige?
+            else:
+                self.main.SetBackgroundColour(back)
         else:
             fore, back = self.statecolours['deselected']
             self.main.SetForegroundColour(fore)
-            self.main.SetBackgroundColour(back)
+            if self.addbylocaldict:
+                self.main.SetBackgroundColour((255, 230, 200, 255)) # some sort of beige?
+            else:
+                self.main.SetBackgroundColour(back)
         self.Refresh()
         self.ToggleChildren()
 
@@ -453,6 +577,7 @@ class GlossInputDialog(wx.Dialog):
         wx.Dialog.__init__(self, parent, id, title,
                            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
                            *args, **kwargs)
+
         self.as_gloss = gloss
         self.morphemes = []
         self.save = True
@@ -463,8 +588,12 @@ class GlossInputDialog(wx.Dialog):
             config.Read('colors/deselected/back', 'White'))}
 
         vbox_top = wx.BoxSizer(wx.VERTICAL)
+        global bamananGV,maninkaGV
+        texte_à_afficher="Composez votre glose | x:ps:gloss [y...] | Gloss string"
+        if bamananGV: texte_à_afficher="(bam) "+texte_à_afficher
+        elif maninkaGV: texte_à_afficher="(emk) "+texte_à_afficher
         vbox_top.Add(wx.StaticText(self, wx.ID_ANY,
-                                   "Gloss string (edit inplace):"))
+                                   texte_à_afficher,size=(600,20)))  # JJM dirty trick to enlarge dialog
         glossstring = str(self.as_gloss)
         self.glosstext = wx.ComboBox(self, wx.ID_ANY, glossstring,
                                      choices=[glossstring])
@@ -491,12 +620,43 @@ class GlossInputDialog(wx.Dialog):
         self.GetSizer().SetItemMinSize(self.glosstext, (gwidth + 15, gheight + 10))
         self.Layout()
         self.Fit()
+   
+    def tomonolith(m) :
+        mapping = { 'à':'à', 'â':'â', 'é':'é', 'ê':'ê', 'è':'è', 'ë':'ë', 'î':'î', 'ï':'ï', 'ô':'ô', 'û':'û', 'ù':'ù', 'ç':'ç', 'À':'À', 'Ç':'Ç', 'Ê':'Ê', 'Ô':'Ô'}
+        lxps=m.groups()[0]
+        gloss=m.groups()[1]
+        for k, v in mapping.items():
+            if k in gloss:
+                gloss = gloss.replace(k, v)
+        return lxps+gloss
 
     def UpdateInterface(self, gloss):
+        """
+        def tomonolith(m) :
+            mapping = { 'à':'à', 'â':'â', 'é':'é', 'ê':'ê', 'è':'è', 'ë':'ë', 'î':'î', 'ï':'ï', 'ô':'ô', 'û':'û', 'ù':'ù', 'ç':'ç', 'À':'À', 'Ç':'Ç', 'Ê':'Ê', 'Ô':'Ô'}
+            lxps=m.groups()[0]
+            gloss=m.groups()[1]
+            for k, v in mapping.items():
+                if k in gloss:
+                    gloss = gloss.replace(k, v)
+            return lxps+gloss
+        """
         """update dialog (gbutton, glosstext) given a gloss"""
         self.freeze = True
-        glossstring = str(gloss)
+        glossstring = str(gloss)  # ou bien self.glosstext ?
+        # glossstring = re.sub(r'([^\:\[ ]+\:[^\:\[ ]*\:)([^\: ]+)',tomonolith,glossstring) # JJM temp fix
         cursor = self.glosstext.GetInsertionPoint()
+        #print("'"+glossstring+"', len(glossstring):",len(glossstring), ", cursor:", cursor)
+        diacritics="\u0301\u0300\u0302\u030c\u00B8\u0308\u005e\u02c6"  # high, low, decreasing, increasing tone diacritics + cedilla and diaeresis (trema as in ë)
+        #print("fin de glossstring=",glossstring[-1])
+        if glossstring[-1] in diacritics:
+            cursor=len(glossstring) # JJM in case monolith characters are split : ê -> e ̂              
+        elif cursor<len(glossstring) :
+            if glossstring[cursor] in diacritics:
+                cursor=cursor+1
+        # cette logique marche sous windows, ne marche plus sous linux 31/12/2024
+        # still valid after tomonolith? for lexeme ?
+
         self.glosstext.SetValue(glossstring)
         self.glosstext.SetInsertionPoint(cursor)
         sizer = self.GetSizer()
@@ -523,23 +683,156 @@ class GlossInputDialog(wx.Dialog):
 
     def OnEditGlosstext(self, evt):
         """gloss is edited event callback"""
+
+        def normalizeLex(m):
+            lx=m.groups()[0]
+            lx=normalizeText(lx)
+            psgloss=m.groups()[1]
+            psgloss=unicodedata.normalize('NFC',psgloss) # is this faster than tomonolith() ?
+            return lx+psgloss
+
         if not self.freeze:
             self.FitGlosstextWidth()
-            glosstext = normalizeText(self.glosstext.GetValue())
+            # glosstext = normalizeText(self.glosstext.GetValue())  # should NOT be applied to 3d part (gloss in French)
+            glosstext = self.glosstext.GetValue()
+            glosstext = re.sub(r'([^\:\[ ]+)(\:[^\:\[ ]*\:[^\:\[\] ]*)',normalizeLex,glosstext)
             oldgloss = self.as_gloss
             try:
-                toks = daba.grammar.str_tokenize(glosstext)
+                toks = daba.grammar.str_tokenize(glosstext)   # cf same process in formats / glosstext_to_html
                 self.as_gloss = daba.grammar.stringgloss_parser().parse(toks)
                 if not self.as_gloss == oldgloss:
-                    self.glosstext.SetBackgroundColour(wx.NullColour)
-                    self.glosstext.Refresh()
-                    self.UpdateInterface(self.as_gloss)
+                    # is this the good place to :
+                    #   check mrph values for bambara here (in ['INF','QUOT','EQU','PFV.TR',...])
+                    # needs config setting to enable/disable bambara
+                    # try for now
+                    #print("bamananGV:",bamananGV,"    maninkaGV:",maninkaGV)
+                    if bamananGV:
+                        mrphlist=["la:mrph:à","la:mrph:CAUS","lá:mrph:CAUS","lán:mrph:CAUS","ná:mrph:CAUS","rɔ́:mrph:CAUS","mà:mrph:SUPER","màn:mrph:SUPER","rɔ́:mrph:IN","lu:mrph:PL2","nu:mrph:PL2","ba:mrph:AUGM","baa:mrph:AG.OCC","baga:mrph:AG.OCC","bali:mrph:PTCP.NEG","ka:mrph:GENT","la:mrph:AG.PRM","na:mrph:AG.PRM","la:mrph:LOC","na:mrph:LOC","la:mrph:PRIX","na:mrph:PRIX","la:mrph:MNT1","na:mrph:MNT1","lata:mrph:MNT2","nata:mrph:MNT2","la:mrph:PROG","na:mrph:PROG","la:mrph:PFV.INTR","na:mrph:PFV.INTR","n':mrph:PFV.INTR","ra:mrph:PFV.INTR","rá:mrph:IN","rɔ́:mrph:IN","w:mrph:PL","lama:mrph:STAT","nama:mrph:STAT","lan:mrph:INSTR","nan:mrph:INSTR","len:mrph:PTCP.RES","nen:mrph:PTCP.RES","li:mrph:NMLZ","ni:mrph:NMLZ","\\:mrph:NMLZ2","ma:mrph:COM","ma:mrph:RECP.PRN","man:mrph:ADJ","ntan:mrph:PRIV","ma:mrph:DIR","nan:mrph:ORD","nin:mrph:DIM","nci:mrph:AG.EX","ɲɔgɔn:mrph:RECP","ɲwan:mrph:RECP","ta:mrph:PTCP.POT","tɔ:mrph:CONV","tɔ:mrph:ST","ya:mrph:DEQU","yɛ:mrph:DEQU","ya:mrph:ABSTR","ma:mrph:SUPER","man:mrph:SUPER","sɔ̀:mrph:EN","ra:mrph:OPT2","la:mrph:OPT2","na:mrph:OPT2"]
+                        pmlist=["bɛ́nà:pm:FUT","bɛ́n':pm:FUT","bɛ:pm:IPFV.AFF","b':pm:IPFV.AFF","be:pm:IPFV.AFF","bi:pm:IPFV.AFF","bɛ́kà:pm:PROG.AFF","bɛ́k':pm:PROG.AFF","bɛ́ka:pm:INFR","bága:pm:INFR","bìlen:pm:COND.NEG","kà:pm:INF","k':pm:INF","ka:pm:SBJV","k':pm:SBJV","ka:pm:QUAL.AFF","man:pm:QUAL.NEG","kànâ:pm:PROH","kàn':pm:PROH","ma:pm:PFV.NEG","m':pm:PFV.NEG","mánà:pm:COND.AFF","mán':pm:COND.AFF","máa:pm:COND.AFF","nà:pm:CERT","n':pm:CERT","tɛ:pm:IPFV.NEG","te:pm:IPFV.NEG","ti:pm:IPFV.NEG","t':pm:IPFV.NEG","tɛ́kà:pm:PROG.NEG","tɛ́k':pm:PROG.NEG","tɛ́ka:pm:INFR.NEG","tɛ́k':pm:INFR.NEG","tɛ́nà:pm:FUT.NEG","tɛ́n':pm:FUT.NEG","ye:pm:PFV.TR","y':pm:PFV.TR","yé:pm:IPFV","yé:pm:IMP","y':pm:IMP","yékà:pm:RCNT","màa:pm:DES","mà:pm:DES","m':pm:DES"]
+                        coplist=["bɛ́:cop:être","b':cop:être","yé:cop:être","kó:cop:QUOT","k':cop:QUOT","dòn:cop:ID","dò:cop:ID","tɛ́:cop:COP.NEG","té:cop:COP.NEG","t':cop:COP.NEG","yé:cop:EQU","y':cop:EQU","bé:cop:être"]
+                        perslist=["ń:pers:1SG","nê:pers:1SG.EMPH","í:pers:2SG","í:pers:REFL","ê:pers:2SG.EMPH","à:pers:3SG","àlê:pers:3SG.EMPH","án:pers:1PL","ánw:pers:1PL.EMPH","a':pers:2PL","á:pers:2PL","á':pers:2PL","áw:pers:2PL.EMPH","ù:pers:3PL","òlû:pers:ce.PL2"]
+                        # pplist=["bála:pp:sur","bálan:pp:sur","bára:pp:chez","bólo:pp:CNTRL","bólokɔrɔ:pp:sous.la.main [bólo:n:bras kɔ́rɔ:pp:sous]","cɛ́:pp:entre","cɛ́fɛ̀:pp:parmi [cɛ́:n:milieu fɛ̀:pp:par]","cɛ́la:pp:parmi [cɛ́:n:milieu lá:pp:à]","cɛ́mà:pp:parmi [cɛ́:n:milieu mà:pp:ADR]","dáfɛ̀:pp:auprès [dá:n:bouche fɛ̀:pp:par]","dála:pp:auprès [dá:n:bouche lá:pp:à]","fɛ̀:pp:par","jùfɛ̀:pp:sous [jù:n:derrière fɛ̀:pp:par]","jùkɔ́rɔ:pp:dessous [jù:n:derrière kɔ́rɔ:pp:sous]","jùlá:pp:à.l'endroit.de [jù:n:derrière lá:pp:à]","ka:pp:POSS","kàlamà:pp:au.courant.de [kàla:n:tige mà:pp:ADR]","kámà:pp:pour [kán:n:cou mà:pp:ADR]","kàn:pp:sur","kánmà:pp:pour [kán:n:cou mà:pp:ADR]","kánna:pp:sur [kán:n:cou lá:pp:à]","kɛ̀rɛfɛ̀:pp:par.côté [kɛ̀rɛ:n:côté fɛ̀:pp:par]","kósɔ̀n:pp:à.cause.de","kɔ́:pp:après","kɔ́fɛ̀:pp:derrière [kɔ́:n:dos fɛ̀:pp:par]","kɔ́kàn:pp:à.l'extérieur [kɔ́:n:dos kàn:pp:sur]","kɔ́kɔrɔ:pp:en.soutien.de [kɔ́:n:dos kɔ́rɔ:pp:sous]","kɔ́nɔ:pp:dans","kɔ́rɔ:pp:sous","kùn:pp:sur","kùnda:pp:du.côté.de [kùn:n:tête dá:n:bouche]","kùnfɛ̀:pp:à.l'aveugle [kùn:n:tête fɛ̀:pp:par]","kùnkàn:pp:à.propos.de [kùn:n:tète kàn:pp:sur]","kùnkɔ́rɔ:pp:pour [kùn:n:tête kɔ́rɔ:pp:sous]","kùnná:pp:au-dessus [kùn:n:tête lá:pp:à]","k':pp:POSS","lá:pp:à","lɔ́:pp:IN","mà:pp:ADR","ná:pp:à","nàgakɔ́rɔ:pp:à.proximité [nàga:n:ventre kɔ́rɔ:n:dessous]","nɔ́:pp:IN","nɔ̀fɛ̀:pp:derrière [nɔ̀:n:trace fɛ̀:pp:par]","nɔ̀kàn:pp:après [nɔ̀:n:trace kàn:pp:sur]","nɔ̀ná:pp:à.la.place.de [nɔ̀:n:trace lá:pp:à]","ɲɛ́:pp:devant","ɲɛ́fɛ̀:pp:devant [ɲɛ́:n:oeil fɛ̀:pp:par]","ɲɛ́kàn:pp:au.dam.de [ɲɛ́:n:oeil kàn:pp:sur]","ɲɛ́kɔrɔ:pp:en.présence.de [ɲɛ́:n:oeil kɔ́rɔ:pp:sous]","ɲɛ́mà:pp:devant [ɲɛ́:n:oeil mà:pp:ADR]","ɲɛ́na:pp:devant [ɲɛ́:n:oeil lá:pp:à]","rɔ́:pp:IN","sánfɛ̀:pp:par-dessus [sán:n:ciel fɛ̀:pp:par]","sènfɛ̀:pp:au.cours.de [sèn:n:jambe fɛ̀:pp:par]","sènkɔ́rɔ:pp:parmi [sèn:n:jambe kɔ́rɔ:pp:sous]","yé:pp:PP","yɔ́rɔ:pp:chez","y':pp:PP"]
+                        #     morphemes cannot be checked against glosstext 
+                        pplist=["bála:pp:sur","bálan:pp:sur","bára:pp:chez","bólo:pp:CNTRL","bólokɔrɔ:pp:sous.la.main","cɛ́:pp:entre","cɛ́fɛ̀:pp:parmi","cɛ́la:pp:parmi","cɛ́mà:pp:parmi","dáfɛ̀:pp:auprès","dála:pp:aupreès","fɛ̀:pp:par","jùfɛ̀:pp:sous","jùkɔ́rɔ:pp:dessous","jùlá:pp:à.l'endroit.de","ka:pp:POSS","kàlamà:pp:au.courant.de","kámà:pp:pour","kàn:pp:sur","kánmà:pp:pour","kánna:pp:sur","kɛ̀rɛfɛ̀:pp:par.côté","kósɔ̀n:pp:à.cause.de","kɔ́:pp:après","kɔ́fɛ̀:pp:derrière","kɔ́kàn:pp:à.l'extérieur","kɔ́kɔrɔ:pp:en.soutien.de","kɔ́nɔ:pp:dans","kɔ́rɔ:pp:sous","kùn:pp:sur","kùnda:pp:du.côté.de","kùnfɛ̀:pp:à.l'aveugle","kùnkàn:pp:à.propos.de","kùnkɔ́rɔ:pp:pour","kùnná:pp:au.dessus","k':pp:POSS","lá:pp:à","lɔ́:pp:IN","mà:pp:ADR","ná:pp:à","nàgakɔ́rɔ:pp:à.proximité","nɔ́:pp:IN","nɔ̀fɛ̀:pp:derrière","nɔ̀kàn:pp:après","nɔ̀ná:pp:à.la.place.de","ɲɛ́:pp:devant","ɲɛ́fɛ̀:pp:devant","ɲɛ́kàn:pp:au.dam.de","ɲɛ́kɔrɔ:pp:en.présence.de","ɲɛ́mà:pp:devant","ɲɛ́na:pp:devant","rɔ́:pp:IN","sánfɛ̀:pp:par-dessus","sènfɛ̀:pp:au.cours.de","sènkɔ́rɔ:pp:parmi","yé:pp:PP","yɔ́rɔ:pp:chez","y':pp:PP"]
+                        # attention : ces gloses (le français) DOIVENT être en monolithes!
+                        bamok=True
+                        if ':mrph:' in glosstext:
+                            allbam=re.findall(r'([^\[\s\:]+\:mrph\:[^\s\]]*)',glosstext)
+                            if allbam:
+                                for thisbam in allbam:
+                                    if thisbam not in mrphlist:
+                                        bamok=False
+                                        break
+                        elif ':pm:' in glosstext:
+                            allbam=re.findall(r'([^\[\s\:]+\:pm\:[^\s\]]*)',glosstext)  # this search does not take morphemes!
+                            if allbam:
+                                for thisbam in allbam:
+                                    if thisbam not in pmlist:
+                                        bamok=False
+                                        break
+                        elif ':cop:' in glosstext:
+                            allbam=re.findall(r'([^\[\s\:]+\:cop\:[^\s\]]*)',glosstext)
+                            if allbam:
+                                for thisbam in allbam:
+                                    if thisbam not in coplist:
+                                        bamok=False
+                                        break
+                        elif ':pers:' in glosstext:
+                            allbam=re.findall(r'([^\[\s\:]+\:pers\:[^\s\]]*)',glosstext)
+                            if allbam:
+                                for thisbam in allbam:
+                                    if thisbam not in perslist:
+                                        bamok=False
+                                        break
+                        elif ':pp:' in glosstext:
+                            allbam=re.findall(r'([^\[\s\:]+\:pp\:[^\s\]]*)',glosstext)
+                            if allbam:
+                                for thisbam in allbam:
+                                    if thisbam not in pplist:
+                                        bamok=False
+                                        break
+                        # ajouter conj,prn,dtm,...
+
+
+                        if bamok:
+                            self.glosstext.SetBackgroundColour(wx.NullColour)
+                            self.glosstext.Refresh()
+                            self.UpdateInterface(self.as_gloss)
+                        else:
+                            # print(" refusé: thismrph=",thismrph)
+                            # value could be used in a help message in dialog box status bar
+                            self.glosstext.SetBackgroundColour((254,216,177,255))   # was 'orange'denotes incorrect gloss for mrph light orange 254 216 177
+                            self.glosstext.Refresh() 
+
+                    elif maninkaGV:
+                        mrphlist=["`:mrph:ART", "baa:mrph:AG.OCC", "ba:mrph:AUGM", "bali:mrph:PTCP.NEG", "d':mrph:AOR.INTR", "dá:mrph:AOR.INTR", "da:mrph:AOR.INTR", "d':mrph:AOR.INTR", "dɔ́:mrph:IN", "ka:mrph:GENT", "la:mrph:INF.LA", "l':mrph:INF.LA", "na:mrph:INF.LA", "n':mrph:INF.LA", "la:mrph:à", "la:mrph:AG.PRM", "la:mrph:LOC", "la:mrph:MNT1", "lama:mrph:STAT", "lan:mrph:INSTR", "lan:mrph:à", "lá:mrph:CAUS", "la:mrph:PRICE", "len:mrph:DIM", "li:mrph:NMLZ", "\\:mrph:NMLZ2", "lù:mrph:PL", "lú:mrph:PL", "ma:mrph:COM", "ma:mrph:RECP.PRN", "man:mrph:SUPER", "man:mrph:ADJ", "má:mrph:SUPER", "n':mrph:AOR.INTR", "na:mrph:AOR.INTR", "na:mrph:AG.PRM", "na:mrph:LOC", "na:mrph:MNT1", "nama:mrph:STAT", "nan:mrph:MNT1", "nan:mrph:INSTR", "nan:mrph:à", "ná:mrph:CAUS", "na:mrph:à", "nan:mrph:ORD", "nɛn:mrph:PTCP.RES", "nɛn:mrph:DIM", "ni:mrph:NMLZ", "nin:mrph:NMLZ", "nin:mrph:PTCP.RES", "nin:mrph:DIM", "nɔ́:mrph:IN", "ntan:mrph:PRIV", "nte:mrph:AG.EX", "nù:mrph:PL", "ɲa:mrph:ABSTR", "ɲa:mrph:DEQU", "ɲɔɔn:mrph:RECP", "r':mrph:AOR.INTR", "rá:mrph:AOR.INTR", "ra:mrph:AOR.INTR", "ran:mrph:INSTR", "ren:mrph:DIM", "rɔma:mrph:STAT", "rɔ́:mrph:IN", "san:mrph:IMMED", "ta:mrph:FOC.ADJ", "ta:mrph:PRICE", "ta:mrph:PTCP.POT", "tɔ:mrph:ST", "tɔ:mrph:CONV.PROG", "ya:mrph:ABSTR", "ya:mrph:DEQU"]
+                        pmlist=["b':pm:COND", "báa:pm:COND", "bá:pm:COND", "báda:pm:PRF", "bád':pm:PRF", "bàli:pm:sinon", "bàni:pm:sinon", "bánsan:pm:IMMED.TR", "bár':pm:PRF", "bára:pm:PRF", "bɛ́n':pm:FUT.AFF1", "bɛ́nà:pm:FUT.AFF1", "d':pm:FUT.HAB", "dí:pm:FUT.HAB", "dín`:pm:FUT.AFF2", "dínà:pm:FUT.AFF2", "k`:pm:INF.KA", "k':pm:INF.KA", "k`:pm:AOR", "k':pm:AOR", "k':pm:PROH", "k':pm:QUAL.AFF", "kà:pm:INF.KA", "kà:pm:AOR", "ká:pm:PROH", "ká:pm:QUAL.AFF", "kánà:pm:SBJV.NEG", "m`:pm:OPT", "m':pm:PFV.NEG", "mà:pm:OPT", "má:pm:PFV.NEG", "bɛ́:pm:PFV.AFF", "b':pm:PFV.AFF", "mán:pm:QUAL.NEG", "mánà:pm:COND", "n`:pm:AOR2", "nà:pm:AOR2", "nɔ̀:pm:AOR2", "ɲ':pm:SBJV", "ɲé:pm:SBJV", "tén`:pm:FUT.NEG", "ténà:pm:FUT.NEG", "tén':pm:FUT.NEG", "té:pm:COP.NEG2", "tɛ̀dɛ:pm:PST2", "tɛ̀d':pm:PST2", "tɛ́:pm:COP.NEG2", "tɛ́:pm:IPFV.NEG", "tɛ́n':pm:FUT.NEG", "tɛ́nà:pm:FUT.NEG", "tɛ̀r':pm:PST2", "tɛ̀rɛ:pm:PST2", "y':pm:SBJV", "yé:pm:HAB", "yé:pm:SBJV"]
+                        coplist=["bɛ́:cop:être", "k':cop:QUOT", "kàn:cop:dire", "kó:cop:QUOT", "ɲ':cop:COP", "ɲé:cop:COP", "t':cop:COP.NEG2", "té:cop:COP.NEG2", "tɛ́:cop:COP.NEG1", "t':cop:COP.NEG1","y':cop:COP", "yé:cop:COP", "tɛ̀dɛ:cop:COP.PST", "tɛ̀d':cop:COP.PST"]
+                        perslist=["à:pers:3SG", "àlê:pers:3SG.EMPH", "àlelu:pers:3SG.EMPH", "álelu:pers:2SG.EMPH", "àlu:pers:3PL", "álú:pers:2PL", "ân:pers:1PL", "ándèlu:pers:1PL.EMPH", "ánnù:pers:1PL.EMPH", "àyi:pers:3PL", "áyi:pers:2PL", "áyì:pers:2PL", "élê:pers:2SG.EMPH", "í:pers:2SG", "í:pers:REFL", "ílê:pers:2SG.EMPH", "ǹ:pers:1PL", "ń:pers:1SG", "nê:pers:1SG.EMPH"]
+                        pplist=["báda:pp:chez", "bára:pp:chez", "bólo:pp:CNTRL", "bólofɛ̀:pp:à.part", "bólomà:pp:pour", "bɔ̀ɔfɛ:pp:à.côté", "bɔ́ɔntɛ:pp:à.part", "bɔ́ɔtɛ:pp:à.part", "dí:pp:PP", "dáfɛ̀:pp:près.de", "dɔ́:pp:dans", "fɛ̀:pp:avec", "kàlamà:pp:au.courant.de", "kámà:pp:pour", "kánmà:pp:pour", "kàn:pp:sur", "kósɔ̀n:pp:à.cause.de", "kɔ́:pp:derrière", "kɔ́dɔ:pp:sous", "kɔ́fɛ̀:pp:après", "kɔ́kàn:pp:à.l'extérieur", "kɔ́kɔdɔ:pp:derrière", "kɔ́kɔrɔ:pp:derrière", "kɔ́mà:pp:dehors", "kɔ́nɔ:pp:à.l’intérieur", "kɔ́rɔ:pp:sous", "kɔ́tɔ:pp:derrière", "kùn:pp:à", "kùndɔ:pp:au-dessus", "kùnna:pp:au-dessus", "kùnnɔ:pp:au-dessus", "l':pp:à", "lá:pp:à", "mà:pp:sur", "n':pp:à", "ná:pp:à", "nɔ́:pp:dans", "ɲáfɛ̀:pp:en.surface.partout", "ɲákɔdɔ:pp:devant", "ɲákɔtɔ:pp:hors.vision", "ɲána:pp:selon", "ɲɛ́:pp:devant", "rɔ́:pp:dans", "sándɔ:pp:au-dessus", "sènfɛ̀:pp:en.plus.de", "tɛ́:pp:entre", "tɛ́mà:pp:parmi", "tɔ̀ɔfɛ̀:pp:près.de", "tɔ́ɔtɛ:pp:à.part", "tɔ̀rɔfɛ̀:pp:près.de", "yé:pp:pour"]
+                        # attention : ces gloses (en français) DOIVENT être en monolithes!
+                        emkok=True
+                        if ':mrph:' in glosstext:
+                            allbam=re.findall(r'([^\[\s\:]+\:mrph\:[^\s\]]*)',glosstext)
+                            if allbam:
+                                for thisbam in allbam:
+                                    if thisbam not in mrphlist:
+                                        emkok=False
+                                        break
+                        elif ':pm:' in glosstext:
+                            allbam=re.findall(r'([^\[\s\:]+\:pm\:[^\s\]]*)',glosstext)  # this search does not take morphemes!
+                            if allbam:
+                                for thisbam in allbam:
+                                    if thisbam not in pmlist:
+                                        emkok=False
+                                        break
+                        elif ':cop:' in glosstext:
+                            allbam=re.findall(r'([^\[\s\:]+\:cop\:[^\s\]]*)',glosstext)
+                            if allbam:
+                                for thisbam in allbam:
+                                    if thisbam not in coplist:
+                                        emkok=False
+                                        break
+                        elif ':pers:' in glosstext:
+                            allbam=re.findall(r'([^\[\s\:]+\:pers\:[^\s\]]*)',glosstext)
+                            if allbam:
+                                for thisbam in allbam:
+                                    if thisbam not in perslist:
+                                        emkok=False
+                                        break
+                        elif ':pp:' in glosstext:
+                            allbam=re.findall(r'([^\[\s\:]+\:pp\:[^\s\]]*)',glosstext)
+                            if allbam:
+                                for thisbam in allbam:
+                                    if thisbam not in pplist:
+                                        emkok=False
+                                        break
+                        # ajouter conj,prn,dtm,...
+
+
+                        if emkok:
+                            # if thisbam: print(" accepté: thismrph=",thisbam)
+                            self.glosstext.SetBackgroundColour(wx.NullColour)
+                            self.glosstext.Refresh()
+                            self.UpdateInterface(self.as_gloss)
+                        else:
+                            # if thisbam: print(" refusé: thismrph=",thisbam)
+                            # value could be used in a help message in dialog box status bar
+                            self.glosstext.SetBackgroundColour((254,216,177,255))   # was 'orange'denotes incorrect gloss for mrph light orange 254 216 177
+                            self.glosstext.Refresh() 
+
+                    else:  # no validation
+                        self.glosstext.SetBackgroundColour(wx.NullColour)
+                        self.glosstext.Refresh()
+                        self.UpdateInterface(self.as_gloss)
                 else:
-                    self.glosstext.SetBackgroundColour('yellow')
+                    self.glosstext.SetBackgroundColour('yellow')   # denotes incorrect ps tag
                     self.glosstext.Refresh()
             except (LexerError, NoParseError):
-                self.glosstext.SetBackgroundColour('yellow')
+                self.glosstext.SetBackgroundColour('pink')    # denotes incomplete/incorrect syntax
                 self.glosstext.Refresh()
+            # JJM try real time update of dialog's lookup Here ?
+
 
     def OnCheckLocaldict(self, evt):
         """toggle `save to localdict` flag"""
@@ -625,6 +918,7 @@ class GlossEditButton(wx.Panel):
 
     def CalculateGloss(self, glosslist):
         """compute a gloss to be shown on the button as current selection for a list of selections"""
+        #print("CalculateGloss glosslist passed:",glosslist)
         def recursiveGlossDigger(gloss):
             if gloss.gloss:
                 return gloss.gloss
@@ -647,7 +941,7 @@ class GlossEditButton(wx.Panel):
 
     def OnEditGloss(self, event):
         """show GlossInputDialog when button is pressed"""
-        dlg = GlossInputDialog(self, wx.ID_ANY, 'Insert gloss manually', gloss=self.gloss)
+        dlg = GlossInputDialog(self, wx.ID_ANY, 'Insérer une glose / Gloss input', size=(600,400), gloss=self.gloss)
         evt = LocaldictLookupEvent(self.GetId(), gloss=self.gloss, dlg=dlg)
         wx.PostEvent(self.GetEventHandler(), evt)
         if (dlg.ShowModal() == wx.ID_OK):
@@ -789,11 +1083,62 @@ class GlossSelector(wx.Panel):
 
     def AddButtons(self, glosslist):
         """generate buttons for each variant in a glosslist"""
+        # this way, it also generate buttons from localdict for "red" tokens (results of split/joins) with no glosslist
+        if self.statecode!=1:
+            # JJM add buttons from localdict values here ?
+            alreadyAdded=[]
+            formlookup=glosslist[0].form
+            formlookup=formlookup.lower()   # all indexed in localdict with no tones and lowercase
+            metadict=self.GetTopLevelParent().processor.metadata
+            if "text:script" in metadict:
+                textscript=metadict["text:script"]
+            else:
+                textscript="Nouvel orthographe malien"
+                print("no meta data, assumed text:script= Nouvel orthographe malien")
+            if textscript=="Ancien orthographe malien":
+                # form is normally parsed in New Orthography - this only handles exception  (where parse failed, notably Proper names)
+                formlookup=formlookup.replace("èe","ɛɛ")
+                formlookup=formlookup.replace("òo","ɔɔ")
+                formlookup=formlookup.replace("è","ɛ")
+                formlookup=formlookup.replace("ò","ɔ")   
+
+            savedglosses=[]
+
+            formlookup=re.sub(r'[\u0301\u0300\u0302\u030c]','',formlookup)  # 4 bambara tones
+            
+            if formlookup in self.GetTopLevelParent().localdict:
+                savedglosses = self.GetTopLevelParent().localdict[formlookup]
+                #print("AddButtons? - ",len(savedglosses)," for: ",glosslist[0].form,"lookup",formlookup," ->",savedglosses)
+                # font = wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, True)
+            # N'ko: essayer aussi en enlevant l'article tonal final (?), ou en l'ajoutant
+            elif textscript=="N’Ko" :
+                if formlookup[-1]=="`" :
+                    formlookup=formlookup[:-1]
+                    if formlookup in self.GetTopLevelParent().localdict:
+                        savedglosses = self.GetTopLevelParent().localdict[formlookup]
+                else:
+                    formlookup=formlookup+"`"
+                    if formlookup in self.GetTopLevelParent().localdict:
+                        savedglosses = self.GetTopLevelParent().localdict[formlookup]
+
+            if len(savedglosses)>0:
+                for gloss in savedglosses:
+                    if gloss not in alreadyAdded:
+                        self.gbutton = GlossButton(self, gloss, self.statecolours,addbylocaldict=True)
+                        self.children.append(self.gbutton)
+                        self.sizer.Add(self.gbutton, 0, *self.sizerflags)
+                        alreadyAdded.append(gloss)            
+            # end JJM
+        
         if len(self.glosslist) > 1:
+            # above JJM code was here in 1st implementation - but red button could not benefit from localdict
+
             for gloss in glosslist:
-                gbutton = GlossButton(self, gloss, self.statecolours)
-                self.children.append(gbutton)
-                self.sizer.Add(gbutton, 0, *self.sizerflags)
+                # JJM add : screen already added buttons
+                if gloss not in alreadyAdded:
+                    gbutton = GlossButton(self, gloss, self.statecolours)
+                    self.children.append(gbutton)
+                    self.sizer.Add(gbutton, 0, *self.sizerflags)
             self.SetSizer(self.sizer)
             self.Layout()
 
@@ -868,10 +1213,10 @@ class GlossSelector(wx.Panel):
     def OnContextMenu(self, evt):
         """context menu shown on right-click on selector's area"""
         if not hasattr(self, "joinfwID"):
-            self.joinfwID = wx.NewId()
-            self.joinbwID = wx.NewId()
-            self.splitID = wx.NewId()
-            self.changeID = wx.NewId()
+            self.joinfwID = wx.NewIdRef(count=1)   # was NewId() JJM
+            self.joinbwID = wx.NewIdRef(count=1)   # was NewId()
+            self.splitID = wx.NewIdRef(count=1)   # was NewId()
+            self.changeID = wx.NewIdRef(count=1)   # was NewId()
 
         self.Bind(wx.EVT_MENU, self.OnJoinForward, id=self.joinfwID)
         self.Bind(wx.EVT_MENU, self.OnJoinBackward, id=self.joinbwID)
@@ -1130,19 +1475,28 @@ class SentenceText(wx.stc.StyledTextCtrl):
         self.charspans = []
         startchar = 0
         charlength = 0
+        metadict=self.GetTopLevelParent().processor.metadata  # added JJM 03/10/24
+        
+        textscript=""
+        if "text:script" in metadict:
+            textscript=metadict["text:script"]
+
         for btn in tokenbuttons:
             token = btn.token.token
             charlength = len(token)
             tokenindex = self.text[startchar:].find(token)
-            if tokenindex == -1:
-                # FIXME: handle missing tokens properly
-                tokenindex = startchar
-                charlength = 0
-                notfound = wx.MessageDialog(self, u'Token not found in the source sentence: ' + token, 'Token not found', wx.OK)
-                notfound.ShowModal()
-                notfound.Destroy()
-            else:
+            if textscript=="N’Ko":  # FIX THIS (charlength irrelevant)/do not call calcCharSpans for N'ko ?
                 tokenindex += startchar
+            else:
+                if tokenindex == -1:
+                    # FIXME: handle missing tokens properly
+                    tokenindex = startchar
+                    charlength = 0
+                    notfound = wx.MessageDialog(self, u'Token not found in the source sentence: ' + token, 'Token not found', wx.OK)
+                    notfound.ShowModal()
+                    notfound.Destroy()
+                else:
+                    tokenindex += startchar
             charspan = (tokenindex, charlength)
             startchar = tokenindex+charlength
             self.charspans.append(charspan)
@@ -1172,6 +1526,16 @@ class SentenceText(wx.stc.StyledTextCtrl):
         """typeset and color sentence text, attach button ids"""
         self.token = senttoken
         self.text = senttoken.value
+        # two fixes (should be fixed elsewhere) - are there more "sentences" ?
+        self.GetTopLevelParent().sentpanel.senttext = self.text  # fixed JJM : after token split/join OnCopyToClipboard was returning old sentence
+        # now fixed below : if subsequent sentence split, old sentence before after token split/join still there! created havok               
+        self.GetTopLevelParent().processor.glosses[self.GetTopLevelParent().sentpanel.snum].senttext = self.text
+        #print("SetSentence - processor.glosses[snum]:")
+        #sent=self.GetTopLevelParent().processor.glosses[self.GetTopLevelParent().sentpanel.snum]
+        #print("SetSentence - glosses... senttext=",sent.senttext)
+        #for g in sent.glosslist:
+        #    print(str(g))
+
         self.calcCharSpans(tokenbuttons)
         self.SetText(self.text)
         self.SetReadOnly(True)
@@ -1258,6 +1622,8 @@ class SentenceText(wx.stc.StyledTextCtrl):
         """replace characters between start and end with newtext, update colors and button bindings"""
         self.text = ''.join([self.text[:start], newtext, self.text[end:]])
         self.token.value = self.text
+        #print("UpdateText self.token.value",self.token.value)
+        #print("UpdateText self.token",self.token)
         sentevent = SentenceEditEvent(self.GetId(), snum=snum, sent=self.token)
         wx.PostEvent(self.GetEventHandler(), sentevent)
 
@@ -1268,9 +1634,9 @@ class SentenceText(wx.stc.StyledTextCtrl):
     def OnContextMenu(self, evt):
         """pop-up sentence context menu on right-click"""
         if not hasattr(self, "joinfwID"):
-            self.splitID = wx.NewId()
-            self.joinfwID = wx.NewId()
-            self.joinbwID = wx.NewId()
+            self.splitID = wx.NewIdRef(count=1)   # was NewId()    JJM
+            self.joinfwID = wx.NewIdRef(count=1)   # was NewId()
+            self.joinbwID = wx.NewIdRef(count=1)   # was NewId()
 
         self.Bind(wx.EVT_MENU, self.OnJoinForward, id=self.joinfwID)
         self.Bind(wx.EVT_MENU, self.OnJoinBackward, id=self.joinbwID)
@@ -1311,12 +1677,15 @@ class SentenceText(wx.stc.StyledTextCtrl):
         bytepos = self.GetCurrentPos()
         charpos = self.calcCharPos(bytepos)
         last = len(self.text)
+        #print("OnSplitSentence - text:",self.text)
         if charpos < last:
             first = self.intervals.overlap(0, charpos)
             tnum = len(first)
             if self.intervals[charpos]:
                 charpos = charpos-1
                 if self.intervals[charpos]:
+                    #print("OnSplitSentence -impossible- intervals[charpos]=",self.intervals[charpos])
+                    # On ne peut splitter qu'entre deux "boutons": pas de boutons pour les ponctuations et les Tags... dommage!
                     self.SplitImpossibleError(evt)
                     return
             # make sure that both parts contain tokens
@@ -1325,6 +1694,7 @@ class SentenceText(wx.stc.StyledTextCtrl):
                 ssplitevent = SentenceSplitEvent(self.GetId(), snum=snum, tnum=tnum, charpos=charpos)
                 wx.PostEvent(self.GetEventHandler(), ssplitevent)
             else:
+                #print("OnSplitSentence -impossible- tnum, len(charspan)",tnum,len(self.charspans))
                 self.SplitImpossibleError(evt)
 
     def SplitImpossibleError(self, e):
@@ -1373,13 +1743,15 @@ class SentAttributes(wx.Panel):
         self.snum = snum
         if senttoken.attrs:
             alist = senttoken.attrs.items()
-            alist.sort()
+            #alist.sort() # no longer works in Python 3
+            alist=sorted(alist)  # mod JJM 6/11/24
             for keytext, value in alist:
                 key = wx.StaticText(self, wx.ID_ANY, keytext)
                 field = wx.TextCtrl(self, wx.ID_ANY, value)
                 field.Bind(wx.EVT_TEXT, self.OnEditValue)
                 delbutton = wx.Button(self, wx.ID_ANY, style=wx.BU_EXACTFIT | wx.BU_NOTEXT)
-                delbutton.SetBitmapLabel(wx.ArtProvider.GetBitmap(wx.ART_DELETE | wx.ART_MENU))
+                #delbutton.SetBitmapLabel(wx.ArtProvider.GetBitmap(wx.ART_DELETE | wx.ART_MENU))
+                delbutton.SetBitmapLabel(wx.ArtProvider.GetBitmap(wx.ART_DELETE))  # JJM 6/11/24
                 delbutton.Bind(wx.EVT_BUTTON, self.OnDeleteAttribute)
                 self.fields[keytext] = field
                 self.attrs[keytext] = value
@@ -1451,20 +1823,185 @@ class FilePanel(wx.ScrolledWindow):
         wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
         self.SetScrollRate(20, 20)
         self.parent = parent
+        self.Sizer = wx.BoxSizer(wx.VERTICAL)
+        self.isFileShown=False
+        self.st = SentText(self, -1, num=-1, style=wx.ST_NO_AUTORESIZE)
 
     def ShowFile(self, sentlist):
         """show source text for a file"""
-        Sizer = wx.BoxSizer(wx.VERTICAL)
+
+        if self.isFileShown:
+            # print("ShowFile : Clear & Remove")
+            self.Sizer.Clear(delete_windows=True)   # that's the key element missing : delete_windows=True
+            self.Sizer.Remove(self.Sizer)   # proably does not do a thing...
+
+        # added JJM : load html file & html sentences and gloss
+        #fileIN = open(os.path.join(self.GetTopLevelParent().dirname, self.GetTopLevelParent().filename), "r") # OK on Unix, not windows
+        fileIN=codecs.open(os.path.join(self.GetTopLevelParent().dirname, self.GetTopLevelParent().filename), 'r', encoding="UTF-8")
+        htmlfile=fileIN.read()
+        fileIN.close()
+        htmlfile=re.sub(r"\r\n","\n",htmlfile,0,re.U|re.MULTILINE)  # takes care of windows line endings?
+
+        head,body=htmlfile.split("<body>")
+        # old format ?
+        # check if body has strange sentence ending sequence
+        body=re.sub(r'\n</span></span>\n</span>','\n</span>\n</span>\n</span>',body,0,re.U|re.MULTILINE)
+
+        if '</span><span class="w"' in body or '</span><span class="c"' in body:
+            # print("adapting file to new html format")
+            body,nadapt=re.subn(r'\n</span><span class="(w|c|t)"',r'</span>\n<span class="\g<1>"',body,0,re.U|re.MULTILINE)
+
+        body=body[:-18]
+        
+        sentences=body.split("</span>\n</span>\n</span>\n")
+
+        #Sizer = wx.BoxSizer(wx.VERTICAL)
         for n, senttoken in enumerate(sentlist):
-            st = SentText(self, -1, num=n, style=wx.ST_NO_AUTORESIZE)
-            st.SetLabel(senttoken.value)
-            st.Wrap(self.GetClientSize().GetWidth()-20)
-            st.Bind(wx.EVT_LEFT_DOWN, st.onMouseEvent)
-            Sizer.Add(st, 1, wx.EXPAND)
+            self.st = SentText(self, -1, num=n, style=wx.ST_NO_AUTORESIZE)
+            stv=senttoken.value   # JJM : stv and stv handling - add marker for ambiguity in sentence
+            stv=re.sub(r'\n','␤',stv)
+            stv=str(n+1)+". "+stv
+            padleft="\t \t"
 
-        self.SetSizer(Sizer)
+            # broken html structures may break here
+            try:
+                if "lemma var" in sentences[n]: padleft="\t*\t"
+            except IndexError:
+                pass
+
+            stv=padleft+stv
+            self.st.SetLabel(stv)
+            #st.SetLabel(senttoken.value)
+            self.st.Wrap(self.GetClientSize().GetWidth()-20)
+            self.st.Bind(wx.EVT_LEFT_DOWN, self.st.onMouseEvent)
+            #Sizer.Add(st, 1, wx.EXPAND)
+            self.Sizer.Add(self.st, 1, wx.EXPAND)
+
+        #self.SetSizer(Sizer)
+        self.SetSizer(self.Sizer)
         self.Layout()
+        self.isFileShown=True
 
+class MetaPanel(wx.ScrolledWindow):
+    def __init__(self, parent, *args, **kwargs):
+        wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
+        self.SetScrollRate(20, 20)
+        self.parent = parent
+        self.isMetaShown=False
+        self.Sizer = wx.BoxSizer(wx.VERTICAL)
+
+    def ShowMetas(self, metadata):
+
+        if self.isMetaShown:
+            self.Sizer.Clear(delete_windows=True)   # that's the key element missing : delete_windows=True
+            self.Sizer.Remove(self.Sizer)   # probably does not do a thing...
+
+        metas={}
+        items=[]
+        authors=False
+        for x,y in metadata.items():
+          item,subitem=x.split(":")
+          if item=="author":
+            if subitem=="name": subitem="_name" # force sorting as 1st
+          elif item in ["source","text"] :
+            if subitem=="title": subitem="_title"
+            
+          if item in items:
+            if item=="author" and authors:
+              vy=y.split("|")
+              authindex=0
+              for v in vy:
+                authindex+=1
+                metas[item][authindex][subitem]=v
+            else:
+              metas[item][subitem]=y
+          else: 
+            items.append(item)
+            if item=="author":
+              if "|" in y:
+                vy=y.split("|")
+                authors=True
+                authindex=0
+                for v in vy:
+                  authindex+=1
+                  if authindex==1: 
+                          metas[item]={authindex: {subitem:v}}
+                  else :  metas[item][authindex]={subitem:v}
+              else:
+                metas[item]={subitem:y}
+              #print("\n",metas,"\n")
+            else:
+              metas[item]={subitem:y}
+        
+        # print sorted metas
+        metatxt="\n"
+        for x,y in sorted(metas.items()):
+          metatxt+=x+"\n"
+          for w,z in sorted(y.items()):
+            if x=="author" and authors:
+              metatxt+="\t"+str(w)+"\n"
+              for wn,zn in sorted(z.items()):
+                metatxt+="\t\t"+wn.strip("_")+" :\t "+zn+"\n"
+            else: 
+                metatxt+="\t"+w.strip("_")+" :\t "+z+"\n"
+        metatxt=metatxt.replace("\n","\n   ")
+
+        self.st= wx.TextCtrl(self,style=wx.TE_MULTILINE|wx.TE_DONTWRAP)
+        self.st.SetValue(metatxt)
+        #font = wx.Font(12, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        #self.SetFont(font)
+        self.metafont = self.GetFont()
+        self.metafont.SetPointSize(self.metafont.GetPointSize() + 2)
+        self.st.SetFont(self.metafont)
+        self.Sizer.Add(self.st, 1, wx.EXPAND)        
+
+        self.SetSizer(self.Sizer)
+        self.Layout()
+        self.isMetaShown=True     
+
+class DictPanel(wx.ScrolledWindow):
+    def __init__(self, parent, *args, **kwargs):
+        wx.ScrolledWindow.__init__(self, parent, *args, **kwargs)
+        self.SetScrollRate(20, 20)
+        self.parent = parent
+        self.isDictShown=False
+        self.Sizer = wx.BoxSizer(wx.VERTICAL)
+
+    def ShowDict(self,localdictfile):
+        global ldtext
+        if self.isDictShown:
+            # print("ShowDict : Clear & Remove")
+            self.Sizer.Clear(delete_windows=True)   # that's the key element missing : delete_windows=True
+            self.Sizer.Remove(self.Sizer)   # probably does not do a thing...
+
+        if os.path.exists(localdictfile):
+            #ldfile=open(localdictfile,'r')  # OK only on UNix
+            ldfile=codecs.open(localdictfile, 'r', encoding="UTF-8")
+            ldtext=ldfile.read()
+            ldtext=re.sub(r"\r\n","\n",ldtext,0,re.U|re.MULTILINE)  # takes care of windows line endings?
+            ldfile.close()
+        else : ldtext="vous n'avez pas de localdict pour l'instant"
+        self.ldfile=localdictfile
+       
+        centeredLabel = wx.StaticText(self, -1, localdictfile)
+        self.Sizer.Add(centeredLabel, flag=wx.ALIGN_CENTER_HORIZONTAL)
+        self.st= wx.TextCtrl(self,style=wx.TE_MULTILINE)
+        self.st.SetValue(ldtext)
+        self.Sizer.Add(self.st, 1, wx.EXPAND)
+        submitButton = wx.Button(self, wx.ID_SAVE,'Save')
+        submitButton.Bind(wx.EVT_BUTTON, self.OnSave)
+        self.Sizer.Add(submitButton,0,wx.ALIGN_CENTER)
+        self.SetSizer(self.Sizer)
+        self.Layout()
+        self.isDictShown=True
+
+    def OnSave(self,e):
+        ldfile=codecs.open(self.ldfile, 'w', encoding="UTF-8")
+        ldtext=self.st.GetValue()
+        ldfile.write(ldtext)
+        ldfile.close()
+        self.GetTopLevelParent().SetLocaldict(self.ldfile)
+        
 
 class SentPanel(wx.Panel):
     """Manual disambiguation panel
@@ -1488,6 +2025,7 @@ class SentPanel(wx.Panel):
     searchbutton (wx.SearchCtrl) : search query input field
     findprevbutton : find previous
     findnextbutton : find next
+    nextambigbutton : jump to next sentence with ambiguous words
     navsizer : navigation sizer
     sentsource (SentenceText) : sentence text widget
     sentattrs (SentAttributes) : sentence-level attributes panel
@@ -1516,8 +2054,9 @@ class SentPanel(wx.Panel):
         savebutton = wx.Button(self, wx.ID_ANY, 'Save results')
         savebutton.Bind(wx.EVT_BUTTON, self.OnSaveResults)
         self.searchbutton = wx.SearchCtrl(self, size=(200, -1), style=wx.TE_PROCESS_ENTER)
-        self.findprevbutton = wx.Button(self, wx.ID_ANY, '<Prev')
-        self.findnextbutton = wx.Button(self, wx.ID_ANY, 'Next>')
+        self.findprevbutton = wx.Button(self, wx.ID_ANY, '←ꙭ')
+        self.findnextbutton = wx.Button(self, wx.ID_ANY, 'ꙭ→')
+        self.nextambigbutton = wx.Button(self, wx.ID_ANY, '???►►')
         self.navsizer = wx.BoxSizer(wx.HORIZONTAL)
         sentenceno = wx.StaticText(self, wx.ID_ANY, "Sentence No")
         sentenceno.SetFont(self.sentfont)
@@ -1530,6 +2069,7 @@ class SentPanel(wx.Panel):
         self.navsizer.Add(self.sentof, 0)
         self.navsizer.Add(prevbutton, 0)
         self.navsizer.Add(nextbutton, 0)
+        self.navsizer.Add(self.nextambigbutton, 0)
         self.navsizer.Add(savebutton, 0)
         self.navsizer.Add(self.searchbutton, 0, wx.EXPAND)
         self.navsizer.Add(self.findprevbutton, 0)
@@ -1537,11 +2077,17 @@ class SentPanel(wx.Panel):
         copybutton = wx.Button(self, wx.ID_COPY)
         copybutton.Bind(wx.EVT_BUTTON, self.OnCopyToClipboard)
         self.navsizer.Add(copybutton)
+        copybutton2 = wx.Button(self, wx.ID_ANY, "Copy2")
+        copybutton2.Bind(wx.EVT_BUTTON, self.OnCopyToClipboard2)
+        self.navsizer.Add(copybutton2)
+        copybuttonrepl = wx.Button(self, wx.ID_ANY, "Copyrepl")   # added 14/nov/2024
+        copybuttonrepl.Bind(wx.EVT_BUTTON, self.OnCopyToClipboardRepl)
+        self.navsizer.Add(copybuttonrepl)
         self.sentsource = SentenceText(self)
         self.sentattrs = SentAttributes(self)
         self.Sizer.Add(self.navsizer)
         self.Sizer.Add(self.sentsource, 0, wx.EXPAND)
-        self.Sizer.Add(self.sentattrs, 0, wx.EXPAND)
+        self.Sizer.Add(self.sentattrs, 0, wx.EXPAND) # reset by JJM 6/nov/24
         self.SetSizer(self.Sizer)
         self.Layout()
 
@@ -1559,6 +2105,7 @@ class SentPanel(wx.Panel):
         tokenbuttons = []
         self.annotlist = wx.lib.scrolledpanel.ScrolledPanel(self, wx.ID_ANY)
         self.annotlist.SetScrollRate(20, 20)
+        self.annotlist.SetBackgroundColour((236, 211, 211, 255)) # was (60, 25, 25, 25)
         if self.vertical:
             annotsizer = wx.BoxSizer(wx.HORIZONTAL)
         else:
@@ -1575,11 +2122,22 @@ class SentPanel(wx.Panel):
         """set sentence data attributes and show widgets"""
         self.senttoken, self.selectlist, self.tokenlist, self.sentindex = sentannot.as_tuple()
         self.senttext = sentannot.senttext.strip()
+        #print ("ShowSent *** sentannot :",sentannot)
+        """
+        print ("*** self.senttoken :",self.senttoken)
+        print ("*** self.selectlist :",self.selectlist)
+        #print ("*** self.tokenlist :",self.tokenlist)
+        print ("*** self.sentindex :", self.sentindex)
+        print ("self.senttext :",self.senttext)
+        print ("self.isshown :",self.isshown)
+        """
+
         if self.isshown:
             self.sentsource.ClearSentence()
             self.sentattrs.ClearSentence()
             self.Sizer.Remove(self.annotlist.GetSizer())
             self.annotlist.Destroy()
+        
         self.snum = sentannot.snum
         self.sentnumbutton.SetValue(self.snum+1)
         tokenbuttons = self.CreateGlossButtons()
@@ -1620,6 +2178,189 @@ class SentPanel(wx.Panel):
             if not wx.TheClipboard.IsOpened():
                 wx.TheClipboard.Open()
                 wx.TheClipboard.SetData(clipdata)
+                wx.TheClipboard.Close()
+
+    def OnCopyToClipboard2(self, evt):
+        """copy sentence text to a clipboard"""
+        global copy2spacer
+        if self.senttext:
+            clipdata2 = wx.TextDataObject()
+            #clipdata2.SetText(self.senttext) - build it from ligne2
+            l2orig=""
+            l2lx=""
+            l2ps=""
+            l2gloss=""
+            #print("OnCopyToClipboard2: CHECK toknum, (token, selectlist):\n")
+            glosses = self.GetTopLevelParent().processor.glosses
+            sent= glosses[self.snum]
+            # is there a way to generate table only for selected text ???
+            # try to get selection
+            #  frm, to = sent.GetSelection()  # AttributeError: 'SentAnnot' object has no attribute 'GetSelection'
+            # frm, to = self.sentsource.GetSelection()
+            # myselection=self.sentsource.GetStringSelection()
+            myselectedtext=self.sentsource.GetSelectedText()
+            myselectedtext=myselectedtext.strip()
+            myselectedtext=myselectedtext.replace('\u07f8', ",")  # N'Ko COMMA - as done in line 2
+            myselectedtext=myselectedtext.replace('\u060c', ",")  # Arabic comma
+            myselectedtext=myselectedtext.replace(' , ', ", ")
+            myselectedtext=myselectedtext.replace('\u061f', "?")  # Arabic question mark
+            myselectedtext=myselectedtext.replace('؛', r":")           # U+061B ؛ ARABIC SEMICOLON
+            myselectedtext=myselectedtext.replace('\u066a', "%")  # Arabic Percent sign ٪
+            myselectedtext=myselectedtext.replace('\u07f9', "!")  # N'Ko EXLAMATION MARK
+            # selstart=self.sentsource.GetSelectionStart()   # same values as frm,to
+            # selend=self.sentsource.GetSelectionEnd()
+            # print("GetSelection: frm,to=",frm,to)
+            # print("selstart, selend=",selstart, selend)
+            # frm=int(frm/2)   # these values seem erratic and unusable!!!
+            # to=int(to/2)
+            # rem ; senttext =? sentsource.text - no:  sentsource.text should be used, but still, results are impredictable
+            # print('senttext="'+self.senttext+'"')
+            # print('sentsource.text="'+self.sentsource.text+'"')
+            # print("GetSelection:self.senttext[",frm,":",to,"]=",self.senttext[frm:to])
+            # print("GetSelection:self.sentsource.text[",frm,":",to,"]=",self.sentsource.text[frm:to])
+            # print("GetStringSelection:myselection",myselection) # same as above
+            #print("GetSelectedText:myselectedtext",myselectedtext)  # results OK but position in sentence is unknown- can only select 1st occurrence
+            # tried and failed with encoder/decoder
+            # print(self.sentsource.charspans)   # how did they get this right ? ah, they don't use mouse selections!
+            # end try 
+            # print("sent.glosslist=",sent.glosslist)
+            mysentlist=[]
+            for w in sent.glosslist:
+                mysentlist.append(w.token)
+            """
+            print("senttoken=",self.senttoken)
+            print("senttoken.value=",self.senttoken.value)
+            #mytoks=enumerate(zip(self.senttoken))
+            #print("mytoks=",mytoks)
+            print("senttext=",self.senttext)
+            mysent=self.senttext   # need a better way!!!?? ?????????????
+            #  this approach fails in case of split / join
+            #mysent=self.senttoken.value
+            #mysent=mysent.strip()
+            mysent=mysent.replace("ߵ","ߵ ")
+            mysent=mysent.replace("."," .")
+            mysent=mysent.replace('\u07f8', " \u07f8")  # N'Ko COMMA
+            mysent=mysent.replace('\u060c', " \u060c")  # Arabic comma
+            mysent=mysent.replace('\u061f', " \u061f")  # Arabic question mark
+            mysent=mysent.replace('؛', r" ؛")           # U+061B ؛ ARABIC SEMICOLON
+            mysent=mysent.replace('\u07fa', " \u07fa")  # N'KO LAJANYALAN
+            mysent=mysent.replace('\u066a', " \u066a")  # Arabic Percent sign ٪
+            mysent=mysent.replace('\u07f9', " \u07f9")  # N'Ko EXLAMATION MARK
+            mysent=mysent.replace('\n', " ")          # Newline side-effects
+            while "  " in mysent:
+                mysent=mysent.replace("  "," ")
+            mysent=mysent.strip()
+            mysentlist=mysent.split(" ")
+            """
+            mysentlistselected=""
+            for (toknum, (token, selectlist)) in enumerate(zip(self.tokenlist, self.selectlist)):
+                if selectlist: 
+                    mytokenlist=selectlist
+                else: 
+                    mytokenlist=token.glosslist
+                mytoken=mytokenlist[0]
+                # print("mytoken:", mytoken)
+                if myselectedtext!="":
+                    if mysentlistselected=="":  mysentlistselected=mysentlistselected+mysentlist[toknum]
+                    else:
+                        if mytoken.gloss=="c" or mysentlistselected[-1] in ["'","’","ߴ","ߵ"]:  # added N'ko apostrophes (high & low tone)
+                                                mysentlistselected=mysentlistselected+mysentlist[toknum]
+                        else:                   mysentlistselected=mysentlistselected+" "+mysentlist[toknum]
+                    # print("mysentlistselected:",mysentlistselected)
+                    # CAUTION this only handles some punctuations !!!
+                    if not myselectedtext.startswith(mysentlistselected) : 
+                        mysentlistselected=""  # wrong sequence, start over again - Note this will only get the first occurrence of a selected sequence!
+                        l2orig=""
+                        l2lx=""
+                        l2ps=""
+                        l2gloss=""
+                        continue
+                mylx=mytoken.form
+                myps="/".join(mytoken.ps)
+                mygloss=mytoken.gloss
+                if mygloss==None: mygloss=""
+                if mygloss=="" :
+                    for mymorph in mytoken.morphemes:
+                        if mymorph.gloss!=None: mygloss+=mymorph.gloss+"_"
+                    mygloss=mygloss[:-1]
+                l2orig=l2orig+mysentlist[toknum]+copy2spacer
+                l2lx+=mylx+copy2spacer
+                l2ps+=myps+copy2spacer
+                #print("mygloss:",mygloss)
+                l2gloss+=mygloss+copy2spacer
+                if myselectedtext!="":
+                    if mysentlistselected==myselectedtext: break
+            if myselectedtext!="" and mysentlistselected=="": clipdata2.SetText("Sorry, couln't find "+myselectedtext)
+            else: clipdata2.SetText(l2orig[:-1]+"\n"+l2lx[:-1]+"\n"+l2ps[:-1]+"\n"+l2gloss[:-1])
+            if not wx.TheClipboard.IsOpened():
+                wx.TheClipboard.Open()
+                wx.TheClipboard.SetData(clipdata2)
+                wx.TheClipboard.Close()
+
+    def OnCopyToClipboardRepl(self, evt):
+        """copy sentence text to a clipboard"""
+        metadict=self.GetTopLevelParent().processor.metadata
+        if "text:script" in metadict:
+            textscript=metadict["text:script"]
+            if textscript=="": textscript="Nouvel orthographe malien" # default
+        else: textscript="Nouvel orthographe malien" # default
+        if self.senttext:
+            clipdata2 = wx.TextDataObject()
+            l2orig=""
+            l2token=""
+            glosses = self.GetTopLevelParent().processor.glosses
+            sent= glosses[self.snum]
+            myselectedtext=self.sentsource.GetSelectedText()
+            myselectedtext=myselectedtext.strip()
+            if textscript=="N’Ko":
+                myselectedtext=myselectedtext.replace('\u07f8', ",")  # N'Ko COMMA - as done in line 2
+                myselectedtext=myselectedtext.replace('\u060c', ",")  # Arabic comma
+                myselectedtext=myselectedtext.replace(' , ', ", ")
+                myselectedtext=myselectedtext.replace('\u061f', "?")  # Arabic question mark
+                myselectedtext=myselectedtext.replace('؛', r":")           # U+061B ؛ ARABIC SEMICOLON
+                myselectedtext=myselectedtext.replace('\u066a', "%")  # Arabic Percent sign ٪
+                myselectedtext=myselectedtext.replace('\u07f9', "!")  # N'Ko EXLAMATION MARK
+            #print("GetSelectedText:myselectedtext",myselectedtext)  # results OK but position in sentence is unknown- can only select 1st occurrence
+            mysentlist=[]
+            for w in sent.glosslist:
+                mysentlist.append(w.token)
+            mysentlistselected=""
+            for (toknum, (token, selectlist)) in enumerate(zip(self.tokenlist, self.selectlist)):
+                if selectlist: 
+                    mytokenlist=selectlist
+                else: 
+                    mytokenlist=token.glosslist
+                mytoken=mytokenlist[0]
+                # print("mytoken:", mytoken)
+                if myselectedtext!="":
+                    if mysentlistselected=="":  mysentlistselected=mysentlistselected+mysentlist[toknum]
+                    else:
+                        if mytoken.gloss=="c" or mysentlistselected[-1] in ["'","’","ߴ","ߵ"]:  # added N'ko apostrophes (high & low tone)
+                                                mysentlistselected=mysentlistselected+mysentlist[toknum]
+                        else:                   mysentlistselected=mysentlistselected+" "+mysentlist[toknum]
+                    # print("mysentlistselected:",mysentlistselected)
+                    # CAUTION this only handles some punctuations !!!
+                    if not myselectedtext.startswith(mysentlistselected) : 
+                        mysentlistselected=""  # wrong sequence, start over again - Note this will only get the first occurrence of a selected sequence!
+                        l2orig=""
+                        l2token=""
+                        continue
+                if textscript=="N’Ko":
+                    l2orig+=mysentlist[toknum]+"_"
+                else:
+                    l2orig+=mytoken.form+"_"
+                l2token+=str(mytoken)+"_"
+                if myselectedtext!="":
+                    if mysentlistselected==myselectedtext: break
+            if myselectedtext!="" and mysentlistselected=="": 
+                clipdata2.SetText("Sorry, couln't find "+myselectedtext)
+            else: 
+                l2orig=l2orig.replace(",","COMMA")
+                l2token=l2token.replace(",::c","COMMA")
+                clipdata2.SetText(l2orig[:-1]+"==="+l2token[:-1])
+            if not wx.TheClipboard.IsOpened():
+                wx.TheClipboard.Open()
+                wx.TheClipboard.SetData(clipdata2)
                 wx.TheClipboard.Close()
 
     def OnSelectorUpdate(self, evt):
@@ -1687,6 +2428,16 @@ class MainFrame(wx.Frame):
         self.config = wx.Config.Get(False)
         self.config.SetRecordDefaults()
 
+        x=self.config.ReadInt("MainFrame/pos/x",30)     # JJM : recover previous layout
+        y=self.config.ReadInt("MainFrame/pos/y",30)
+        w=self.config.ReadInt("MainFrame/size/w",1024)
+        h=self.config.ReadInt("MainFrame/size/h",512)
+        self.SetPosition(wx.Point(x,y))
+        self.SetSize(wx.Rect(x,y,w,h))
+
+        self.statusbar = self.CreateStatusBar(1)
+        self.statusbar.SetStatusText('Bienvenue dans la désambiguïsation !')
+
         def savedDefault(name, fore, back):
             forecolor = self.config.Read("colors/{}/fore".format(name.lower()), fore)
             backcolor = self.config.Read("colors/{}/back".format(name.lower()), back)
@@ -1708,8 +2459,9 @@ class MainFrame(wx.Frame):
         recent = wx.Menu()
         menuOpen = filemenu.Append(wx.ID_OPEN, "O&pen", " Open text file")
         self.Bind(wx.EVT_MENU, self.OnMenuOpen, menuOpen)
-        filemenu.Append(wx.ID_ANY, "Open &recent", recent)
-        self.filehistory = wx.FileHistory(maxFiles=9, idBase=wx.ID_FILE1)
+        #filemenu.Append(wx.ID_ANY, "Open &recent", recent)
+        filemenu.AppendSubMenu(recent,"Open &recent")
+        self.filehistory = wx.FileHistory(maxFiles=20, idBase=wx.ID_FILE1)
         self.filehistory.Load(self.config)
         self.filehistory.UseMenu(recent)
         self.filehistory.AddFilesToMenu()
@@ -1749,9 +2501,28 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnSelectColors, menuColors)
         menuLocaldict = settingsmenu.Append(wx.ID_ANY, "Set &Localdict", "Set Localdict")
         self.Bind(wx.EVT_MENU, self.OnSetLocaldict, menuLocaldict)
+            
+        self.menuLangBamananGV = wx.MenuItem(settingsmenu, 1, '&Bamanan gloss validation', kind = wx.ITEM_CHECK)   # ADDED JJM
+        settingsmenu.Append(self.menuLangBamananGV)
+        bamananGV=True # Default
+        self.menuLangBamananGV.Check(check = bamananGV)  # IMPROVE : if True, maninkaGV should be False (or not)!!! & vice-versa - see attempt in DoOpen
+        self.Bind(wx.EVT_MENU, self.OnSetLangBamananGV, self.menuLangBamananGV)
+
+        self.menuLangManinkaGV = wx.MenuItem(settingsmenu, 2, '&Maninka/N\'ko gloss validation', kind = wx.ITEM_CHECK)   # ADDED JJM 24/03/2024
+        settingsmenu.Append(self.menuLangManinkaGV)
+        maninkaGV=False # Default
+        self.menuLangManinkaGV.Check(check = maninkaGV)  # IMPROVE: should be checked if text.script=N'Ko (see metadict)
+        self.Bind(wx.EVT_MENU, self.OnSetLangManinkaGV, self.menuLangManinkaGV)
+        
+        menuCopy2SpacerToggle= wx.MenuItem(settingsmenu, 3, '&Copy2 Spacer is tab/space toggle', kind = wx.ITEM_CHECK)   # ADDED JJM 04/06/2024
+        global copy2spacer
+        copy2spacer="\t"
+        settingsmenu.Append(menuCopy2SpacerToggle)
+        self.Bind(wx.EVT_MENU, self.OnSetCopy2Spacer, menuCopy2SpacerToggle)
+
         menuBar.Append(settingsmenu, "&Settings")
         self.SetMenuBar(menuBar)
-
+        
         debugmenu = wx.Menu()
         menuInspector = debugmenu.Append(wx.ID_ANY, "Widget I&nspector", "Widget Inspector")
         self.Bind(wx.EVT_MENU, self.OnWidgetInspector, menuInspector)
@@ -1778,9 +2549,25 @@ class MainFrame(wx.Frame):
     def SetLocaldict(self, dictfile):
         """load localdict from a file or create empty one if the file does not exist"""
         if os.path.exists(dictfile):
-            self.localdict = daba.formats.DictReader(dictfile).get()
-        else:
+            self.oldlocaldict = daba.formats.DictReader(dictfile,keepmrph=True).get()
+            # create new local dict - keepmrph important for disamb localdict1
             self.localdict = daba.formats.DabaDict()
+            # populate new localdict with notones items
+            for x, y in sorted(self.oldlocaldict.items()):
+                xnotone=re.sub(r'[\u0301\u0300\u0302\u030c]','',x)  # high, low, decreasing, increasing tone diacritics
+                xnotone=xnotone.lower()
+                if xnotone in self.localdict:
+                    for ygloss in y:
+                        if ygloss not in self.localdict[xnotone]:
+                            self.localdict[xnotone].insert(0, ygloss)
+                else:
+                    self.localdict[xnotone]=y[0]
+                    for ygloss in y:
+                        if ygloss not in self.localdict[xnotone]:
+                            self.localdict[xnotone].insert(0, ygloss)
+            del self.oldlocaldict
+        else:
+            self.localdict = daba.formats.DabaDict() # will be populated OnSave
 
     def InitValues(self):
         """set main attributes"""
@@ -1797,8 +2584,12 @@ class MainFrame(wx.Frame):
         self.notebook = wx.Notebook(self)
         self.filepanel = FilePanel(self.notebook)
         self.sentpanel = SentPanel(self.notebook, vertical=self.config.ReadBool("display/vertical"))
+        self.metapanel = MetaPanel(self.notebook)
+        self.dictpanel = DictPanel(self.notebook)
         self.notebook.AddPage(self.sentpanel, "Disambiguate")
         self.notebook.AddPage(self.filepanel, "Source")
+        self.notebook.AddPage(self.metapanel, "Metas")
+        self.notebook.AddPage(self.dictpanel, "Localdict")
         self.Sizer.Add(self.notebook, 1, wx.EXPAND)
         self.Layout()
         self.Bind(wx.EVT_TEXT_ENTER, self.OnButtonSearch, self.sentpanel.searchbutton)
@@ -1807,6 +2598,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.OnFindNext, self.sentpanel.findnextbutton)
         self.Bind(wx.EVT_SPINCTRL, self.OnGotoSentence, self.sentpanel.sentnumbutton)
         self.Bind(wx.EVT_TEXT_ENTER, self.OnGotoSentence, self.sentpanel.sentnumbutton)
+        self.Bind(wx.EVT_BUTTON, self.OnNextAmbig, self.sentpanel.nextambigbutton)
 
     def CleanUI(self):
         """clear interface"""
@@ -1825,6 +2617,7 @@ class MainFrame(wx.Frame):
         if snum is not None:
             self.filepanel.ShowFile(s.senttoken for s in self.processor.glosses)
             self.ShowSent(snum)
+            self.metapanel.ShowMetas(self.processor.metadata)          
         self.Layout()
         self.Thaw()
 
@@ -1862,13 +2655,37 @@ class MainFrame(wx.Frame):
         if not self.fileopened:
             self.NoFileError(e)
         else:
-            dlg = wx.FileDialog(self, "Choose localdict file", self.dirname, "localdict.txt", "*.*", wx.FD_OPEN)
+            dlg = wx.FileDialog(self, "Choose localdict file", self.dirname, "localdict1.txt", "*.*", wx.FD_OPEN)
             if dlg.ShowModal() == wx.ID_OK:
                 dictfile = dlg.GetPath()
                 self.SetLocaldict(dictfile)
-                if not dictfile == '/'.join([self.dirname, "localdict.txt"]):
+                if not dictfile == '/'.join([self.dirname, "localdict1.txt"]):
                     self.config.Write('/'.join(['localdict', self.infile]), dictfile)
                 dlg.Destroy()
+
+    def OnSetLangBamananGV(self, e):  # this does not check / uncheck in Settings ???
+        """ let user toggle Bamanan Gloss validation on/off """
+        global bamananGV, maninkaGV   # why not just use: self.bamananGV ?
+        bamananGV= not bamananGV
+        self.menuLangBamananGV.Check(check = bamananGV)
+        self.menuLangManinkaGV.Check(check = maninkaGV)
+        #print("OnSetLangBamananGV - bamananGV: ",bamananGV,"       maninkaGV: ",maninkaGV)
+    
+    def OnSetLangManinkaGV(self, e):   # JJM 24/04/2024   # this does not check / uncheck in Settings ???
+        """ let user toggle Bamanan Gloss validation on/off """
+        global bamananGV, maninkaGV   # why not just use: self.maninkaGV ?
+        maninkaGV=not maninkaGV
+        self.menuLangBamananGV.Check(check = bamananGV)
+        self.menuLangManinkaGV.Check(check = maninkaGV)
+        # print("OnSetLangManinkaGV - bamananGV: ",bamananGV,"       maninkaGV: ",maninkaGV)
+
+    def OnSetCopy2Spacer(self,e) : # JJM 04/06/2024
+        # use space or tab when spacing ligne 2 elements (lx, ps, gloss) to copy
+        global copy2spacer
+        if copy2spacer==" ":
+            copy2spacer="\t"
+        else:
+            copy2spacer=" "
 
     def OnWidgetInspector(self, e):
         """show widget inspector"""
@@ -1891,6 +2708,8 @@ class MainFrame(wx.Frame):
         if self.undolist[snum]:
             self.menuUndoTokens.Enable(True)
         self.SaveFilePos(snum)
+        #print("ShowSent snum=",snum, "len(glosses)=",len(self.processor.glosses))
+        if snum>=len(self.processor.glosses): snum=0
         self.sentpanel.ShowSent(self.processor.glosses[snum])
 
     def OnTokenSplit(self, evt):
@@ -1964,6 +2783,7 @@ class MainFrame(wx.Frame):
     def OnSentenceSplit(self, evt):
         """split sentences in the processor glosses data, update UI"""
         sent = self.processor.glosses[evt.snum]
+        # print("OnSentenceSplit: sent=",sent)
         firstsent, nextsent = sent.split(evt.tnum, evt.charpos)
         self.processor.glosses[evt.snum] = firstsent
         self.processor.glosses.insert(evt.snum+1, nextsent)
@@ -1991,8 +2811,27 @@ class MainFrame(wx.Frame):
     
     def OnLocaldictLookup(self, evt):
         """lookup a gloss in localdict, show available matches"""
+        global formlookup
         try:
-            savedglosses = self.localdict[evt.gloss.form]
+
+            formlookup=evt.gloss.form
+
+
+            # JJM : localdict now indexed without tones & lowercase
+            formlookup=formlookup.lower()   # all indexed in localdict with no tones and lowercase
+
+            if self.GetTopLevelParent().processor.metadata["text:script"]=="Ancien orthographe malien":
+                # form is normally parsed in New Orthography - this only handles exception  (where parse failed, notably Proper names)
+                formlookup=formlookup.replace("èe","ɛɛ")
+                formlookup=formlookup.replace("òo","ɔɔ")
+                formlookup=formlookup.replace("è","ɛ")
+                formlookup=formlookup.replace("ò","ɔ") 
+            
+            formlookup=re.sub(r'[\u0301\u0300\u0302\u030c]','',formlookup)  # 4 bambara tones 
+            # print("OnLocaldictLookup - using formlookup: ",formlookup)
+            
+            savedglosses = self.localdict[formlookup]
+
             dlg = evt.dlg
             wx.CallAfter(dlg.ShowLocaldictVariants, savedglosses)
         except (KeyError):
@@ -2000,16 +2839,73 @@ class MainFrame(wx.Frame):
 
     def OnLocaldictSave(self, evt):
         """save a word into localdict"""
+        global formlookup
+        # print("OnLocaldictSave - formlookup=",formlookup)
         gloss = evt.gloss
         # we do not save words with empty glosses into localdict
-        if not gloss.gloss:
-            return
-        if gloss.form in self.localdict:
+        # original code for this whole section
+        """if gloss.form in self.localdict:
             if gloss not in self.localdict[gloss.form]:
                 self.localdict[gloss.form].insert(0, gloss)
+                print("OnLocalditSave - Added:",gloss, "to entry:",gloss.form)
         else:
             self.localdict[gloss.form] = gloss
-    
+            print("OnLocalditSave - Created:",gloss, "to entry:",gloss.form)
+        """
+        #if not gloss.gloss: JJM changed this, in case there are morphemes
+        if not gloss.gloss and not gloss.morphemes:
+            return
+
+        if gloss.gloss==None: 
+            # rebuild : do not allow None as value for \ge 
+            gloss=Gloss(gloss.form, gloss.ps, '', gloss.morphemes)
+
+        # new localdict JJM : is indexed with notones form
+        x=gloss.form
+        #print("gloss,...", gloss, gloss.form, gloss.ps, gloss.gloss, gloss.morphemes)
+        #print("Gloss",Gloss(gloss.form, gloss.ps, gloss.gloss, gloss.morphemes))
+        xnotone=re.sub(r'[\u0301\u0300\u0302\u030c]','',x)  # high, low, decreasing, increasing tone diacritics
+        xnotone=xnotone.lower()   # allow  proper names to be available even on lower case text 
+        #                           there is a side effect with Capitalized entries also created in lowercase on first "Create" ???
+        if xnotone in self.localdict and len(gloss.ps)>0 :
+
+            if gloss not in self.localdict[xnotone] :
+
+                self.localdict[xnotone].insert(0, gloss)
+                print("OnLocaldictSave - Added to localdict[",xnotone,"] =",gloss)
+                
+            #else:
+            #    print("OnLocaldictSave - Skipped localdict[",xnotone,"] =", gloss, ": already there, do nothing")
+        else:
+            self.localdict[xnotone] = gloss
+            print("OnLocaldictSave - Created localdict[",xnotone,"] =",gloss)
+
+        if xnotone!=formlookup and len(gloss.ps)>0 :
+            # this will add an entry if token!=form so that future erroneous token may yield correct form lookup.
+            print(xnotone,"<>",formlookup," : essayer de l'indexer?")
+            if formlookup not in self.localdict:
+                self.localdict[formlookup] = gloss
+                print("¹OnLocaldictSave - also created localdict[",formlookup,"] =",gloss)
+            elif gloss not in self.localdict[formlookup]:
+                self.localdict[formlookup] = gloss
+                print("ajout de localdict["+formlookup+"] =",gloss)
+                print("récap de localdict["+formlookup+"] =")
+                for g in self.localdict[formlookup]:
+                    print("-",str(g))
+#            if formlookup not in self.localdict:
+#                self.localdict[formlookup] = gloss
+#                print("¹OnLocaldictSave - also created localdict[",formlookup,"] =",gloss)
+#            elif xnotone not in self.localdict:
+#                self.localdict[xnotone] = gloss
+#                print("²OnLocaldictSave - also created localdict[",xnotone,"] =",gloss)
+#            else:
+#                print(formlookup,"ou",xnotone,"déjà dans localdict")
+#                try: 
+#                    self.localdict[xnotone] = gloss
+#                    print('on indexe quand même')
+#                except:
+#                    print('ajout impossible')
+
     def OnUndoTokens(self, e):
         """undo token split/join operations"""
         snum = self.sentpanel.snum
@@ -2071,6 +2967,35 @@ class MainFrame(wx.Frame):
         match = self.searcher.findNext()
         self.ShowSearchResult(match)
 
+    def OnNextAmbig(self, e):
+        snum = self.sentpanel.sentnumbutton.GetValue() # start at current sentence
+        #print("OnNextAmbig - starting at sentence # ",snum)
+        ns=0
+        ambig=False
+        for s in self.processor.glosses:
+            ns+=1
+            if ns>snum:  # only check sentences after the current one
+                #print(" OnNextAmbig - checking sentence # ",ns)
+                for g in s.glosslist:
+                    if g.type=="w":
+                        if len(g.value[2])!=1:   # >1 : ambigu   0 : inconnu
+                            #print("   ",g)
+                            #print("   ",g.value[2])
+                            ambig=True
+                            break
+                        else: # only one gloss but problems
+                            if len(g.gloss.ps)==0 and g.gloss.gloss=='':  # word in red (no gparser candidate)
+                                #print("   ",g)
+                                ambig=True
+                                break
+                            elif g.gloss.gloss=='INCOGN':
+                                #print("   ",g)
+                                ambig=True
+                                break
+            if ambig: break
+        if ambig: self.ShowSent(ns-1)
+        
+
     def OnGotoSentence(self, e):
         """show sentence with a given number"""
         self.sentpanel.OnSaveResults(e)
@@ -2090,7 +3015,19 @@ class MainFrame(wx.Frame):
 
     def OnClose(self, e):
         """save and cleanup UI on file close"""
+
         if self.fileopened:
+            #   JJM save window position and size
+            x,y=self.Position 
+            w,h=self.Size
+            #print ("x,y - w,h :",x,y,w,h)
+            
+            self.config.WriteInt("MainFrame/pos/x",x)
+            self.config.WriteInt("MainFrame/pos/y",y)
+            self.config.WriteInt("MainFrame/size/w",w)
+            self.config.WriteInt("MainFrame/size/h",h)
+            self.config.Flush()  # permanently writes
+            
             if self.processor.dirty:
                 self.OnSave(e)
             if self.logger:
@@ -2121,7 +3058,8 @@ class MainFrame(wx.Frame):
         if self.fileopened:
             self.FileOpenedError(e)
         else:
-            dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.FD_OPEN)
+            #dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.FD_OPEN)
+            dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "disamb files|*.pars.html;*.repl.html;*.dis.html", wx.FD_OPEN|wx.FD_FILE_MUST_EXIST)
             if dlg.ShowModal() == wx.ID_OK:
                 self.DoOpen(dlg.GetPath())
                 dlg.Destroy()
@@ -2145,23 +3083,81 @@ class MainFrame(wx.Frame):
         self.filename = os.path.basename(self.infile)
         logfile = os.path.extsep.join([get_basename(self.infile), 'log'])
         self.logger = EditLogger(os.path.join(self.dirname, logfile))
-        self.dictfile = self.config.Read("/".join(["localdict", self.infile]), os.path.join(self.dirname, "localdict.txt"))
+        self.dictfile = self.config.Read("/".join(["localdict", self.infile]), os.path.join(self.dirname, "localdict1.txt"))
         self.SetLocaldict(self.dictfile)
         self.processor.read_file(self.infile)
+        self.nambigs_before,self.totalwords_before=self.nambigs()
+        pcdisamb=0
+        if self.totalwords_before>0 : pcdisamb=int(100*self.nambigs_before/self.totalwords_before)
+        self.statusbar.SetStatusText(str(self.nambigs_before)+' mots ambigus restants/'+str(self.totalwords_before)+" mots au total soit "+str(pcdisamb)+"%")
+
         self.InitUI()
         self.SetTitle(self.filename)
         self.filepanel.ShowFile(s.senttoken for s in self.processor.glosses)
+        self.metapanel.ShowMetas(self.processor.metadata)
+        self.dictpanel.ShowDict(self.dictfile)
+        
         snum = self.GetFilePos(self.infile)
         self.ShowSent(snum)
         self.fileopened = True
         self.Layout()
 
+        #this does not do anything useful
+        global bamananGV,maninkaGV
+        metadict=self.processor.metadata
+        if "text:script" in metadict:
+            textscript=metadict["text:script"]
+            if textscript in ["Ancien orthographe malien","Nouvel orthographe malien"]:
+                bamananGV=True
+                maninkaGV=False
+            elif textscript in["N’Ko","Nouveau orthographe guinéen", "Ancien orthographe guinéen"]:
+                bamananGV=False
+                maninkaGV=True
+            self.menuLangBamananGV.Check(check = bamananGV)
+            self.menuLangManinkaGV.Check(check = maninkaGV) 
+
+    def nambigs(self):   # JJM compute ambiguous words left
+        na=0
+        nw=0
+        for s in self.processor.glosses:
+            for g in s.glosslist:
+                if g.type=="w":
+                    nw += 1
+                    if len(g.value[2])>1: na += 1
+        return na,nw
+
     def SaveFiles(self):
         """save annotated data, localdict and config values"""
-        if self.localdict:
-            daba.formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict', ver='0').write()
+        
+        prevsent=self.processor.metadata["_auto:sentences"]   # JJM
+        prevwords=self.processor.metadata["_auto:words"]
+        # JJM : if there are splits/joins these meta will be updated next in processor.write (FileParser)
         self.processor.write(self.outfile)
         self.config.Flush()
+        
+        # save localdict AFTER annotated data: i case of problem with localdict, disamb is saved with higher priority
+        if self.localdict:
+            """print("SaveFiles, before DictWriter")
+            for x, y in sorted(self.localdict.items()):
+                print("localdict[",x,"]=",y)
+            """
+            daba.formats.DictWriter(self.localdict, self.dictfile, lang='default', name='localdict', ver='0').write()
+            self.dictpanel.ShowDict(self.dictfile)      #  needs to be updated only if localdict is updated
+        
+        
+        nambigs_after,totalwords_after=self.nambigs()
+        
+        if self.processor.metadata["_auto:sentences"]!=prevsent or self.processor.metadata["_auto:words"]!=prevwords:
+
+            self.filepanel.ShowFile(s.senttoken for s in self.processor.glosses)   # also needs update when sentence fully disambed
+            self.metapanel.ShowMetas(self.processor.metadata)           # may also need to be updated on words split/joins            
+            
+        if nambigs_after != self.nambigs_before or totalwords_after != self.totalwords_before :
+            self.filepanel.ShowFile(s.senttoken for s in self.processor.glosses)   # update as sentence is disambed
+            self.nambigs_before=nambigs_after
+            self.totalwords_before=totalwords_after
+            pcdisamb=int(100*nambigs_after/totalwords_after)
+            self.statusbar.SetStatusText(str(self.nambigs_before)+' mots ambigus restants/'+str(totalwords_after)+" mots au total soit "+str(pcdisamb)+"%")
 
     def OnSave(self, e):
         """save files"""
@@ -2187,13 +3183,23 @@ class MainFrame(wx.Frame):
                     self.outfile = ''.join([self.outfile, os.path.extsep, 'html'])
                 self.SaveFiles()
                 self.filehistory.AddFileToHistory(self.outfile)
+                # added JJM
+                self.filehistory.Save(self.config)
+                self.dirname = os.path.dirname(self.outfile)
+                self.config.Write("state/curdir", self.dirname)
+                self.config.Flush()
+                self.filename = os.path.basename(self.outfile)
+                self.SetTitle(self.filename)
+                # end added JJM
             dlg.Destroy()
 
 
 def main():
     app = wx.App()
+
     frame = MainFrame(None, title="Daba disambiguation interface (GUI)")
     frame.Show()
+
     app.MainLoop()
     
 

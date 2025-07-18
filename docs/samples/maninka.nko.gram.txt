@@ -1,17 +1,19 @@
 # Maninka morphotactic patterns
 
 # macro definitions
-macro   @nasal-v@       <re>.*[aoeuiɔɛ]n</re>
-macro   @nonnasal-v@    <re>.*[aoeuiɔɛ][^n]?</re>
+macro   @nasal-v@       <re>.*[aoeuiɔɛ][́̀̌]?n</re>
+macro   @nonnasal-v@    <re>.*[aoeuiɔɛ][́̀̌]?[^n]?</re>
 
 # processing instructions
 plan
 for token:
 stage 0 add sequential parse common_inflection
+# stage 0 add sequential parse dtmprn_nko_inflection # NO RESULT : mɛ́n`:dtm/prn:
 stage 0 add parallel parse v_inflection 
 stage 0 apply lookup
 return if parsed
 stage 1 add sequential parse common_derivation
+return if parsed
 stage 1 add parallel parse v_derivation
 stage 1 add parallel parse v_prefixes
 stage 1 add parallel parse n_derivation
@@ -29,116 +31,290 @@ return if parsed
 # nominal/common inflection
 section common_inflection
 # -` ART
-pattern :n/adj/ptcp/n.prop: [ {|`}:: ] | :n/adj/ptcp/n.prop: [:n/adj/ptcp/n.prop: :mrph:ART]
+#pattern :n/adj/ptcp/n.prop/dtm/prn: [ {|`}:: ] | :n/adj/ptcp/n.prop/dtm/prn: [:n/adj/ptcp/n.prop/dtm/prn: :mrph:ART]
+#pattern :n/adj/ptcp/dtm/prn/v/pers/prt/num/n.prop: [ {|`}:: ] | :n/adj/ptcp/dtm/prn/v/pers/prt/num/n.prop: [:n/adj/ptcp/dtm/prn/v/pers/prt/num/n.prop: :mrph:ART]  # soupçons sur n.prop: -> testé sans=rien de probant - mis en dernier.
+pattern :n/adj/ptcp/v/pers/prt/num/n.prop: [ {|`}:: ] | :n/adj/ptcp/v/pers/prt/num/n.prop: [:n/adj/ptcp/v/pers/prt/num/n.prop: :mrph:ART]  
+# soupçons sur n.prop: -> testé sans=rien de probant - mis en dernier. 4/6/2024 enlevé dtm/prn: vt dans malidaba ? rien lookup ne trouve que les v pour mɛ́n` - ajouté 'vt' dans variantfields (formats/DictReader)
+# ART v -> n : nominalisation fréquente des verbes
+pattern :v: [ {|`}:: ] | :n: [:v: :mrph:ART]
+
+# section dtmprn_nko_inflection
+# pattern :dtm/prn: [ {|`}:: ] | :dtm/prn: [:dtm/prn:]
 
 section v_inflection
 # verbal inflection
 # -la/-na INF
 pattern :v: [ {@nonnasal-v@|là}:: ] | :v: [:v: :mrph:INF.LA]
 pattern :v: [ {@nonnasal-v@|lá}:: ] | :v: [:v: :mrph:INF.LA]
+pattern :v: [ {@nonnasal-v@|la}:: ] | :v: [:v: :mrph:INF.LA]
 pattern :v: [ {@nasal-v@|nà}:: ] | :v: [:v: :mrph:INF.LA]
 pattern :v: [ {@nasal-v@|ná}:: ] | :v: [:v: :mrph:INF.LA]
+pattern :v: [ {@nasal-v@|na}:: ] | :v: [:v: :mrph:INF.LA]
 # -san IMMED
 pattern :v: [ {|sàn}:: ] | :v: [:v: :mrph:IMMED] 
 pattern :v: [ {|sán}:: ] | :v: [:v: :mrph:IMMED] 
+pattern :v: [ {|san}:: ] | :v: [:v: :mrph:IMMED] 
+
 # participles
 # -nin/-nɛn PTCP.RES
 pattern :v/ptcp: [ {|nìn}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
 pattern :v/ptcp: [ {|nín}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
+pattern :v/ptcp: [ {|nin}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
+pattern :v/ptcp: [ {|nin|`}:: ] | :ptcp: [:v: :mrph:PTCP.RES :mrph:ART]
+
 pattern :v/ptcp: [ {|nɛ́n}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
 pattern :v/ptcp: [ {|nɛ̀n}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
+pattern :v/ptcp: [ {|nɛn}:: ] | :ptcp: [:v: :mrph:PTCP.RES]
+pattern :v/ptcp: [ {|nɛn|`}:: ] | :ptcp: [:v: :mrph:PTCP.RES :mrph:ART]
+
+pattern :v/ptcp: [ {|nɛn|ba}:: ] | :ptcp: [:v: :mrph:PTCP.RES :mrph:AUGM]
+pattern :v/ptcp: [ {|nɛn|ba|`}:: ] | :ptcp: [:v: :mrph:PTCP.RES :mrph:AUGM :mrph:ART]
+
+# à cause des confusions -nɛn PTCP.RES et -nɛn DIM, le paragraphe qui suit a été remonté dans cette section 
+pattern :n/adj/ptcp: [ {|nìn}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ] 
+pattern :n/adj/ptcp: [ {|nín}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ] 
+pattern :n/adj/ptcp: [ {|nin}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ] 
+pattern :n/adj/ptcp: [ {|nin|`}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM :mrph:ART] 
+#     ajouté : -nɛn DIM
+pattern :n/adj/ptcp: [ {|nɛ̀n}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ] 
+pattern :n/adj/ptcp: [ {|nɛ́n}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ] 
+pattern :n/adj/ptcp: [ {|nɛn}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ] 
+pattern :n/adj/ptcp: [ {|nɛn|`}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM :mrph:ART] 
+
 # -ta PTCP.POT
 pattern :v/ptcp: [ {|tà}:: ] | :ptcp: [:v: :mrph:PTCP.POT]
 pattern :v/ptcp: [ {|tá}:: ] | :ptcp: [:v: :mrph:PTCP.POT]
-# -tɔ PTCP.PROG
-pattern :v/ptcp: [ {|tɔ̀}:: ] | :ptcp: [:v: :mrph:PTCP.PROG]
-pattern :v/ptcp: [ {|tɔ́}:: ] | :ptcp: [:v: :mrph:PTCP.PROG]
+pattern :v/ptcp: [ {|ta}:: ] | :ptcp: [:v: :mrph:PTCP.POT]
+pattern :v/ptcp: [ {|ta|`}:: ] | :ptcp: [:v: :mrph:PTCP.POT :mrph:ART]
+# -tɔ PTCP.PROG -> changed to CONV.PROG
+pattern :v/ptcp: [ {|tɔ̀}:: ] | :ptcp: [:v: :mrph:CONV.PROG]
+pattern :v/ptcp: [ {|tɔ́}:: ] | :ptcp: [:v: :mrph:CONV.PROG]
+pattern :v/ptcp: [ {|tɔ}:: ] | :ptcp: [:v: :mrph:CONV.PROG]
+pattern :v/ptcp: [ {|tɔ|`}:: ] | :ptcp: [:v: :mrph:CONV.PROG :mrph:ART]
+# -tɔla CONV.PROG+PROG ajouté le 22/3/2024
+pattern :v/ptcp: [ {|tɔ|la}:: ] | :ptcp: [:v: :mrph:CONV.PROG la:mrph:PROG]
+pattern :v/ptcp: [ {|tɔ|la|`}:: ] | :ptcp: [:v: :mrph:CONV.PROG la:mrph:PROG :mrph:ART]
+
 # -bali PTCP.NEG
 pattern :v/ptcp: [ {|bàlì}:: ] | :ptcp: [:v: :mrph:PTCP.NEG]
 pattern :v/ptcp: [ {|bálí}:: ] | :ptcp: [:v: :mrph:PTCP.NEG]
+pattern :v/ptcp: [ {|bali}:: ] | :ptcp: [:v: :mrph:PTCP.NEG]
+pattern :v/ptcp: [ {|bali|`}:: ] | :ptcp: [:v: :mrph:PTCP.NEG :mrph:ART]
+
+# -baliya
+pattern :v/ptcp: [ {|bali|ya}:: ] | :n: [:v: :mrph:PTCP.NEG :mrph:ABSTR]
+pattern :v/ptcp: [ {|bali|ya|`}:: ] | :n: [:v: :mrph:PTCP.NEG :mrph:ABSTR :mrph:ART]
 
 ## DERIVATION
 
 section common_derivation
+# les lignes avec articles tonal sont nécessaires - mais cela ne parait pas logique (faute de documentation, on s'adapte)
+
 # -ya/-ɲa ABSTR
-pattern :n/v: [ {|yà}:: ] | :n: [:n/adj/ptcp: :mrph:ABSTR]
-pattern :n/v: [ {|yá}:: ] | :n: [:n/adj/ptcp: :mrph:ABSTR]
-pattern :n/v: [ {|ɲà}:: ] | :n: [:n/adj/ptcp: :mrph:ABSTR]
-pattern :n/v: [ {|ɲá}:: ] | :n: [:n/adj/ptcp: :mrph:ABSTR]
-# -nin DIM
-pattern :n/adj/ptcp: [ {|nìn}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ] 
-pattern :n/adj/ptcp: [ {|nín}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ] 
+#pattern :n/v: [ {|yà}:: ] | :n: [:n/adj/ptcp: :mrph:ABSTR] # n/adj/ptcp ???
+pattern :n/v: [ {|yà}:: ] | :n: [:n/v: :mrph:ABSTR]
+pattern :n/v: [ {|yá}:: ] | :n: [:n/v: :mrph:ABSTR]
+pattern :n/v: [ {|ya}:: ] | :n: [:n/v: :mrph:ABSTR]
+pattern :n/v: [ {|ɲà}:: ] | :n: [:n/v: :mrph:ABSTR]
+pattern :n/v: [ {|ɲá}:: ] | :n: [:n/v: :mrph:ABSTR]
+pattern :n/v: [ {|ɲa}:: ] | :n: [:n/v: :mrph:ABSTR]
+pattern :n/v: [ {|ɲa|`}:: ] | :n: [:n/v: :mrph:ABSTR :mrph:ART]
+
+# -nin DIM 
+pattern :n/adj/ptcp: [ {|nìn}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ]
+pattern :n/adj/ptcp: [ {|nín}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ]
+pattern :n/adj/ptcp: [ {|nin}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ]
+pattern :n/adj/ptcp: [ {|nin|`}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM :mrph:ART]
+
+# -ren DIM
+pattern :n/adj/ptcp: [ {|ren}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM ]
+pattern :n/adj/ptcp: [ {|ren|`}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:DIM :mrph:ART]
+
 # -ba AUGM
-pattern :n/adj/ptcp: [ {|bà}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:AUG ]
-pattern :n/adj/ptcp: [ {|bá}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:AUG ]
+pattern :n/adj/ptcp: [ {|bà}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:AUGM ]
+pattern :n/adj/ptcp: [ {|bá}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:AUGM ]
+pattern :n/adj/ptcp: [ {|ba}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:AUGM ]
+pattern :n/adj/ptcp: [ {|ba|`}:: ] | :n/adj/ptcp: [ :n/adj/ptcp: :mrph:AUGM :mrph:ART]
+
 # -nte AG.EX
 pattern :n: [ {|ntè}:: ] | :n: [ :n/adj/v: :mrph:AG.EX ] 
 pattern :n: [ {|nté}:: ] | :n: [ :n/adj/v: :mrph:AG.EX ] 
+pattern :n: [ {|nte}:: ] | :n: [ :n/adj/v: :mrph:AG.EX ]
+pattern :n: [ {|nte|`}:: ] | :n: [ :n/adj/v: :mrph:AG.EX :mrph:ART]
+
 # ‑ɲɔɔn RECP
 pattern :n: [ {|ɲɔ̀ɔn}:: ] | :n: [ :v/n: :mrph:RECP]
 pattern :n: [ {|ɲɔ́ɔn}:: ] | :n: [ :v/n: :mrph:RECP]
+pattern :n: [ {|ɲɔɔn}:: ] | :n: [ :v/n: :mrph:RECP]
+pattern :n: [ {|ɲɔɔn|`}:: ] | :n: [ :v/n: :mrph:RECP :mrph:ART]
 
+# -lama STAT ajouté le 22/3/2024
+pattern :n: [ {@nonnasal-v@|lama}:: ] | :adj: [ :n: :mrph:STAT]
+pattern :n: [ {@nonnasal-v@|lama|`}:: ] | :adj: [ :n: :mrph:STAT :mrph:ART]
+pattern :n: [ {@nasal-v@|nama}:: ] | :adj: [ :n: :mrph:STAT]
+pattern :n: [ {@nasal-v@|nama|`}:: ] | :adj: [ :n: :mrph:STAT :mrph:ART]
+pattern :n: [ {@nonnasal-v@|rɔma}:: ] | :adj: [ :n: :mrph:STAT]
+pattern :n: [ {@nonnasal-v@|rɔma|`}:: ] | :adj: [ :n: :mrph:STAT :mrph:ART]
+
+# -ma RECP.PRN ajouté le 22/3/2024
+pattern :n: [ {|ma}:: ] | :n: [ :n: :mrph:RECP.PRN]
+pattern :n: [ {|ma|`}:: ] | :n: [ :n: :mrph:RECP.PRN :mrph:ART]
+
+# -ta PRICE ajouté le 22/3/2024
+pattern :num/n: [ {|ta}:: ] | :n: [ :num: :mrph:PRICE]
+pattern :num/n: [ {|ta|`}:: ] | :n: [ :num: :mrph:PRICE :mrph:ART]
+pattern :num/n: [ {|la}:: ] | :n: [ :num: :mrph:PRICE]
+pattern :num/n: [ {|la|`}:: ] | :n: [ :num: :mrph:PRICE :mrph:ART]
 
 # verbal derivation
 section v_derivation
 # -baa AG.OCC
 pattern :n/adj: [ {|bàa}:: ] | :n/adj: [ :v: :mrph:AG.OCC ]
 pattern :n/adj: [ {|báa}:: ] | :n/adj: [ :v: :mrph:AG.OCC ]
+pattern :n/adj: [ {|baa}:: ] | :n/adj: [ :v: :mrph:AG.OCC ]
+pattern :n/adj: [ {|baa|`}:: ] | :n/adj: [ :v: :mrph:AG.OCC :mrph:ART]
 # -la/-na AG.PRM
 pattern :n: [ {@nonnasal-v@|là}:: ] | :n: [ :v: :mrph:AG.PRM ] 
 pattern :n: [ {@nonnasal-v@|lá}:: ] | :n: [ :v: :mrph:AG.PRM ] 
+pattern :n: [ {@nonnasal-v@|la}:: ] | :n: [ :v: :mrph:AG.PRM ] 
+pattern :n: [ {@nonnasal-v@|la|`}:: ] | :n: [ :v: :mrph:AG.PRM :mrph:ART] 
 pattern :n: [ {@nasal-v@|nà}:: ] | :n: [ :v: :mrph:AG.PRM ] 
 pattern :n: [ {@nasal-v@|ná}:: ] | :n: [ :v: :mrph:AG.PRM ] 
+pattern :n: [ {@nasal-v@|na}:: ] | :n: [ :v: :mrph:AG.PRM ] 
+pattern :n: [ {@nasal-v@|na|`}:: ] | :n: [ :v: :mrph:AG.PRM :mrph:ART] 
 # -lan/-nan/-ran INSTR
 pattern :n: [ {@nonnasal-v@|làn}:: ] | :n: [ :v: :mrph:INSTR]
 pattern :n: [ {@nonnasal-v@|lán}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@nonnasal-v@|lan}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@nonnasal-v@|lan|`}:: ] | :n: [ :v: :mrph:INSTR :mrph:ART]
 pattern :n: [ {@nasal-v@|nàn}:: ] | :n: [ :v: :mrph:INSTR]
 pattern :n: [ {@nasal-v@|nán}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@nasal-v@|nan}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@nasal-v@|nan|`}:: ] | :n: [ :v: :mrph:INSTR :mrph:ART]
+pattern :n: [ {@nonnasal-v@|ràn}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@nonnasal-v@|rán}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@nonnasal-v@|ran}:: ] | :n: [ :v: :mrph:INSTR]
+pattern :n: [ {@nonnasal-v@|ran|`}:: ] | :n: [ :v: :mrph:INSTR :mrph:ART]
 # -li/-nin NMLZ
-pattern :n: [ {@nonnasal-syl@|lì}:: ] | :n: [ :v: :mrph:NMLZ]
-pattern :n: [ {@nonnasal-syl@|lí}:: ] | :n: [ :v: :mrph:NMLZ]
-pattern :n: [ {@nasal-syl@|nìn}:: ] | :n: [ :v: :mrph:NMLZ]
-pattern :n: [ {@nasal-syl@|nín}:: ] | :n: [ :v: :mrph:NMLZ]
+pattern :n: [ {@nonnasal-v@|lì}:: ] | :n: [ :v: :mrph:NMLZ]
+pattern :n: [ {@nonnasal-v@|lí}:: ] | :n: [ :v: :mrph:NMLZ]
+pattern :n: [ {@nonnasal-v@|li}:: ] | :n: [ :v: :mrph:NMLZ]
+pattern :n: [ {@nonnasal-v@|li|`}:: ] | :n: [ :v: :mrph:NMLZ :mrph:ART]
+pattern :n: [ {@nasal-v@|nìn}:: ] | :n: [ :v: :mrph:NMLZ]
+pattern :n: [ {@nasal-v@|nín}:: ] | :n: [ :v: :mrph:NMLZ]
+pattern :n: [ {@nasal-v@|nin}:: ] | :n: [ :v: :mrph:NMLZ]
+pattern :n: [ {@nasal-v@|nin|`}:: ] | :n: [ :v: :mrph:NMLZ :mrph:ART]
 
 section v_prefixes
 # lá-/ná- CAUS
-#pattern :v: [ {la|}:: ] | :v: [ :mrph:CAUS :v: ] 
-#pattern :v: [ {na|}:: ] | :v: [ :mrph:CAUS :v: ] 
-# mà- SUPER
-#pattern :v: [ {ma|}:: ] | :v: [ :mrph:SUPER :v: ]
+pattern :v: [ {lá|}:: ] | :v: [ :mrph:CAUS :v: ] 
+pattern :v: [ {ná|}:: ] | :v: [ :mrph:CAUS :v: ] 
+pattern :v/ptcp: [ {lá||nin|`}:: ] | :ptcp: [ :mrph:CAUS :v: :mrph:PTCP.RES :mrph:ART]
+pattern :v/ptcp: [ {ná||nin|`}:: ] | :ptcp: [ :mrph:CAUS :v: :mrph:PTCP.RES :mrph:ART]
+pattern :v/ptcp: [ {lá||nɛn|`}:: ] | :ptcp: [ :mrph:CAUS :v: :mrph:PTCP.RES :mrph:ART]
+pattern :v/ptcp: [ {ná||nɛn|`}:: ] | :ptcp: [ :mrph:CAUS :v: :mrph:PTCP.RES :mrph:ART]
+
+pattern :v/ptcp: [ {lá||ta|`}:: ] | :ptcp: [ :mrph:CAUS :v: :mrph:PTCP.POT :mrph:ART]
+pattern :v/ptcp: [ {lá||tɔ|`}:: ] | :ptcp: [ :mrph:CAUS :v: :mrph:CONV.PROG :mrph:ART]
+pattern :v/ptcp: [ {lá||bali|`}:: ] | :ptcp: [ :mrph:CAUS :v: :mrph:PTCP.PRIV :mrph:ART]
+
+pattern :v/n: [ {lá||li|`}:: ] | :n: [ :mrph:CAUS :v: :mrph:NMLZ :mrph:ART]
+pattern :v/n: [ {lá||nin|`}:: ] | :n: [ :mrph:CAUS :v: :mrph:NMLZ :mrph:ART]
+pattern :v/n: [ {ná||la|`}:: ] | :n: [ :mrph:CAUS :v: :mrph:AG.PRM :mrph:ART]
+pattern :v/n: [ {ná||lan|`}:: ] | :n: [ :mrph:CAUS :v: :mrph:INSTR :mrph:ART]
+
+pattern :v/ptcp: [ {ná||ta|`}:: ] | :ptcp: [ :mrph:CAUS :v: :mrph:PTCP.POT :mrph:ART]
+pattern :v/ptcp: [ {ná||tɔ|`}:: ] | :ptcp: [ :mrph:CAUS :v: :mrph:CONV.PROG :mrph:ART]
+pattern :v/ptcp: [ {ná||bali|`}:: ] | :ptcp: [ :mrph:CAUS :v: :mrph:PTCP.PRIV :mrph:ART]
+
+pattern :v/n: [ {ná||li|`}:: ] | :n: [ :mrph:CAUS :v: :mrph:NMLZ :mrph:ART]
+pattern :v/n: [ {ná||nin|`}:: ] | :n: [ :mrph:CAUS :v: :mrph:NMLZ :mrph:ART]
+pattern :v/n: [ {ná||na|`}:: ] | :n: [ :mrph:CAUS :v: :mrph:AG.PRM :mrph:ART]
+pattern :v/n: [ {ná||nan|`}:: ] | :n: [ :mrph:CAUS :v: :mrph:INSTR :mrph:ART]
+
+# má- SUPER
+pattern :v: [ {má|}:: ] | :v: [ :mrph:SUPER :v: ]
+pattern :v/ptcp: [ {má||nin|`}:: ] | :ptcp: [ :mrph:SUPER :v: :mrph:PTCP.RES :mrph:ART]
+pattern :v/ptcp: [ {má||nɛn|`}:: ] | :ptcp: [ :mrph:SUPER :v: :mrph:PTCP.RES :mrph:ART]
+
+pattern :v/ptcp: [ {má||ta|`}:: ] | :ptcp: [ :mrph:SUPER :v: :mrph:PTCP.POT :mrph:ART]
+pattern :v/ptcp: [ {má||tɔ|`}:: ] | :ptcp: [ :mrph:SUPER :v: :mrph:CONV.PROG :mrph:ART]
+pattern :v/ptcp: [ {má||bali|`}:: ] | :ptcp: [ :mrph:SUPER :v: :mrph:PTCP.PRIV :mrph:ART]
+
+pattern :v/n: [ {má||li|`}:: ] | :n: [ :mrph:SUPER :v: :mrph:NMLZ :mrph:ART]
+pattern :v/n: [ {má||nin|`}:: ] | :n: [ :mrph:SUPER :v: :mrph:NMLZ :mrph:ART]
+
 # dɔ́ ~ rɔ́-/nɔ́ IN
-#pattern :v: [ {dɔ|}:: ] | :v: [ :mrph:IN :v: ] 
-#pattern :v: [ {rɔ|}:: ] | :v: [ :mrph:IN :v: ] 
-#pattern :v: [ {nɔ|}:: ] | :v: [ :mrph:IN :v: ] 
+pattern :v: [ {dɔ́|}:: ] | :v: [ :mrph:IN :v: ] 
+pattern :v: [ {rɔ́|}:: ] | :v: [ :mrph:IN :v: ] 
+pattern :v: [ {nɔ́|}:: ] | :v: [ :mrph:IN :v: ] 
+pattern :v/ptcp: [ {dɔ́||nin|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:PTCP.RES :mrph:ART] 
+pattern :v/ptcp: [ {rɔ́||nin|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:PTCP.RES :mrph:ART] 
+pattern :v/ptcp: [ {nɔ́||nin|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:PTCP.RES :mrph:ART]
+pattern :v/ptcp: [ {dɔ́||nɛn|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:PTCP.RES :mrph:ART] 
+pattern :v/ptcp: [ {rɔ́||nɛn|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:PTCP.RES :mrph:ART] 
+pattern :v/ptcp: [ {nɔ́||nɛn|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:PTCP.RES :mrph:ART] 
+
+pattern :v/ptcp: [ {dɔ́||ta|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:PTCP.POT :mrph:ART]
+pattern :v/ptcp: [ {dɔ́||tɔ|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:CONV.PROG :mrph:ART]
+pattern :v/ptcp: [ {dɔ́||bali|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:PTCP.PRIV :mrph:ART]
+
+pattern :v/n: [ {dɔ́||li|`}:: ] | :n: [ :mrph:SUPER :v: :mrph:PTCP.PRIV :mrph:NMLZ]
+pattern :v/n: [ {dɔ́||nin|`}:: ] | :n: [ :mrph:SUPER :v: :mrph:PTCP.PRIV :mrph:NMLZ]
+
+pattern :v/ptcp: [ {rɔ́||ta|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:PTCP.POT :mrph:ART]
+pattern :v/ptcp: [ {rɔ́||tɔ|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:CONV.PROG :mrph:ART]
+pattern :v/ptcp: [ {rɔ́||bali|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:PTCP.PRIV :mrph:ART]
+pattern :v/ptcp: [ {nɔ́||ta|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:PTCP.POT :mrph:ART]
+pattern :v/ptcp: [ {nɔ́||tɔ|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:CONV.PROG :mrph:ART]
+pattern :v/ptcp: [ {nɔ́||bali|`}:: ] | :ptcp: [ :mrph:IN :v: :mrph:PTCP.PRIV :mrph:ART]
 
 section n_derivation
 # -laka LOC.GENT
 pattern :n/n.prop: [ {@nonnasal-v@|là|kà}:: ] | :n/n.prop: [ :n/n.prop: :mrph:LOC :mrph:GENT ] 
 pattern :n/n.prop: [ {@nonnasal-v@|lá|ká}:: ] | :n/n.prop: [ :n/n.prop: :mrph:LOC :mrph:GENT ] 
-pattern :n/n.prop: [ {@nonnasal-v@|là|ká}:: ] | :n/n.prop: [ :n/n.prop: :mrph:LOC :mrph:GENT ] 
+pattern :n/n.prop: [ {@nonnasal-v@|là|ká}:: ] | :n/n.prop: [ :n/n.prop: :mrph:LOC :mrph:GENT ]
+pattern :n/n.prop: [ {@nonnasal-v@|la|ka}:: ] | :n/n.prop: [ :n/n.prop: :mrph:LOC :mrph:GENT ]
+pattern :n/n.prop: [ {@nonnasal-v@|la|ka|`}:: ] | :n/n.prop: [ :n/n.prop: :mrph:LOC :mrph:GENT :mrph:ART]
 # -ka  GENT
 pattern :n/n.prop: [ {|kà}:: ] | :n/n.prop: [ :n/n.prop: :mrph:GENT ]
 pattern :n/n.prop: [ {|ká}:: ] | :n/n.prop: [ :n/n.prop: :mrph:GENT ]
+pattern :n/n.prop: [ {|ka}:: ] | :n/n.prop: [ :n/n.prop: :mrph:GENT ]
+pattern :n/n.prop: [ {|ka|`}:: ] | :n/n.prop: [ :n/n.prop: :mrph:GENT :mrph:ART]
 # -la/-na LOC
 pattern :n/n.prop: [ {@nonnasal-v@|là}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
 pattern :n/n.prop: [ {@nonnasal-v@|lá}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
+pattern :n/n.prop: [ {@nonnasal-v@|la}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
+pattern :n/n.prop: [ {@nonnasal-v@|la|`}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC :mrph:ART]
 pattern :n/n.prop: [ {@nasal-v@|nà}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
 pattern :n/n.prop: [ {@nasal-v@|ná}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
+pattern :n/n.prop: [ {@nasal-v@|na}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC]
+pattern :n/n.prop: [ {@nasal-v@|na|`}:: ] | :n/n.prop: [:n/n.prop: :mrph:LOC :mrph:ART]
 # -ntan PRIV
 pattern :adj/n: [ {|ntàn}:: ] | :adj/n: [ :n: :mrph:PRIV]
 pattern :adj/n: [ {|ntán}:: ] | :adj/n: [ :n: :mrph:PRIV]
+pattern :adj/n: [ {|ntan}:: ] | :adj/n: [ :n: :mrph:PRIV]
+pattern :adj/n: [ {|ntan|`}:: ] | :adj/n: [ :n: :mrph:PRIV :mrph:ART]
 # -ma COM
 pattern :n: [ {|mà}:: ] | :adj/n: [ :n: :mrph:COM]
 pattern :n: [ {|má}:: ] | :adj/n: [ :n: :mrph:COM]
+pattern :n: [ {|ma}:: ] | :adj/n: [ :n: :mrph:COM]
+pattern :n: [ {|ma|`}:: ] | :adj/n: [ :n: :mrph:COM :mrph:ART]
 # -nan ORD
 pattern :num: [ {|nàn}:: ] | :adj: [ :num: :mrph:ORD ]
 pattern :num: [ {|nán}:: ] | :adj: [ :num: :mrph:ORD ]
+pattern :num: [ {|nan}:: ] | :adj: [ :num: :mrph:ORD ]
+pattern :num: [ {|nan|`}:: ] | :adj: [ :num: :mrph:ORD :mrph:ART]
 # -ta FOC.ADJ
 pattern :adj: [ {|tà}:: ] | :adj: [ :adj: :mrph:FOC.ADJ ]
 pattern :adj: [ {|tá}:: ] | :adj: [ :adj: :mrph:FOC.ADJ ]
+pattern :adj: [ {|ta}:: ] | :adj: [ :adj: :mrph:FOC.ADJ ]
+pattern :adj: [ {|ta|`}:: ] | :adj: [ :adj: :mrph:FOC.ADJ :mrph:ART]
 # -tɔ ST
 pattern :n/adj: [ {|tɔ́}:: ] | :n/adj: [ :n: :mrph:ST ] 
 pattern :n/adj: [ {|tɔ̀}:: ] | :n/adj: [ :n: :mrph:ST ] 
+pattern :n/adj: [ {|tɔ}:: ] | :n/adj: [ :n: :mrph:ST ] 
+pattern :n/adj: [ {|tɔ|`}:: ] | :n/adj: [ :n: :mrph:ST :mrph:ART] 
 
 
 # vq derivation
@@ -146,11 +322,20 @@ section vq_derivation
 # -man ADJ
 pattern :vq: [ {|màn}:: ] | :adj: [ :vq: :mrph:ADJ ]
 pattern :vq: [ {|mán}:: ] | :adj: [ :vq: :mrph:ADJ ]
+pattern :vq: [ {|man}:: ] | :adj: [ :vq: :mrph:ADJ ]
+pattern :vq: [ {|man|`}:: ] | :adj: [ :vq: :mrph:ADJ :mrph:ART]
 # -ya/-ɲa DEQU
 pattern :vq: [ {@nonnasal-v@|yà}:: ] | :n/v: [ :vq: :mrph:DEQU]
 pattern :vq: [ {@nonnasal-v@|yá}:: ] | :n/v: [ :vq: :mrph:DEQU]
+pattern :vq: [ {@nonnasal-v@|ya}:: ] | :n/v: [ :vq: :mrph:DEQU]
+pattern :vq: [ {@nonnasal-v@|ya|`}:: ] | :n: [ :vq: :mrph:DEQU :mrph:ART]
 pattern :vq: [ {@nasal-v@|ɲà}:: ] | :n/v: [ :vq: :mrph:DEQU]
 pattern :vq: [ {@nasal-v@|ɲá}:: ] | :n/v: [ :vq: :mrph:DEQU]
+pattern :vq: [ {@nasal-v@|ɲa}:: ] | :n/v: [ :vq: :mrph:DEQU]
+pattern :vq: [ {@nasal-v@|ɲa|`}:: ] | :n: [ :vq: :mrph:DEQU :mrph:ART]
+# cela arrive aussi quand même :
+pattern :vq: [ {@nasal-v@|ya}:: ] | :n/v: [ :vq: :mrph:DEQU]
+pattern :vq: [ {@nasal-v@|ya|`}:: ] | :n: [ :vq: :mrph:DEQU :mrph:ART]
 
 ## reduplication
 section reduplication
@@ -169,13 +354,25 @@ pattern :adj: [ {<re>(?P<stem>.+)</re>|<re>(?P=stem)</re>|<re>(?P=stem)</re>}:: 
 # two-word composites
 section pos_composition
 # v/n + n = n
-pattern :n: [ :n/v: :n: ] | :n: [ :n/v: :n: ]
+# BUGS(misses yìdako) pattern :n: [ :n/v: :n: ] | :n: [ :n/v: :n: ]
+# NOT NEEDED ->  pattern :n: [ :n/v: {|`}:n: ] | :n: [ :n/v: :n: :mrph:ART]
+pattern :n/v: [ :v: :n: ] | :n: [ :v: :n: ]
+pattern :n: [ :n: :n: ] | :n: [ :n: :n: ]
+
 # n + v = n/v
 pattern :n/v: [ :n: :v: ] | :n/v: [ :n: :v: ]
+
 # n + adj/num = n
 pattern :n: [ :n: :adj/num: ] | :n: [ :n: :adj/num: ]
+# pattern :n/adj: [ :n: :adj: ] | :n: [ :n: :adj: ]
+# pattern :n/num: [ :n: :num: ] | :n: [ :n: :num: ]
+
+# prn + v  ɲɔ́ɔn.yé
+pattern :n/v: [ :prn: :v: ] | :n/v: [ :prn: :v: ]
+
 # dtm + v = n
 pattern :n: [ :dtm: :v: ] | :n: [ :dtm: :v: ]
+
 # three-word composites
 # n + adj/pp + n = n
 pattern :n: [ :n: :adj/pp: :n: ] | :n: [ :n: :adj/pp: :n: ]

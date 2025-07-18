@@ -37,7 +37,7 @@ from collections.abc import MutableMapping
 from abc import abstractmethod
 
 import daba.grammar
-from daba.ntgloss import Gloss
+from daba.ntgloss import Gloss, __str__
 from daba.orthography import detone
 
 #FIXME: duplicate, move to common util
@@ -205,7 +205,7 @@ class SentenceListReader(BaseReader):
     def __init__(self, filename, encoding="utf-8"):
         self.isdummy = True
         self.metadata = {}
-        sent_re = '(?P<starttag><s[ ]+n="(?P<id>[0-9]+)"\s*>)(?P<senttext>(.|\n(?!<s n=))*)(?P<endtag></s>)'
+        sent_re = r'(?P<starttag><s[ ]+n="(?P<id>[0-9]+)"\s*>)(?P<senttext>(.|\n(?!<s n=))*)(?P<endtag></s>)'
         out = []
         with open(filename, encoding=encoding) as f:
             txt = f.read()
@@ -479,6 +479,7 @@ class SimpleHtmlWriter(object):
         html = e.Element('html')
         head = e.SubElement(html, 'head')
         e.SubElement(head, 'meta', {'http-equiv': "Content-Type", 'content': "text/html; charset={0}".format(self.encoding)})
+        # what about sorting metadata by key ? sortedmetadata=dict(sorted(metadata.items()))
         for (name, content) in self.metadata.items():
             md = e.SubElement(head, 'meta', {'name': name, 'content': content})
         body = e.SubElement(html, 'body')
@@ -524,6 +525,7 @@ class HtmlWriter(object):
         root = e.Element('html')
         head = e.SubElement(root, 'head')
         meta = e.SubElement(head, 'meta', {'http-equiv': 'Content-Type', 'content': 'text/html; charset={0}'.format(self.encoding)})
+        # what about sorting metadata by key ? sortedmetadata=dict(sorted(metadata.items()))
         for (name, content) in self.metadata.items():
             md = e.SubElement(head, 'meta', {'name': name, 'content': content})
         style = e.SubElement(head, 'style', {'type': 'text/css'})
@@ -660,17 +662,38 @@ class DictWriter(object):
 
     def write(self):
         def makeGlossSfm(gloss,morpheme=False):
-            if not morpheme:
-                sfm = r"""
-\lx {0}
-\ps {1}
-\ge {2}
-                """.format(gloss.form, '/'.join(gloss.ps), gloss.gloss)
-                for m in gloss.morphemes:
-                    sfm = sfm + makeGlossSfm(m, morpheme=True)
-            else:
-                sfm = r'\mm ' + ':'.join([gloss.form or '', '/'.join(gloss.ps or ()), gloss.gloss or '']) + os.linesep
+            # example str(gloss): álalandiya:n:piété3 [álalandi:n:personne.pieuse [Ála:n:Dieu landi:adj:qui.aime] ya:mrph:ABSTR]
+            sfm="\n\\lx "+gloss.form
+            sfm+="\n\\ps "+'/'.join(gloss.ps)
+            sfm+="\n\\gf "+gloss.gloss
+            if gloss.morphemes:
+                lxroot,mrphx=str(gloss).split(" ",1)
+                sfm+=mmlist(str(mrphx[1:-1]))
+            sfm+="\n"
             return sfm
+            
+        def mmlist(mrphx): # can handle multiple level mm ( source: wordparser1 )
+            mrphx=mrphx.replace("[","[ ")
+            mrphx=mrphx.replace("]"," ]")
+            mrphelem=mrphx.split(" ")
+            mmprefix="\n\\mm"
+            level=0
+            mms=""
+            for elem in mrphelem:
+                if elem=="[":
+                    level+=1
+                    mmprefix=mmprefix+"m"
+                elif elem=="]":
+                    level-=1
+                    mmprefix=mmprefix[:-1]
+                else:
+                    if ":" in elem:
+                        mmlx,mmps,mmgloss=elem.split(":",2)
+                        mms+=mmprefix+" "+mmlx+":"+mmps+":"+mmgloss  # or tomonolith(mmgloss) ?
+                    else:
+                        mms+=mmprefix+" "+elem   # ??? what happened ???
+            return mms+"\n"
+
 
         with codecs.open(self.filename, 'w', encoding=self.encoding) as dictfile:
             dictfile.write(u'\\lang {0}\n'.format(self.lang))
@@ -761,7 +784,8 @@ class VariantsDict(MutableMapping):
         if gs:
             lookup.append((form, (ps, gs)))
         if ms:
-            stems = [m for m in ms if 'mrph' not in m.ps]
+            stems = [m for m in ms if 'mrph' not in m.ps]  # tried replace by JJM - tried keepmrph first
+            # stems = [m for m in ms ]   # JJ removed: if 'mrph' not in m.ps
             if len(stems) == 1:
                 g = stems[0]
                 lookup.append((g.form, (g.ps, g.gloss)))
@@ -799,10 +823,26 @@ class VariantsDict(MutableMapping):
 class DictReader(object):
     def __init__(self, filename, encoding='utf-8', store=True,
                  variants=False, polisemy=False, keepmrph=False,
-                 normalize=True, ignorelist=('i',), inverse=False,
-                 lemmafields=('lx', 'le'),
-                 variantfields=('ve', 'va', 'vc', 'a'),
-                 glossfields=('gf', 'ge', 'dff'), canonical=False):
+                 normalize=True, ignorelist=('i'), inverse=False, 
+                 lemmafields=('lx', 'le', 'va'),  # JJM changed 'va',) to 'va')
+                 variantfields=('vc', 'a'), # JJM removed 've', 28/12/2024 'vt', 06/04/2025 (but consequences if has mm: aded to lx/va twice! see edit 26-06-2025)
+                 conditionalavoidfields=('ve'),   # JJM added 06/01/2025
+                 glossfields=('gf', 'ge', 'gr', 'dff'), canonical=False):
+        # JJM moved va vt from variantfields to lemmafields as per our discussion 17 jan 2022
+        # JJM added 'gr' to glossfields (malidaba) 22/6/2024
+        # JJM question : are gvf gve gvr relevant here (gvf should be for polysemy)
+        # JJM 28/12/2024 remove 've' completely, not wanted as possible choice in gdisamb: kó = gó 
+        #            IMPORTANT! : 've' moved to ignorelist / existings tests and paragraphs about 've' to be ignored
+        #            06/01/2025: rolled back!
+        # JJM 06/01/2025 've' conditional avoid fields ("variants to avoid"): 
+        #     important to keep for gparser to guess. Example twa = tɔgɔ (bam)
+        #     but some introduce too much unwanted ambiguity : 
+        #         Example (bam) : kó ve of gó (bad) as there are already other legitimate "ko" (lemmafields)
+        #     => need to create a first pass to load all values of lemmafields in a list (avoidlist)
+        #     then in 2d (normal) pass, check if ve already in avoidlist, then avoid, else add
+        #     This handling is not ideal : 
+        #     One could with that "a man ko" would display ve "ko" (="go") if preceded by "man" or "ka"
+        #     but this sentence analysis is beyond the scope of gparser
 
         self._dict = DabaDict()
         self._variants = VariantsDict(canonical=canonical)
@@ -814,6 +854,7 @@ class DictReader(object):
         self.inverse = inverse
         self.lemmafields = lemmafields
         self.variantfields = variantfields
+        self.conditionalavoidfields = conditionalavoidfields
         self.glossfields = glossfields
         ignore = False
         lemmalist = []
@@ -835,7 +876,8 @@ class DictReader(object):
 
         def normalize(value):
             try:
-                return normalizeText(value.translate({ord(u'.'): None, ord(u'-'):None}).lower())
+                #return normalizeText(value.translate({ord(u'.'): None, ord(u'-'):None}).lower())   # JJM removes lower
+                return normalizeText(value.translate({ord(u'.'): None, ord(u'-'):None}))
             except AttributeError:
                 return value
 
@@ -891,57 +933,209 @@ class DictReader(object):
                             self._variants.add(list(zip(*lemmalist))[1])
 
         with codecs.open(filename, 'r', encoding=encoding) as dictfile:
+            # print("open 1st pass:",filename)
+            # first  pass: created avoid list later used to filter through conditionalavoidfields
+            avoidlist=[]
+            for line in dictfile:
+                if line.startswith('\\'): 
+                    #line = unicodedata.normalize('NFKD', line) = normalizeText
+                    tag, space, value = line[1:].partition(' ')
+                    value = value.strip() 
+                    if tag in self.lemmafields:
+                        value = normalizeText(value)
+                        if value not in avoidlist:
+                            avoidlist.append(value)
+
+            # normal pass:
+        with codecs.open(filename, 'r', encoding=encoding) as dictfile:
+            # print("open 2d pass:",filename)
+            mmlevel=0
+            morphemetext=""
+            key=""
             for line in dictfile:
                 self.line = self.line + 1
-                # end of the artice/dictionary
+                # end of the article/dictionary
                 if not line or line.isspace():
-                    if not ignore:
-                        process_record(key, lemmalist, ps, glossdict)
+                    if key and not ignore:
+                        lemmalist2=[] # build lemmalist2 with key and Gloss
+                        for x in lemmalist:
+                            lkey=x[0]
+                            lxkey=lkey
+                            if ":" in lkey: lkey,lxkey=lkey.split(":",1)  # special case generated by 've'
+                            morphemetext=x[1] 
+                            if morphemetext:
+                                #balance closing brackets
+                                nrb=morphemetext.count("]")
+                                nlb=morphemetext.count("[")
+                                if nlb > nrb:
+                                    morphemetext+="]"*(nlb-nrb)
+                                # elif nlb < nrb : # should not happen
+
+                                morphemetext=morphemetext.replace(" ]","]").strip()
+                                morphemetext=" ["+morphemetext+"]"
+                            morphemetext=lxkey+":"+pstext+":"+glosstext+morphemetext
+                                
+                            # morpheme as a Gloss
+                            #print("morphemetext:",morphemetext)
+                            try:
+                                toks = daba.grammar.str_tokenize(morphemetext)
+                                g = daba.grammar.stringgloss_parser().parse(toks)
+                            except:
+                                #print("erreur de mm sur : ",morphemetext)
+                                continue
+
+                            lemmalist1=[]
+                            lemmalist1.append(lkey)
+                            lemmalist1.append(g)
+                            lemmalist2.append(lemmalist1)
+                            
+                        process_record(key, lemmalist2, ps, glossdict)
+
+                    mmlevel=0
+                    morphemetext=""
+
                     ignore = False
                     lemmalist = []
                     ps = ()
+                    glosstext=""
                     glossdict = {}
                     key = None
                     lemma = None
+                    
                 elif line.startswith('\\'):
-                    line = unicodedata.normalize('NFKD', line)
+                    # line = unicodedata.normalize('NFKD', line)
                     tag, space, value = line[1:].partition(' ')
                     value = value.strip()
+                    if tag in glossfields:
+                        value = unicodedata.normalize('NFC',value)
+                    else:
+                        value = normalizeText(value)  
+
                     if tag in ['lang', 'ver', 'name']:
                         self._dict.__setattr__(tag, value)
+
                     elif tag in self.ignorelist:
                         ignore = True
+
                     elif tag in self.lemmafields:
                         if self.normalize:
                             key = normalize(value)
                         else:
                             key = value
-                        lemmalist.append(make_item(value))
-                        if not lemma:
-                            lemma = value
-                    elif tag in self.variantfields:
-                        if lemma:
-                            lemmalist.append(make_item(lemma, key=value))
-                        else:
+                        
+                        if " " in key : 
+                            key=key.replace(" "," ")  # replace by hard space (cf enciclop "famous names")
+                            # print("\033[1mILLEGAL\033[0m space in ",key," replaced by hard space")
+
+                        lemmalist1=[]
+                        lemmalist1.append(key)
+                        lemmalist1.append('')  # Gloss in text form (morphemes)
+                        lemmalist.append(lemmalist1)
+                        morphemetext=""
+                        mmlevel=0
+                        ignoremm=False
+
+                    elif tag in self.variantfields and tag not in self.conditionalavoidfields:  # ve should inherit gloss from lx
+                        if " " in value : 
+                            value=value.replace(" "," ")  # replace by hard space (cf enciclop "famous names")
+                            # print("\033[1mILLEGAL\033[0m space in ",key," '",tag,"' variant for ",value," replaced by hard space")
+                        lemmalist1=[]
+                        lemmalist1.append(value)
+                        lemmalist1.append('')  # Gloss in text form (morphemes)
+                        lemmalist.append(lemmalist1)
+                        # print("va? lemmalist:",lemmalist)
+                        morphemetext=""
+                        mmlevel=0
+                        ignoremm=False
+                        #else:
                             # shouldn't happen: variant should not come before lemma
-                            lemmalist.append(make_item(value))
-                    elif tag in ['mm']:
-                        lemmalist[-1][1] = lemmalist[-1][1]._replace(morphemes=lemmalist[-1][1].morphemes+(parsemm(value),))
+                            #lemmalist.append(make_item(value))
+
+                    elif tag in self.conditionalavoidfields:
+                        if value not in avoidlist:
+                            # print("add ve:",value)
+                            if " " in value : 
+                                value=value.replace(" "," ")  # replace by hard space (cf enciclop "famous names")
+                                # print("\033[1mILLEGAL\033[0m space in ",key," 've' variant for ",value," replaced by hard space")
+                            try:
+                                lemmalist1=[]
+                                #lemmalist1.append(value)   # try: value+":"+key and split before process to keep key ? (check for ":" in lkey string)
+                                lemmalist1.append(value+":"+key) # tried lemmalist1.append("?"+value+":"+key)= never picked in gparser
+                                lemmalist1.append(lemmalist[0][1])  # inherits lx gloss
+                                lemmalist.append(lemmalist1)
+                                # print("ve? lemmalist:",lemmalist)
+                                #      [['gó', ''], ['kó:gó', '']]
+                            except:
+                                print("error / value, key",value,key)
+                        ignoremm=True
+
+                    elif tag=="vt": # JJM 26-06-2025 side effect of removing vt from variantfields
+                        morphemetext=""
+                        mmlevel=0
+                        ignoremm=True
+
+                    elif tag.startswith("mm") and not ignoremm : # caveat : supposed to be something like "mmmm" BUT could be as well "mmaa"
+                        morphemetext=""
+                        thislevel=len(tag)-2
+                        if mmlevel<thislevel: # not relevant for level 0 !
+                            morphemetext+="["
+                        elif mmlevel>thislevel:
+                            morphemetext+="]"*(mmlevel-thislevel)+" "
+                        mmlevel=thislevel
+                        morphemetext+=value+" "
+                        lemmalist[-1][1] = lemmalist[-1][1]+morphemetext
+
                     elif tag in ['ps'] and not ps:
                         if value:
                             ps = tuple(value.split('/'))
+                            pstext=value
                         else:
                             ps = ()
+
                     elif tag in self.glossfields:
+
+                        if " " in value : 
+                            value=value.replace(" ",".")
+                            # print("\033[1mILLEGAL\033[0m space in gloss for ",key," replaced by dot:",value)
+
                         glossdict[tag] = value
-                    elif tag in ['gv']:
+                        if tag=="gf": glosstext=value    # otherwise the last glossfields will be published, eg russian!
+
+                    elif tag in ['gv','gvf']: # JJM added gvf 22/6/24
                         if polisemy:
                             self._polisemy[key][select_gloss(glossdict)].append(value)
                             dk = detone(key)
                             if not dk == key:
                                 self._polisemy[dk][select_gloss(glossdict)].append(value)
-            else:
-                process_record(key, lemmalist, ps, glossdict)
+
+            else:  # when the for loop is finished, do the following (last line)
+                if key and not ignore:
+                    lemmalist2=[] # build lemmalist2 with key and Gloss
+                    for x in lemmalist:
+                        lkey=x[0]
+                        lxkey=lkey
+                        if ":" in lkey: lkey,lxkey=lkey.split(":",1)  # special case generated by conditionalavoidfields
+                        morphemetext=x[1] 
+                        if morphemetext:
+                            if mmlevel!=0:
+                                morphemetext+="]"*mmlevel
+                            morphemetext=morphemetext.replace(" ]","]").strip()
+                            morphemetext=" ["+morphemetext+"]"
+                        morphemetext=lxkey+":"+pstext+":"+glosstext+morphemetext
+                            
+                        # morpheme as a Gloss
+                        try:
+                            toks = daba.grammar.str_tokenize(morphemetext)
+                            g = daba.grammar.stringgloss_parser().parse(toks)
+                        except:
+                            # print("ERR erreur de mm sur : ",morphemetext)
+                            continue
+                        lemmalist1=[]
+                        lemmalist1.append(key)
+                        lemmalist1.append(g)
+                        lemmalist2.append(lemmalist1)
+                        
+                    process_record(key, lemmalist2, ps, glossdict)
 
             if not self._dict.attributed():
                 print(r"Dictionary does not contain obligatory \lang, \name or \ver fields.\
