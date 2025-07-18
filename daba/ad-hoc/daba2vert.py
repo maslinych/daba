@@ -86,7 +86,8 @@ def print_token(gt, args, vardict, polidict, get_lemma, sent=False):
     if gt.type in ['Comment', '<s>', '<p>']:
         return
     if not gt.type == "w":
-        print(gt.token, end="\t")
+        if gt.value:
+           print(gt.token, end="\t")
     if gt.type == 'w':
         normalized = gt.glosslist[0].form
         if ' ' in normalized:

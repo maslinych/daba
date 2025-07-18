@@ -34,7 +34,7 @@ class TokenizerData(object):
                 ('SentPunct', (r'([.!?\u061f\u07f9]+(?=[\s\n\u200f])|:(?=\s*\n))', re.UNICODE)),
                 ('SentPunct', (u'(?<=[.!?])\s*[»"]', re.UNICODE)),
                 # ('SentPunct', (u':(?=\s*[«"])', re.UNICODE)),
-                ('Punct', (r'([:;,\u061b\u060c\u07f8\u200f(){}"_]+)', re.UNICODE)),
+                ('Punct', (r'([:;,\u061b\u060c\u07f8(){}"_]+)', re.UNICODE)),
                 ('Tag', (r'<.*?>',)),
                 ('Par', (r'(\r?\n){2,}',)),
                 ('NL', (r'[\r\n]',)),
@@ -46,7 +46,7 @@ class TokenizerData(object):
                 ('Word', (r'(\w\.){2,}', re.UNICODE)),
                 ('Word', (r"[\w\u0300\u0301\u0302\u030c\u0308\u07eb\u07ec\u07ed\u07ee\u07ef\u07f0\u07f1\u07f2\u07f3\u07f6\u07fa-]+['\u2019\u07f4\u07f5]", re.UNICODE)),
                 ('Word', (r"(\w[\u0300\u0301\u0302\u030c\u0308\u07eb\u07ec\u07ed\u07ee\u07ef\u07f0\u07f1\u07f2\u07f3\u07f6\u07fa-]{0,2})+", re.UNICODE)),
-                ('BOM', (u'\ufeff', )),
+                ('BOM', (r'\ufeff\u200f', re.UNICODE)),
                 ('Nonword', (r'\W', re.UNICODE)),
                 ]
 
