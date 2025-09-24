@@ -13,6 +13,7 @@ macro   @syl1@  [^aoeuiɔɛ]*(?P<V1>[aoeuiɔɛ])(?P=V1)?(n(?=([^aoeuiɔɛ]|$)))?
 macro   @syl2@  [^aoeuiɔɛ]*(?P<V2>[aoeuiɔɛ])(?P=V2)?(n(?=([^aoeuiɔɛ]|$)))?
 macro   @bam-cons@      [bcdfghjklmɲŋprstyz]
 macro   @proper@   <re>[A-ZƐƆƝŊ][a-zɛɔɲŋ́̀̌̂]+</re>
+macro   @worddigits@     <re>[a-zA-ZɛɔɲŋƐƆƝŊ\-]{4,}</re>
 
 # processing instructions
 plan
@@ -47,8 +48,11 @@ stage 4 apply lookup
 return if parsed
 stage 5 add parallel decompose pos_composition4
 return if parsed
-stage 6 apply firstmatch parse propername
-stage 6 apply firstmatch parse nonbamana
+stage 6 add parallel parse alphadigits
+stage 6 apply lookup
+return if parsed
+stage 7 apply firstmatch parse propername
+stage 7 apply firstmatch parse nonbamana
 return if parsed
 #for sentence
 
@@ -73,7 +77,6 @@ pattern :v: [ {@nonnasal-v@|la}:: ] | :v: [:v: :mrph:PROG]
 # nominal inflection
 # -w PL
 pattern :n/adj/dtm/prn/ptcp/n.prop/num: [ {|w}:: ] | :n/adj/dtm/prn/ptcp/n.prop/num: [:n/adj/dtm/prn/ptcp/n.prop/num: :mrph:PL]
-
 
 section inflection_MNT12_OPT2_DIR
 # produce nouns but moved here  because of na/la ambiguity
@@ -610,6 +613,27 @@ pattern @proper@:: | :n.prop:NOM
 
 # orthographically unlikely to be bamana words
 # for NEW orthography, with no tones marked
+
+section alphadigits
+# still may be bamana : some forms ending with digits
+pattern :num: [ {dɔrɔmɛ|<re>[0-9]+</re>}:: ] | :num: [ dɔ́rɔmɛ:n:cinq.francs.CFA :num:CARDINAL]
+pattern :num: [ {d|<re>[0-9]+</re>}:: ] | :num: [ dɔ́rɔmɛ:n:cinq.francs.CFA :num:CARDINAL]
+pattern :num: [ {m|<re>[0-9]+</re>}:: ] | :num: [ mɛ́tɛrɛ:n:mètre :num:CARDINAL]
+pattern :num: [ {w|<re>[0-9]+</re>}:: ] | :num: [ wáati:n:moment :num:CARDINAL]
+# waati au sens d'heure : w5 s30= waati 5 sanga 30 (sanga : minute)
+pattern :num: [ {kg|<re>[0-9]+</re>}:: ] | :num: [ kílo:n:kilogramme :num:CARDINAL]
+pattern :num: [ {km|<re>[0-9]+</re>}:: ] | :num: [ kílomɛtɛrɛ:n:kilomètre :num:CARDINAL]
+# note : les occurrences de km kɛmɛmɛtɛrɛ (hectomètre) sont plutôt écrites séparées que collées. 
+pattern :n: [ {COP|<re>[0-9]+</re>}:: ] | :n.prop: [ COP:n:prop :num:CARDINAL]
+pattern :n: [ {CAN|<re>[0-9]+</re>}:: ] | :n.prop: [ CAN:n.prop:ABR :num:CARDINAL]
+pattern :n: [ {san|<re>[0-9]+</re>}:: ] | :n: [ sàn:n:année :num:CARDINAL]
+# note: peut-être soit une date: san 2025, soit un nombre d'années: san 5
+
+# some rare occurrences with maa/mɔgɔ, tile, san, siɲɛ...
+pattern :n/n.prop: [ {@worddigits@|<re>[0-9]+</re>}:: ] | :n: [ :n/n.prop: :num:CARDINAL]
+
+# other forms may introduce footnotes and should be split (can't do that in bamana.gram), EG Ala²=Ala2 -> Ala (2)
+
 section nonbamana
 # forms ending with nonfinal consonants
 pattern <re>.+@bam-cons@</re>:: | ::EMPR 
