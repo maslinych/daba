@@ -637,7 +637,7 @@ class Processor(object):
                             # refform=re.sub(r'[\u0300\u0301\u0302\030c]','',wlist[0])
                             for g in glosslist:
                                 thisform=re.sub(r'[\u0300\u0301\u0302\030c]','',g.form)
-                                print("refform, thisform",refform,thisform)
+                                #print("refform, thisform",refform,thisform)
                                 if thisform==refform:
                                     glistsame.append(g)
                                 else:
