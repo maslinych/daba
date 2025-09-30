@@ -28,6 +28,8 @@ from daba.plugins import OrthographyConverter
 from daba.plugins.tokenizer import TokenizerData
 from daba.orthography import tones_match, detone
 
+import re  # JJM used in removing tones
+
 class Tokenizer(object):
     def __init__(self):
         self._data = TokenizerData()
@@ -338,6 +340,7 @@ class Processor(object):
                         wordindex+=1
                         if self.converters:
                             wlist = self.convert_orthography(token.value)
+                            # print("token.value, wlist", token.value, wlist)
                             converts = []
                             for w in filter(None, wlist):
                                 converts.append(
@@ -625,6 +628,22 @@ class Processor(object):
                                 #print("Resulting glosslist:","["+gl1 [:-2]+"]")
 
                             #else: print("no change")
+
+                        # 29/09/2025: move forms that are different from original at the end of the list
+                        glistsame=[]
+                        glistdiff=[]
+                        if len(glosslist)>1 :
+                            refform=re.sub(r'[\u0300\u0301\u0302\030c]','',token.value)
+                            # refform=re.sub(r'[\u0300\u0301\u0302\030c]','',wlist[0])
+                            for g in glosslist:
+                                thisform=re.sub(r'[\u0300\u0301\u0302\030c]','',g.form)
+                                # print("refform, thisform",refform,thisform)
+                                if thisform==refform:
+                                    glistsame.append(g)
+                                else:
+                                    glistdiff.append(g)
+                            glosslist=glistsame+glistdiff
+
 
                         if self.normalize_orthography and self.converters:
                             if len(wlist) == 1:

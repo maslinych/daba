@@ -840,10 +840,16 @@ class DictReader(object):
         #         Example (bam) : kó ve of gó (bad) as there are already other legitimate "ko" (lemmafields)
         #     => need to create a first pass to load all values of lemmafields in a list (avoidlist)
         #     then in 2d (normal) pass, check if ve already in avoidlist, then avoid, else add
+        #     In summary, ve is ignored if it is already a legitimate lemma.
         #     This handling is not ideal : 
         #     One could with that "a man ko" would display ve "ko" (="go") if preceded by "man" or "ka"
         #     but this sentence analysis is beyond the scope of gparser
-
+        # 29/09/2025 CAVEAT : tone included: já is not in the lemmas, so this \ve of díya is NOT Ignored.
+        #     if tone is exluded - this behaviour is acceptable for a build
+        #     however it is not for a normal work in gdisamb
+        #     a better handling should be in mparser: 
+        #     list forms that are different from the original, but only at the end of possible lemma vars
+        #   => rolled back
         self._dict = DabaDict()
         self._variants = VariantsDict(canonical=canonical)
         self._polisemy = defaultdict(ddlist)
@@ -933,6 +939,7 @@ class DictReader(object):
                             self._variants.add(list(zip(*lemmalist))[1])
 
         with codecs.open(filename, 'r', encoding=encoding) as dictfile:
+            """ removed 29/09/2025
             # print("open 1st pass:",filename)
             # first  pass: created avoid list later used to filter through conditionalavoidfields
             avoidlist=[]
@@ -945,7 +952,7 @@ class DictReader(object):
                         value = normalizeText(value)
                         if value not in avoidlist:
                             avoidlist.append(value)
-
+            """
             # normal pass:
         with codecs.open(filename, 'r', encoding=encoding) as dictfile:
             # print("open 2d pass:",filename)
@@ -1052,21 +1059,22 @@ class DictReader(object):
                             #lemmalist.append(make_item(value))
 
                     elif tag in self.conditionalavoidfields:
-                        if value not in avoidlist:
-                            # print("add ve:",value)
-                            if " " in value : 
-                                value=value.replace(" "," ")  # replace by hard space (cf enciclop "famous names")
-                                # print("\033[1mILLEGAL\033[0m space in ",key," 've' variant for ",value," replaced by hard space")
-                            try:
-                                lemmalist1=[]
-                                #lemmalist1.append(value)   # try: value+":"+key and split before process to keep key ? (check for ":" in lkey string)
-                                lemmalist1.append(value+":"+key) # tried lemmalist1.append("?"+value+":"+key)= never picked in gparser
-                                lemmalist1.append(lemmalist[0][1])  # inherits lx gloss
-                                lemmalist.append(lemmalist1)
-                                # print("ve? lemmalist:",lemmalist)
-                                #      [['gó', ''], ['kó:gó', '']]
-                            except:
-                                print("error / value, key",value,key)
+                        # removed 29/09/2025:
+                        #     if value not in avoidlist:
+                        # print("add ve:",value)
+                        if " " in value : 
+                            value=value.replace(" "," ")  # replace by hard space (cf enciclop "famous names")
+                            # print("\033[1mILLEGAL\033[0m space in ",key," 've' variant for ",value," replaced by hard space")
+                        try:
+                            lemmalist1=[]
+                            #lemmalist1.append(value)   # try: value+":"+key and split before process to keep key ? (check for ":" in lkey string)
+                            lemmalist1.append(value+":"+key) # tried lemmalist1.append("?"+value+":"+key)= never picked in gparser
+                            lemmalist1.append(lemmalist[0][1])  # inherits lx gloss
+                            lemmalist.append(lemmalist1)
+                            # print("ve? lemmalist:",lemmalist)
+                            #      [['gó', ''], ['kó:gó', '']]
+                        except:
+                            print("error / value, key",value,key)
                         ignoremm=True
 
                     elif tag=="vt": # JJM 26-06-2025 side effect of removing vt from variantfields
