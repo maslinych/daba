@@ -3174,7 +3174,9 @@ class MainFrame(wx.Frame):
         if not self.fileopened:
             self.NoFileError(e)
         else:
-            xfilename = ''.join(['.'.join([get_basename(self.infile), 'dis']), os.path.extsep, 'html'])
+            basefilename=get_basename(self.infile)
+            if basefilename.endswith(".old"): basefilename=basefilename[:-4]
+            xfilename = ''.join(['.'.join([basefilename, 'dis']), os.path.extsep, 'html'])
 
             dlg = wx.FileDialog(self, "Choose a file", os.path.dirname(self.infile), xfilename, "*.html", wx.FD_SAVE)
             if dlg.ShowModal() == wx.ID_OK:
