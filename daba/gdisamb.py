@@ -281,7 +281,7 @@ class SearchTool(object):
 
     @property
     def nmatches(self):
-        """property holding the number of mathces"""
+        """property holding the number of matches"""
         return len(self.matches)
 
     def _searcher(self, searchstr, searchtype, startsent):
@@ -1604,6 +1604,8 @@ class SentenceText(wx.stc.StyledTextCtrl):
         snum = evt.snum
         startfirst, lenfirst = self.charspans[evt.first]
         startsecond, lensecond = self.charspans[evt.second]
+        # print("OnTokenJoin evt.first,second:",startfirst, startsecond)
+        #AttributeError: print("OnTokenJoin evt.index:",evt.index)
         first = self.text[startfirst:startfirst+lenfirst]
         second = self.text[startsecond:startsecond+lensecond]
         self.UpdateText(startfirst, startsecond+lensecond, u''.join((first, second)), snum)
@@ -2116,6 +2118,17 @@ class SentPanel(wx.Panel):
             annotsizer.Add(abox)
         self.annotlist.SetSizer(annotsizer)
         self.annotlist.Layout()
+        #NOT WORKING #self.annotlist.sb=wx.ScrollBar(self, wx.ID_ANY)
+        #NOT WORKING self.annotlist.sb=wx.ScrollBar()
+        """#NOT WORKING
+        self.sb=wx.ScrollBar(self.annotlist, wx.ID_ANY)
+        self.sb.Layout()
+        thumbpos=self.sb.GetThumbPosition()
+        print("thumbpos",thumbpos)
+        self.sb.SetThumbPosition(40)
+        thumbpos=self.sb.GetThumbPosition()
+        print("new thumbpos",thumbpos)
+        """
         return tokenbuttons
 
     def ShowSent(self, sentannot):
@@ -2717,15 +2730,41 @@ class MainFrame(wx.Frame):
         snum, toknum = evt.index
         sent = self.processor.glosses[snum]
         savedtoken = sent.glosslist[toknum]
+        # print("savedtoken.token",savedtoken.token)
+        # print("vars(savedtoken)",vars(savedtoken))
+        savedforms=[]  # added JJM 14/10/2025 to build split tokens from saved morphemes if possible
+        # print("OnTokenSplit - selected= ")
+        # for g in savedtoken.glosslist:
+        #     print("    g.gloss",g.gloss)  # also tried gloss(g) and gloss(savedtoken.glosslist)
+        # which gloss is selected? I have not found how to...
+        # if word is ambiguous it would be better to start with the selected gloss instead of gloss 0 (first gloss in list)
+        for g in savedtoken.glosslist[0].morphemes:
+            #print("g.form",g.form)
+            savedforms.append(re.sub(r'[\u0301\u0300\u0302\u030c]','',g.form))
+        savedformstuple=tuple(savedforms)
         edit = TokenEdit('split', toknum, toknum+len(evt.result), [savedtoken])
         self.undolist[snum].append(edit)
         del sent.selectlist[toknum]
         del sent.glosslist[toknum]
-        shift = 0
-        for token in evt.result:
-            sent.selectlist.insert(toknum+shift, [])
-            sent.glosslist.insert(toknum+shift, daba.formats.WordToken([Gloss(token, (), '', ())], token, '-1'))
-            shift = shift+1
+        # print("savedformstuple",savedformstuple)
+        # print("evt.result",evt.result)
+        if len(savedtoken.glosslist)==1 and savedformstuple==evt.result: 
+            # print("égalité des tuples")
+            shift=0
+            for g in savedtoken.glosslist[0].morphemes:
+                # print("shift,g.form",shift,g.form)
+                sent.selectlist.insert(toknum+shift, [])
+                token=evt.result[shift]
+                sent.glosslist.insert(toknum+shift, daba.formats.WordToken([Gloss(g.form, g.ps, g.gloss, g.morphemes)], token, '-1'))
+                # equivalent to: sent.glosslist.insert(toknum+shift, daba.formats.WordToken([g], token, '-1'))
+                shift = shift+1
+        else:
+            shift = 0
+            for token in evt.result:
+                # print("shift,token",shift,token)
+                sent.selectlist.insert(toknum+shift, [])
+                sent.glosslist.insert(toknum+shift, daba.formats.WordToken([Gloss(token, (), '', ())], token, '-1'))
+                shift = shift+1
         self.processor.dirty = True
         wx.CallAfter(self.ShowSent, snum)
 
@@ -2736,19 +2775,38 @@ class MainFrame(wx.Frame):
         second = evt.second
         sent = self.processor.glosses[snum]
         savedtokens = [2][first:second+1]
+        # print("OnTokenJoin - savedtokens",savedtokens)
         edit = TokenEdit('join', first, second, savedtokens)
         self.undolist[snum].append(edit)
         firsttoken = sent.glosslist[first]
         nexttoken = sent.glosslist[second]
+        # print("OnTokenJoin - firsttoken nexttoken",firsttoken, nexttoken)
+        # print("vars(firsttoken):",vars(firsttoken))
+        # print("firsttoken.glosslist[0]",firsttoken.glosslist[0])
+        # print("firsttoken.glosslist[0].ps",firsttoken.glosslist[0].ps)
         # FIXME: will break on non-word tokens
-        newform = firsttoken.token + nexttoken.token
-        newtoken = daba.formats.WordToken([Gloss(newform, (), '', ())], newform, '-1')
+        #newform = firsttoken.token + nexttoken.token
+        if len(firsttoken.glosslist)==1 and len(nexttoken.glosslist)==1 :
+            newform = firsttoken.glosslist[0].form + nexttoken.token
+            newtokenform = firsttoken.token + nexttoken.token
+            #original code: newtoken = daba.formats.WordToken([Gloss(newform, (), '', ())], newform, '-1')
+            # new code: JJM 13/10/2025
+            pstuple=(firsttoken.glosslist[0].ps+nexttoken.glosslist[0].ps)
+            uniqueps = tuple(j for i, j in enumerate(pstuple) if pstuple.index(j) == i)
+            #not needed? joinedgloss='.'.join((firsttoken.glosslist[0].gloss,nexttoken.glosslist[0].gloss))
+            newtoken = daba.formats.WordToken([Gloss(newform, uniqueps, '', (firsttoken.glosslist[0],nexttoken.glosslist[0]))], newtokenform, '-1')
+        else:
+            newform = firsttoken.token + nexttoken.token
+            newtoken = daba.formats.WordToken([Gloss(newform, (), '', ())], newform, '-1')
         sent.selectlist[first] = []
         del sent.selectlist[second]
         sent.glosslist[first] = newtoken
         del sent.glosslist[second]
         self.processor.dirty = True
+        #NOT WORKING thumbpos=self.sentpanel.annotlist.sb.GetThumbPosition()
         wx.CallAfter(self.ShowSent, snum)
+        #NOT WORKING self.sentpanel.annotlist.sb.SetThumbPosition(thumbpos)
+        #NOT WORKING print("positionné à thumbpos", thumbpos)
 
     def OnTokenEdit(self, evt):
         """edit tokens in the processor glosses data, update UI"""
@@ -2884,14 +2942,20 @@ class MainFrame(wx.Frame):
             # this will add an entry if token!=form so that future erroneous token may yield correct form lookup.
             print(xnotone,"<>",formlookup," : essayer de l'indexer?")
             if formlookup not in self.localdict:
+                print(formlookup,"not in self.localdict")
                 self.localdict[formlookup] = gloss
-                print("¹OnLocaldictSave - also created localdict[",formlookup,"] =",gloss)
+                print("¹OnLocaldictSave - this session only! - also created localdict[",formlookup,"] =",gloss)
+
+# 04/10/2025 - toujours pas la bonne solution?
             elif gloss not in self.localdict[formlookup]:
+                print(gloss,"not in localdict[",formlookup,"]")
                 self.localdict[formlookup] = gloss
-                print("ajout de localdict["+formlookup+"] =",gloss)
-                print("récap de localdict["+formlookup+"] =")
-                for g in self.localdict[formlookup]:
-                    print("-",str(g))
+                print("²OnLocaldictSave - this session only! - added localdict["+formlookup+"] =",gloss)
+
+            print("récap de localdict["+formlookup+"] =")
+            for g in self.localdict[formlookup]:
+                print("-",str(g))
+# jan 2025:
 #            if formlookup not in self.localdict:
 #                self.localdict[formlookup] = gloss
 #                print("¹OnLocaldictSave - also created localdict[",formlookup,"] =",gloss)
