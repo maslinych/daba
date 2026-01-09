@@ -265,11 +265,11 @@ class Processor(object):
     def get_case(self, string):
         string = detone(string)
         if string.isupper():
-            case = unicode.upper
+            case = str.upper
         elif string.istitle():
             case = lambda s: u''.join([s[0].upper(), s[1:]])
         else:
-            case = unicode.lower
+            case = str.lower
         return case
 
     def convert_orthography(self, word):
